@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "tschetschenische-dating-app",
+    "slug": "tschetschenische-dating-app",
+    "scheme": "tschetschenische",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.tschedating.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Wir benötigen die Kamera für Profilfotos.",
+        "NSPhotoLibraryUsageDescription": "Wir benötigen Zugriff auf deine Fotos für dein Profil."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.tschedating.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png"
+        }
+      ],
+      "expo-secure-store",
+      "expo-image-picker",
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "software-ce",
+          "project": "react-native",
+          "uploadDebugSymbols": true
+        }
+      ]
+    ],
+    "extra": {
+      "releaseChannel": "development",
+      "eas": {
+        "projectId": "00000000-0000-0000-0000-000000000000"
+      }
+    }
+  }
+}

@@ -1,0 +1,72 @@
+export type Gender = "male" | "female" | "nonbinary";
+export type Intention = "serious" | "casual" | "friendship";
+
+export type Photo = {
+  id: string;
+  url?: string;
+  createdAt: string;
+  assetId?: number;
+  visibilityMode?: "public" | "match_only" | "whitelist" | "blurred_until_match";
+};
+
+export type Profile = {
+  id: string;
+  userId: string;
+  displayName: string;
+  birthday: string;
+  bio: string;
+  gender: Gender;
+  intention: Intention;
+  interests: string[];
+  photos: Photo[];
+  createdAt: string;
+  updatedAt: string;
+  isPremium: boolean;
+  isIncognito?: boolean;
+  showDistance?: boolean;
+  showLastSeen?: boolean;
+  lastActiveAt?: string;
+};
+
+export type Like = {
+  id: string;
+  likerId: string;
+  likedId: string;
+  createdAt: string;
+  matchId?: string;
+};
+
+export type Match = {
+  id: string;
+  participants: string[];
+  createdAt: string;
+  lastMessageAt?: string;
+  isActive: boolean;
+};
+
+export type Message = {
+  id: string;
+  matchId: string;
+  senderId: string;
+  content: string;
+  createdAt: string;
+  readAt?: string;
+};
+
+export type ReportReason = "spam" | "fake" | "abuse" | "other";
+
+export type Report = {
+  id: string;
+  reporterId: string;
+  reportedUserId: string;
+  reason: ReportReason;
+  details?: string;
+  createdAt: string;
+};
+
+export type Block = {
+  id: string;
+  userId: string;
+  blockedUserId: string;
+  createdAt: string;
+};

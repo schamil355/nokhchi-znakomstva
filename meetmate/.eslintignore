@@ -1,0 +1,5 @@
+node_modules
+supabase/functions/**
+scripts/mock-edge-server.ts
+scripts/seed.ts
+locales/**
