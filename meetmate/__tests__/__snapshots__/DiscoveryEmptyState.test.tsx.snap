@@ -1,0 +1,97 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`DiscoveryScreen empty states shows Chechnya empty state with change region CTA 1`] = `
+<View
+  style={
+    [
+      {
+        "backgroundColor": "#f7f7f8",
+        "flex": 1,
+        "paddingHorizontal": 16,
+        "paddingTop": 48,
+      },
+      {
+        "backgroundColor": "#fff",
+      },
+    ]
+  }
+  testID="discovery-screen"
+>
+  <Text
+    style={
+      [
+        {
+          "fontSize": 24,
+          "fontWeight": "700",
+          "marginBottom": 16,
+          "textAlign": "center",
+        },
+        {
+          "color": "#000",
+        },
+      ]
+    }
+  >
+    discovery.title
+  </Text>
+  <View>
+    <Text>
+      discovery.emptyTitle
+    </Text>
+    <Text>
+      discovery.empty.chechnya
+    </Text>
+    <Text>
+      discovery.empty.changeRegion
+    </Text>
+  </View>
+</View>
+`;
+
+exports[`DiscoveryScreen empty states shows Europe empty state with refresh CTA 1`] = `
+<View
+  style={
+    [
+      {
+        "backgroundColor": "#f7f7f8",
+        "flex": 1,
+        "paddingHorizontal": 16,
+        "paddingTop": 48,
+      },
+      {
+        "backgroundColor": "#fff",
+      },
+    ]
+  }
+  testID="discovery-screen"
+>
+  <Text
+    style={
+      [
+        {
+          "fontSize": 24,
+          "fontWeight": "700",
+          "marginBottom": 16,
+          "textAlign": "center",
+        },
+        {
+          "color": "#000",
+        },
+      ]
+    }
+  >
+    discovery.title
+  </Text>
+  <View>
+    <Text>
+      discovery.emptyTitle
+    </Text>
+    <Text>
+      discovery.empty.europe
+    </Text>
+    <Text>
+      discovery.refresh
+    </Text>
+  </View>
+</View>
+`;
