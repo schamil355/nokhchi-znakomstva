@@ -22,7 +22,6 @@ ENV['RCT_USE_PREBUILT_RNCORE'] ||= '1' if podfile_properties['ios.buildReactNati
 platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 
 prepare_react_native_project!
-install! 'cocoapods', :repo_update => true
 
 target 'tschetschenischedatingapp' do
   use_expo_modules!
