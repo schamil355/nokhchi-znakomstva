@@ -20,15 +20,25 @@
       "bundleIdentifier": "com.tschedating.app",
       "infoPlist": {
         "NSCameraUsageDescription": "Wir benötigen die Kamera für Profilfotos.",
-        "NSPhotoLibraryUsageDescription": "Wir benötigen Zugriff auf deine Fotos für dein Profil."
-      }
+        "NSPhotoLibraryUsageDescription": "Wir benötigen Zugriff auf deine Fotos für dein Profil.",
+        "NSLocationWhenInUseUsageDescription": "Wir benötigen deinen Standort, um passende Profile in deiner Nähe zu zeigen.",
+        "NSLocationAlwaysUsageDescription": "Wir verwenden den Standort nur, um dir relevante Matches in deiner Nähe vorzuschlagen.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Wir nutzen deinen Standort nur bei der aktiven Nutzung der App, um relevante Profile in deiner Nähe vorzuschlagen."
+      },
+      "runtimeVersion": "1.0.0"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.tschedating.app"
+      "package": "com.tschedating.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -49,13 +59,18 @@
           "project": "react-native",
           "uploadDebugSymbols": true
         }
-      ]
+      ],
+      "expo-localization",
+      "expo-location"
     ],
     "extra": {
       "releaseChannel": "development",
       "eas": {
-        "projectId": "00000000-0000-0000-0000-000000000000"
+        "projectId": "c293442b-e525-4fcf-a532-1c4924a30571"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c293442b-e525-4fcf-a532-1c4924a30571"
     }
   }
 }
