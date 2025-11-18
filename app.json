@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.tschedating.app",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
         "NSCameraUsageDescription": "Wir benötigen die Kamera für Profilfotos.",
         "NSPhotoLibraryUsageDescription": "Wir benötigen Zugriff auf deine Fotos für dein Profil.",

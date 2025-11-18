@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>tschetschenische-dating-app</string>
+    <string>Чеченские знакомства</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -53,6 +53,12 @@
     <string>Allow $(PRODUCT_NAME) to access your microphone</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Wir benötigen Zugriff auf deine Fotos für dein Profil.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Wir benötigen deinen Standort, um passende Profile in deiner Nähe zu zeigen.</string>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>Wir verwenden den Standort nur, um dir relevante Matches in deiner Nähe vorzuschlagen.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Wir nutzen deinen Standort nur bei der aktiven Nutzung der App, um relevante Profile in deiner Nähe vorzuschlagen.</string>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>
