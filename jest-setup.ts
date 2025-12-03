@@ -1,30 +1,40 @@
+import "dotenv/config";
 import "@testing-library/jest-native/extend-expect";
 import "react-native-gesture-handler/jestSetup";
-import { configure } from "@testing-library/react-native";
-
-configure({
-  defaultHostComponentNames: {
-    render: {
-      ROOT: "Root",
-      VIEW: "View",
-      TEXT: "Text",
-      SCROLLVIEW: "ScrollView",
-      IMAGE: "Image",
-      TEXTINPUT: "TextInput"
-    }
-  }
-});
-
-jest.mock("expo-constants", () => ({
-  default: {
-    expoConfig: {
-      extra: {
-        supabaseUrl: "https://example.supabase.co",
-        supabaseAnonKey: "test"
+try {
+  // Not all pipelines install @testing-library/react-native (optional).
+  const { configure } = require("@testing-library/react-native");
+  configure({
+    defaultHostComponentNames: {
+      render: {
+        ROOT: "Root",
+        VIEW: "View",
+        TEXT: "Text",
+        SCROLLVIEW: "ScrollView",
+        IMAGE: "Image",
+        TEXTINPUT: "TextInput"
       }
     }
-  }
-}));
+  });
+} catch {
+  // ignore if library is not present (legacy tests)
+}
+
+jest.mock("expo-constants", () => {
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "https://example.supabase.co";
+  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "test";
+
+  return {
+    default: {
+      expoConfig: {
+        extra: {
+          supabaseUrl,
+          supabaseAnonKey
+        }
+      }
+    }
+  };
+});
 
 jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(async () => null),
@@ -32,7 +42,21 @@ jest.mock("expo-secure-store", () => ({
   deleteItemAsync: jest.fn(async () => undefined)
 }));
 
-jest.mock("react-native/Libraries/Animated/NativeAnimatedHelper");
+jest.mock("@react-native-async-storage/async-storage", () =>
+  require("@react-native-async-storage/async-storage/jest/async-storage-mock")
+);
+
+try {
+  jest.mock("react-native/Libraries/Animated/NativeAnimatedHelper");
+} catch {
+  jest.mock("react-native/src/private/animated/NativeAnimatedHelper", () => ({}));
+}
+
+jest.mock("react-native-reanimated", () => {
+  const Reanimated = require("react-native-reanimated/mock");
+  Reanimated.default.call = () => {};
+  return Reanimated;
+});
 
 // Provide a minimal bridge config so React Native modules can load in Jest.
 (global as any).__fbBatchedBridgeConfig = (global as any).__fbBatchedBridgeConfig ?? {

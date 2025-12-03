@@ -45,9 +45,9 @@ describe("matchEngine", () => {
 
   test("filters profile by gender and age", () => {
     const profile = createProfile({ gender: "female", birthday: "2000-01-01" });
-    const eligible = isProfileEligible(profile, { genders: ["female"], ageRange: [20, 30] });
+    const eligible = isProfileEligible(profile, { genders: ["female"], ageRange: [20, 30], region: "other" });
     expect(eligible).toBe(true);
-    const notEligible = isProfileEligible(profile, { genders: ["male"], ageRange: [20, 30] });
+    const notEligible = isProfileEligible(profile, { genders: ["male"], ageRange: [20, 30], region: "other" });
     expect(notEligible).toBe(false);
   });
 });
