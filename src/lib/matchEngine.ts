@@ -1,13 +1,26 @@
-import { differenceInYears } from "date-fns";
 import { Like, Profile } from "../types";
+import { GeoRegion } from "../state/preferencesStore";
+import { resolveGeoRegion, haversineDistance } from "./geo";
+
+const calculateAge = (value: string | Date) => {
+  const birthday = value instanceof Date ? value : new Date(value);
+  const today = new Date();
+  let age = today.getFullYear() - birthday.getFullYear();
+  const monthDelta = today.getMonth() - birthday.getMonth();
+  const dayDelta = today.getDate() - birthday.getDate();
+  if (monthDelta < 0 || (monthDelta === 0 && dayDelta < 0)) {
+    age -= 1;
+  }
+  return age;
+};
 
 export const shouldCreateMatch = (likeA: Like, likeB: Like): boolean => {
   return likeA.likerId === likeB.likedId && likeA.likedId === likeB.likerId;
 };
 
 export const calculateCompatibilityScore = (profileA: Profile, profileB: Profile): number => {
-  const ageA = differenceInYears(new Date(), new Date(profileA.birthday));
-  const ageB = differenceInYears(new Date(), new Date(profileB.birthday));
+  const ageA = calculateAge(profileA.birthday);
+  const ageB = calculateAge(profileB.birthday);
   const ageDelta = Math.abs(ageA - ageB);
   const sharedInterests = profileA.interests.filter((interest) => profileB.interests.includes(interest));
   const intentionMatch = profileA.intention === profileB.intention;
@@ -26,8 +39,46 @@ export const calculateCompatibilityScore = (profileA: Profile, profileB: Profile
   return Math.max(0, Math.min(100, score));
 };
 
-export const isProfileEligible = (candidate: Profile, filters: { genders: Profile["gender"][]; ageRange: [number, number] }) => {
-  const age = differenceInYears(new Date(), new Date(candidate.birthday));
+const resolveRegion = (candidate: Profile): GeoRegion => {
+  const country = candidate.country ?? null;
+  return resolveGeoRegion({
+    countryName: country,
+    countryCode: country,
+    latitude: candidate.latitude,
+    longitude: candidate.longitude
+  });
+};
+
+type EligibilityFilters = {
+  genders: Profile["gender"][];
+  ageRange: [number, number];
+  region: GeoRegion;
+  distanceRange?: [number, number];
+  origin?: { latitude?: number | null; longitude?: number | null };
+};
+
+export const isProfileEligible = (candidate: Profile, filters: EligibilityFilters) => {
+  const age = calculateAge(candidate.birthday);
   const [minAge, maxAge] = filters.ageRange;
-  return filters.genders.includes(candidate.gender) && age >= minAge && age <= maxAge;
+  const matchesBasic = filters.genders.includes(candidate.gender) && age >= minAge && age <= maxAge;
+  if (!matchesBasic) {
+    return false;
+  }
+  if (filters.distanceRange && filters.origin) {
+    const [minDistance, maxDistance] = filters.distanceRange;
+    const { latitude: originLat, longitude: originLng } = filters.origin;
+    if (
+      typeof originLat === "number" &&
+      typeof originLng === "number" &&
+      typeof candidate.latitude === "number" &&
+      typeof candidate.longitude === "number"
+    ) {
+      const distance = haversineDistance(candidate.latitude, candidate.longitude, originLat, originLng);
+      if (distance < minDistance || distance > maxDistance) {
+        return false;
+      }
+    }
+  }
+  const candidateRegion = resolveRegion(candidate);
+  return candidateRegion === filters.region;
 };

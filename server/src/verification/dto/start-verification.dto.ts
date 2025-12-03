@@ -1,4 +1,4 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class StartVerificationResponseDto {
   @ApiProperty({ format: "uuid" })
@@ -7,6 +7,6 @@ export class StartVerificationResponseDto {
   @ApiProperty({ type: [String], example: ["selfie", "otp"] })
   steps!: string[];
 
-  @ApiProperty({ example: "2024-04-01T12:34:56Z" })
-  expiresAt!: string;
+  @ApiPropertyOptional({ example: "2024-04-01T12:34:56Z" })
+  expiresAt?: string;
 }

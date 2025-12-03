@@ -1,6 +1,6 @@
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { createRateLimiter } from "../lib/rateLimiter";
-import { calculateCompatibilityScore, isProfileEligible, shouldCreateMatch } from "../lib/matchEngine";
+import { calculateCompatibilityScore, isProfileEligible } from "../lib/matchEngine";
 import { Match } from "../types";
 import { mapProfile } from "./profileService";
 import { DiscoveryFilters } from "../state/preferencesStore";
@@ -9,13 +9,27 @@ import { track } from "../lib/analytics";
 const likeLimiter = createRateLimiter({ intervalMs: 3_000, maxCalls: 5 });
 const fetchLimiter = createRateLimiter({ intervalMs: 10_000, maxCalls: 6 });
 const DISCOVERY_LIMIT = 50;
+const RECENT_LIMIT = 100;
 
-export const fetchDiscoveryFeed = async (userId: string, filters: DiscoveryFilters) =>
+type OriginPoint = {
+  latitude?: number | null;
+  longitude?: number | null;
+} | null;
+
+export const fetchDiscoveryFeed = async (userId: string, filters: DiscoveryFilters, origin: OriginPoint) =>
   fetchLimiter(async () => {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase.rpc("get_discovery_profiles", {
       p_limit: DISCOVERY_LIMIT,
-      p_offset: 0
+      p_offset: 0,
+      p_genders: filters.genders,
+      p_intentions: filters.intentions,
+      p_min_age: filters.ageRange[0],
+      p_max_age: filters.ageRange[1],
+      p_min_distance_km: filters.minDistanceKm,
+      p_max_distance_km: filters.distanceKm,
+      p_origin_lat: origin?.latitude ?? null,
+      p_origin_lng: origin?.longitude ?? null
     });
 
     if (error) {
@@ -27,7 +41,50 @@ export const fetchDiscoveryFeed = async (userId: string, filters: DiscoveryFilte
     return profiles
       .filter((profile) => profile.userId !== userId)
       .filter((profile) => filters.intentions.includes(profile.intention))
-      .filter((profile) => isProfileEligible(profile, { genders: filters.genders, ageRange: filters.ageRange }));
+      .filter((profile) =>
+        isProfileEligible(profile, {
+          genders: filters.genders,
+          ageRange: filters.ageRange,
+          region: filters.region,
+          distanceRange: [filters.minDistanceKm, filters.distanceKm],
+          origin: origin ?? undefined
+        })
+      );
+  });
+export const fetchRecentProfiles = async (userId: string, filters: DiscoveryFilters, origin: OriginPoint) =>
+  fetchLimiter(async () => {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.rpc("get_recent_profiles", {
+      p_limit: RECENT_LIMIT,
+      p_offset: 0,
+      p_genders: filters.genders,
+      p_intentions: filters.intentions,
+      p_min_age: filters.ageRange[0],
+      p_max_age: filters.ageRange[1],
+      p_min_distance_km: filters.minDistanceKm,
+      p_max_distance_km: filters.distanceKm,
+      p_origin_lat: origin?.latitude ?? null,
+      p_origin_lng: origin?.longitude ?? null
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const profiles = (data ?? []).map(mapProfile);
+
+    return profiles
+      .filter((profile) => profile.userId !== userId)
+      .filter((profile) => filters.intentions.includes(profile.intention))
+      .filter((profile) =>
+        isProfileEligible(profile, {
+          genders: filters.genders,
+          ageRange: filters.ageRange,
+          region: filters.region,
+          distanceRange: [filters.minDistanceKm, filters.distanceKm],
+          origin: origin ?? undefined
+        })
+      );
   });
 
 export const sendLike = async (
@@ -37,33 +94,36 @@ export const sendLike = async (
   likeLimiter(async () => {
     const supabase = getSupabaseClient();
 
-    const { data: like, error } = await supabase
-      .from("likes")
-      .insert({
-        liker_id: likerId,
-        likee_id: likedId
-      })
-      .select("*")
-      .single();
-
-    if (error) {
-      if (error.code === "23505") {
-        return {};
+    const insertLike = async () => {
+      const { error } = await supabase
+        .from("likes")
+        .insert({
+          liker_id: likerId,
+          likee_id: likedId
+        })
+        .select("*")
+        .single();
+      if (error) {
+        if (error.code === "23505") {
+          await supabase.from("likes").delete().eq("liker_id", likerId).eq("likee_id", likedId);
+          const { error: retryError } = await supabase
+            .from("likes")
+            .insert({
+              liker_id: likerId,
+              likee_id: likedId
+            })
+            .select("*")
+            .single();
+          if (retryError) {
+            throw retryError;
+          }
+          return;
+        }
+        throw error;
       }
-      throw error;
-    }
+    };
 
-    const { data: reciprocalLike } = await supabase
-      .from("likes")
-      .select("*")
-      .eq("liker_id", likedId)
-      .eq("likee_id", likerId)
-      .maybeSingle();
-
-    if (!reciprocalLike || !shouldCreateMatch(mapLike(like), mapLike(reciprocalLike))) {
-      await track("like", { targetId: likedId }).catch(() => undefined);
-      return {};
-    }
+    await insertLike();
 
     const { data: matchId, error: upsertError } = await supabase.rpc("upsert_match", {
       a: likerId,
@@ -76,24 +136,25 @@ export const sendLike = async (
 
     await track("like", { targetId: likedId }).catch(() => undefined);
 
-    let createdMatch: Match | undefined;
-    if (matchId) {
-      const { data: matchRow, error: fetchMatchError } = await supabase
-        .from("matches_v")
-        .select("*")
-        .eq("id", matchId)
-        .maybeSingle();
+    if (!matchId) {
+      return {};
+    }
 
-      if (fetchMatchError) {
-        throw fetchMatchError;
-      }
-      if (matchRow) {
-        createdMatch = mapMatch(matchRow);
-      }
+    let createdMatch: Match | undefined;
+    const { data: matchRow, error: fetchMatchError } = await supabase
+      .from("matches_v")
+      .select("*")
+      .eq("id", matchId)
+      .maybeSingle();
+
+    if (fetchMatchError) {
+      throw fetchMatchError;
     }
-    if (matchId) {
-      await track("match", { matchId }).catch(() => undefined);
+    if (matchRow) {
+      createdMatch = mapMatch(matchRow);
     }
+
+    await track("match", { matchId }).catch(() => undefined);
 
     const [profileA, profileB] = await Promise.all([
       supabase.from("profiles").select("*").eq("user_id", likerId).maybeSingle(),
@@ -127,11 +188,4 @@ const mapMatch = (row: any): Match => ({
   createdAt: row.created_at,
   lastMessageAt: row.last_message_at ?? undefined,
   isActive: Boolean(row.is_active)
-});
-
-const mapLike = (row: any) => ({
-  id: row.id,
-  likerId: row.liker_id,
-  likedId: row.likee_id,
-  createdAt: row.created_at
 });

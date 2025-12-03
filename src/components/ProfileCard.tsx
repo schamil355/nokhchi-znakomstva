@@ -1,118 +1,629 @@
-import React, { useEffect } from "react";
-import { Image, StyleSheet, Text, View, Pressable } from "react-native";
-import { Profile } from "../types";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import GuardedPhoto from "./GuardedPhoto";
+import { Profile } from "../types";
 import { track } from "../lib/analytics";
+import { SupportedLocale, useLocalizedCopy } from "../localization/LocalizationProvider";
+import { formatCountryLabel, isWithinChechnyaRadius } from "../lib/geo";
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { getPhotoUrl, PROFILE_BUCKET } from "../lib/storage";
+import { getSignedPhotoUrl } from "../services/photoService";
+import { getCachedPhotoUri, setCachedPhotoUri } from "../lib/photoCache";
+import { sleep } from "../lib/timing";
 
 type ProfileCardProps = {
   profile: Profile;
   onLike: () => void;
   onSkip: () => void;
   onView?: (profile: Profile) => void;
+  showActions?: boolean;
 };
 
-const ProfileCard = ({ profile, onLike, onSkip, onView }: ProfileCardProps) => {
-  const mainPhoto = profile.photos[0];
-  const assetId = typeof mainPhoto?.assetId === "number" ? mainPhoto.assetId : Number(mainPhoto?.id);
-  const hasAsset = Number.isFinite(assetId);
-  const photoUrl = mainPhoto?.url;
+type CardCopy = {
+  verified: string;
+  locationUnknown: string;
+  locationChechnya: string;
+  comingSoonTitle: string;
+  comingSoonSubtitle: string;
+  intentionLabels: Record<string, string>;
+  noPhoto: string;
+};
+
+const translations: Record<SupportedLocale, CardCopy> = {
+  de: {
+    verified: "Verifiziert",
+    locationUnknown: "Unbekannter Ort",
+    locationChechnya: "Tschetschenien",
+    comingSoonTitle: "Bald verfügbar",
+    comingSoonSubtitle: "Diese Funktion wird gerade entwickelt.",
+    intentionLabels: {
+      serious: "Ernsthafte Absichten",
+      casual: "Locker & offen",
+      friendship: "Freundschaft"
+    },
+    noPhoto: "Kein Foto"
+  },
+  en: {
+    verified: "Verified",
+    locationUnknown: "Unknown location",
+    locationChechnya: "Chechnya",
+    comingSoonTitle: "Coming soon",
+    comingSoonSubtitle: "This action will be available shortly.",
+    intentionLabels: {
+      serious: "Serious intentions",
+      casual: "Open minded",
+      friendship: "Friendship"
+    },
+    noPhoto: "No photo yet"
+  },
+  fr: {
+    verified: "Vérifié",
+    locationUnknown: "Lieu inconnu",
+    locationChechnya: "Tchétchénie",
+    comingSoonTitle: "Bientôt",
+    comingSoonSubtitle: "Cette action arrive très vite.",
+    intentionLabels: {
+      serious: "Relation sérieuse",
+      casual: "Ouvert d'esprit",
+      friendship: "Amitié"
+    },
+    noPhoto: "Pas encore de photo"
+  },
+  ru: {
+    verified: "Проверено",
+    locationUnknown: "Местоположение неизвестно",
+    locationChechnya: "Чечня",
+    comingSoonTitle: "Скоро",
+    comingSoonSubtitle: "Эта функция скоро появится.",
+    intentionLabels: {
+      serious: "Серьёзные намерения",
+      casual: "Лёгкое общение",
+      friendship: "Дружба"
+    },
+    noPhoto: "Нет фото"
+  }
+};
+
+const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
+const verifiedBadgeIcon = require("../../assets/icons/icon.png");
+const chechenBadgeIcon = require("../../assets/icons/NOCHXII.png");
+
+const ProfileCard = ({ profile, onLike, onSkip, onView, showActions = true }: ProfileCardProps) => {
+  const copy = useLocalizedCopy(translations);
+  const photos = profile.photos?.filter(Boolean) ?? [];
+  const mainPhoto = photos[0];
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activePhoto = photos[activeIndex] ?? mainPhoto;
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const [photoUri, setPhotoUri] = useState<string | null>(mainPhoto?.url ?? null);
+  const age = calculateAge(profile.birthday);
+  const isInChechnya = isWithinChechnyaRadius(profile.latitude, profile.longitude);
+  const locationLabel = isInChechnya
+    ? copy.locationChechnya
+    : (formatCountryLabel(profile.country) ?? copy.locationUnknown);
+  const showChechenBadge = profile.intention === "serious";
+  const isOnline = useMemo(() => {
+    if (!profile.lastActiveAt) {
+      return false;
+    }
+    const lastActiveMs = new Date(profile.lastActiveAt).getTime();
+    if (!Number.isFinite(lastActiveMs)) {
+      return false;
+    }
+    return Date.now() - lastActiveMs <= ONLINE_THRESHOLD_MS;
+  }, [profile.lastActiveAt]);
+  const pulseScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     onView?.(profile);
     void track("view_profile", { targetId: profile.userId });
   }, [onView, profile, profile.userId]);
 
+  useEffect(() => {
+    setActiveIndex(0);
+    setPhotoUri(mainPhoto?.url ?? null);
+  }, [profile.userId, mainPhoto?.url]);
+
+  const cacheKey = useMemo(() => {
+    if (profile.primaryPhotoPath && activeIndex === 0) {
+      return `path:${profile.primaryPhotoPath}`;
+    }
+    if (profile.primaryPhotoId && activeIndex === 0) {
+      return `guard:${profile.primaryPhotoId}`;
+    }
+    const assetCandidate =
+      (typeof activePhoto?.assetId === "number" ? activePhoto.assetId : Number(activePhoto?.id)) ??
+      (typeof mainPhoto?.assetId === "number" ? mainPhoto.assetId : Number(mainPhoto?.id));
+    if (assetCandidate && Number.isFinite(assetCandidate)) {
+      return `asset:${assetCandidate}`;
+    }
+    if (activePhoto?.url) {
+      return `url:${activePhoto.url}`;
+    }
+    return null;
+  }, [
+    activeIndex,
+    activePhoto?.assetId,
+    activePhoto?.id,
+    activePhoto?.url,
+    mainPhoto?.assetId,
+    mainPhoto?.id,
+    profile.primaryPhotoId,
+    profile.primaryPhotoPath
+  ]);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      if (!cacheKey && !activePhoto?.url && !profile.primaryPhotoPath && !profile.primaryPhotoId) {
+        setPhotoUri(null);
+        return;
+      }
+
+      const cached = getCachedPhotoUri(cacheKey);
+      if (cached) {
+        setPhotoUri(cached);
+        return;
+      }
+
+      let resolved: string | null = null;
+      try {
+        if (activePhoto?.url) {
+          resolved = activePhoto.url;
+          setCachedPhotoUri(cacheKey, activePhoto.url);
+          setPhotoUri(resolved);
+          return;
+        }
+        const cached = getCachedPhotoUri(cacheKey);
+        if (cached) {
+          resolved = cached;
+          setPhotoUri(resolved);
+          return;
+        }
+
+        const tryFetch = async <T>(fn: () => Promise<T>, attempts = 2): Promise<T | null> => {
+          for (let i = 0; i < attempts; i++) {
+            try {
+              return await fn();
+            } catch (err) {
+              if (i === attempts - 1) {
+                throw err;
+              }
+              await sleep(300 * (i + 1));
+            }
+          }
+          return null;
+        };
+
+        // Prefer primaryPhotoId (guarded via backend) to avoid storage RLS misses.
+        const assetCandidate =
+          profile.primaryPhotoId ??
+          (typeof activePhoto?.assetId === "number"
+            ? activePhoto.assetId
+            : Number.isFinite(Number(activePhoto?.id))
+              ? Number(activePhoto?.id)
+              : null);
+
+        if (assetCandidate && Number.isFinite(assetCandidate)) {
+          const signed = await tryFetch(() => getSignedPhotoUrl(assetCandidate as number, "original"));
+          if (active && signed?.url) {
+            resolved = signed.url;
+            setCachedPhotoUri(cacheKey ?? `asset:${assetCandidate}`, signed.url);
+            setPhotoUri(resolved);
+            return;
+          }
+        }
+
+        const pathCandidate =
+          (profile.primaryPhotoPath && activeIndex === 0 && profile.primaryPhotoPath) ||
+          activePhoto?.storagePath ||
+          mainPhoto?.storagePath;
+
+        if (pathCandidate) {
+          const signed = await tryFetch(() => getPhotoUrl(pathCandidate, supabase, PROFILE_BUCKET));
+          if (active && signed) {
+            resolved = signed;
+            setCachedPhotoUri(cacheKey ?? `path:${pathCandidate}`, signed);
+            setPhotoUri(resolved);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn("[ProfileCard] failed to fetch photo", error);
+      }
+      if (active) {
+        setPhotoUri(resolved);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [
+    activeIndex,
+    cacheKey,
+    activePhoto?.assetId,
+    activePhoto?.id,
+    activePhoto?.url,
+    activePhoto?.storagePath,
+    mainPhoto?.assetId,
+    mainPhoto?.id,
+    mainPhoto?.storagePath,
+    profile.primaryPhotoPath,
+    profile.primaryPhotoId,
+    supabase
+  ]);
+
+  useEffect(() => {
+    let animation: Animated.CompositeAnimation | undefined;
+    if (isOnline) {
+      animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseScale, {
+            toValue: 1.35,
+            duration: 900,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true
+          }),
+          Animated.timing(pulseScale, {
+            toValue: 1,
+            duration: 900,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true
+          })
+        ])
+      );
+      animation.start();
+    } else {
+      pulseScale.setValue(1);
+    }
+    return () => {
+      animation?.stop();
+    };
+  }, [isOnline, pulseScale]);
+
+  const handleNextPhoto = () => {
+    if (photos.length <= 1) return;
+    setActiveIndex((prev) => {
+      const next = (prev + 1) % photos.length;
+      const nextPhoto = photos[next];
+      if (nextPhoto?.url) {
+        setPhotoUri(nextPhoto.url);
+      }
+      return next;
+    });
+  };
+
+  const resolvedAssetId =
+    typeof activePhoto?.assetId === "number"
+      ? activePhoto.assetId
+      : Number.isFinite(Number(activePhoto?.id))
+        ? Number(activePhoto?.id)
+        : null;
+
+  const isIncognito = Boolean((profile as any).isIncognito ?? (profile as any).is_incognito);
+  const totalPhotos = photos.length || 1;
   return (
     <View style={styles.card}>
-      {hasAsset ? (
-        <GuardedPhoto photoId={assetId as number} style={styles.photo} />
-      ) : photoUrl ? (
-        <Image source={{ uri: photoUrl }} style={styles.photo} resizeMode="cover" />
-      ) : (
-        <View style={[styles.photo, styles.placeholder]}>
-          <Text style={styles.placeholderText}>Kein Foto</Text>
+      <View style={styles.photoWrapper}>
+        <Pressable style={styles.mediaPressable} onPress={handleNextPhoto}>
+          {isIncognito ? (
+            resolvedAssetId ? (
+              <GuardedPhoto
+                photoId={resolvedAssetId}
+                style={styles.media}
+                blur={isIncognito}
+                lockPosition="top-right"
+              />
+            ) : (
+              <LinearGradient
+                colors={["#b5b5b5", "#f2f2f2"]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={[styles.mediaImage, styles.lockGradientTile]}
+              >
+                <Ionicons name="lock-closed" size={28} color="#f7f7f7" style={styles.lockIconTopRight} />
+              </LinearGradient>
+            )
+          ) : photoUri ? (
+            <Image
+              source={{ uri: photoUri }}
+              style={styles.mediaImage}
+              resizeMode="cover"
+              accessibilityIgnoresInvertColors
+              onError={() => setPhotoUri(null)}
+            />
+          ) : resolvedAssetId ? (
+            <GuardedPhoto
+              photoId={resolvedAssetId}
+              style={styles.media}
+            />
+          ) : (
+            <View style={[styles.mediaImage, styles.mediaPlaceholder]}>
+              <Animated.View style={styles.placeholderPulse} />
+            </View>
+          )}
+        </Pressable>
+        {totalPhotos >= 2 ? (
+          <View style={styles.progressRow} pointerEvents="none">
+            {photos.map((_, index) => (
+              <View
+                key={`prog-${profile.userId}-${index}`}
+                style={[styles.progressBar, index === activeIndex && styles.progressBarActive]}
+              />
+            ))}
+          </View>
+        ) : null}
+        <View style={styles.gradientOverlay} pointerEvents="none" />
+        <View style={styles.meta}>
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>
+              {profile.displayName}, {age}
+            </Text>
+            <Animated.View
+              style={[
+                styles.statusDot,
+                isOnline ? styles.statusDotOnline : styles.statusDotOffline,
+                { transform: [{ scale: pulseScale }] }
+              ]}
+            />
+            {profile.verified ? (
+              <View style={styles.verifiedBadge}>
+                <View style={styles.verifiedIconBubble}>
+                  <Image source={verifiedBadgeIcon} style={styles.verifiedIcon} />
+                </View>
+                <Text style={styles.verifiedText}>{copy.verified}</Text>
+              </View>
+            ) : null}
+          </View>
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={16} color="#fff" />
+            <Text style={styles.locationText}>{locationLabel}</Text>
+          </View>
+          {showChechenBadge ? (
+            <View style={styles.badgesRow}>
+              <View style={styles.chechenBadge}>
+                <Image source={chechenBadgeIcon} style={styles.chechenBadgeIcon} />
+                <Text style={styles.chechenBadgeText}>Нохчи</Text>
+              </View>
+            </View>
+          ) : null}
         </View>
-      )}
-      <View style={styles.content}>
-        <Text style={styles.name}>{profile.displayName}</Text>
-        <Text style={styles.bio}>{profile.bio}</Text>
-        <Text style={styles.interests}>#{profile.interests.join(" #")}</Text>
-      </View>
-      <View style={styles.actions}>
-        <Pressable style={[styles.actionButton, styles.passButton]} onPress={onSkip}>
-          <Text style={styles.actionText}>Überspringen</Text>
-        </Pressable>
-        <Pressable style={[styles.actionButton, styles.likeButton]} onPress={onLike}>
-          <Text style={[styles.actionText, styles.likeText]}>Like</Text>
-        </Pressable>
+        {showActions ? (
+          <View style={styles.actionsRow}>
+            <Pressable style={[styles.actionCircle, styles.passButton]} onPress={onSkip}>
+              <Ionicons name="close" size={28} color="#fff" />
+            </Pressable>
+            <Pressable style={[styles.actionCircle, styles.likeButton]} onPress={onLike}>
+              <Ionicons name="checkmark" size={28} color="#fff" />
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </View>
   );
 };
 
+const calculateAge = (value: string | Date) => {
+  const birthday = value instanceof Date ? value : new Date(value);
+  const today = new Date();
+  let age = today.getFullYear() - birthday.getFullYear();
+  const monthDelta = today.getMonth() - birthday.getMonth();
+  const dayDelta = today.getDate() - birthday.getDate();
+  if (monthDelta < 0 || (monthDelta === 0 && dayDelta < 0)) {
+    age -= 1;
+  }
+  return age;
+};
+
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    borderRadius: 24,
+    paddingBottom: 24,
     backgroundColor: "#fff",
-    padding: 16,
-    gap: 16,
+    overflow: "hidden",
     shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 18,
+    elevation: 5
   },
-  photo: {
+  photoWrapper: {
     width: "100%",
-    height: 360,
-    borderRadius: 12
+    aspectRatio: 0.6,
+    borderRadius: 24,
+    overflow: "hidden",
+    position: "relative",
+    backgroundColor: "#0a0a0a"
   },
-  placeholder: {
-    backgroundColor: "#f2f2f2",
+  mediaPressable: {
+    width: "100%",
+    height: "100%"
+  },
+  media: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 24
+  },
+  mediaImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 24
+  },
+  mediaPlaceholder: {
+    backgroundColor: "#111",
     alignItems: "center",
     justifyContent: "center"
   },
-  placeholderText: {
-    color: "#999",
-    fontSize: 14
+  lockGradientTile: {
+    borderRadius: 24,
+    width: "100%",
+    height: "100%"
   },
-  content: {
-    gap: 4
+  lockIconTopRight: {
+    position: "absolute",
+    top: 72,
+    right: 12
+  },
+  placeholderPulse: {
+    width: "50%",
+    height: "50%",
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.08)"
+  },
+  progressRow: {
+    position: "absolute",
+    top: 10,
+    left: 12,
+    right: 12,
+    flexDirection: "row",
+    gap: 6
+  },
+  progressBar: {
+    flex: 1,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.25)"
+  },
+  progressBarActive: {
+    backgroundColor: "#fff"
+  },
+  gradientOverlay: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.1)"
+  },
+  meta: {
+    position: "absolute",
+    bottom: 82,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    gap: 10
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
   },
   name: {
-    fontSize: 20,
+    color: "#fff",
+    fontSize: 26,
     fontWeight: "700"
   },
-  bio: {
-    fontSize: 15,
-    color: "#555"
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6
   },
-  interests: {
-    fontSize: 13,
-    color: "#888"
+  statusDotOffline: {
+    backgroundColor: "#ffb347"
   },
-  actions: {
+  statusDotOnline: {
+    backgroundColor: "#19bc7c",
+    shadowColor: "#19bc7c",
+    shadowOpacity: 0.55,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 6,
+    elevation: 4
+  },
+  verifiedBadge: {
     flexDirection: "row",
-    gap: 12
+    backgroundColor: "rgba(0,0,0,0.65)",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 1,
+    borderRadius: 999,
+    marginLeft: -4
   },
-  actionButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center"
+  verifiedIconBubble: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 4
+  },
+  verifiedIcon: {
+    width: 80,
+    height: 80,
+    resizeMode: "contain"
+  },
+  verifiedText: {
+    color: "#fff",
+    fontSize: 11,
+    marginLeft: 0,
+    fontWeight: "600"
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6
+  },
+  locationText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "500"
+  },
+  badgesRow: {
+    flexDirection: "row",
+    marginTop: 10
+  },
+  chechenBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.55)",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    gap: 8
+  },
+  chechenBadgeIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11
+  },
+  chechenBadgeText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500"
+  },
+  actionsRow: {
+    position: "absolute",
+    bottom: 12,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 32
+  },
+  actionCircle: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6
   },
   passButton: {
+    backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: "#b1b1b1"
+    borderColor: "#fff"
   },
   likeButton: {
-    backgroundColor: "#2f5d62"
-  },
-  actionText: {
-    fontWeight: "600",
-    color: "#333"
-  },
-  likeText: {
-    color: "#fff"
+    backgroundColor: "#0d6e4f"
   }
 });
 

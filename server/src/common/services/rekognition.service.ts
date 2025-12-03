@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
+import { Injectable, InternalServerErrorException, Logger, BadRequestException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 export type RekognitionResult = {
@@ -71,8 +71,13 @@ export class RekognitionService {
         matched: similarity >= this.similarityThreshold,
       };
     } catch (error) {
-      this.logger.error("Rekognition compareFaces failed", error as Error);
-      throw new InternalServerErrorException("FACE_COMPARE_FAILED");
+      const err = error as Error;
+      this.logger.error(
+        `Rekognition compareFaces failed: ${err?.name ?? "Error"} ${err?.message ?? ""}`,
+        err?.stack
+      );
+      // Return a client-visible error so we can see details
+      throw new BadRequestException(`FACE_COMPARE_FAILED:${err?.name ?? "UNKNOWN"}:${err?.message ?? ""}`);
     }
   }
 }

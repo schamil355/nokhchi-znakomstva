@@ -8,7 +8,12 @@ import { CommonModule } from "./common/common.module";
 import { PhotosModule } from "./photos/photos.module";
 import { PrivacyController } from "./settings/privacy.controller";
 import { VerificationModule } from "./verification/verification.module";
+import { AccountModule } from "./account/account.module";
 import { PushModule } from "./push/push.module";
+import { AdminModule } from "./admin/admin.module";
+
+const enablePush = (process.env.ENABLE_PUSH ?? "").toLowerCase() === "true";
+const enableVerification = (process.env.ENABLE_VERIFICATION ?? "true").toLowerCase() === "true";
 
 @Module({
   imports: [
@@ -28,8 +33,10 @@ import { PushModule } from "./push/push.module";
     DatabaseModule,
     CommonModule,
     PhotosModule,
-    VerificationModule,
-    PushModule,
+    ...(enableVerification ? [VerificationModule] as const : []),
+    ...(enablePush ? [PushModule] as const : []),
+    AccountModule,
+    AdminModule,
   ],
   controllers: [PrivacyController],
 })

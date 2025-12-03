@@ -27,5 +27,9 @@ export default () => ({
     expoAccessToken: process.env.EXPO_PUSH_ACCESS_TOKEN ?? "",
     batchSize: parseInt(process.env.PUSH_BATCH_SIZE ?? "50", 10),
     maxAttempts: parseInt(process.env.PUSH_MAX_ATTEMPTS ?? "5", 10),
+    allowedProjectIds: (process.env.EXPO_ALLOWED_PROJECT_IDS ?? "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
   },
 });

@@ -40,7 +40,7 @@ export const track = async (name: EventName, props?: Record<string, unknown>) =>
 
   try {
     await supabase.from("events").insert(event);
-  } catch (error) {
+  } catch {
     await enqueue(event);
   }
 };
@@ -57,7 +57,7 @@ export const flushEvents = async () => {
   for (const batch of batches) {
     try {
       await supabase.from("events").insert(batch);
-    } catch (error) {
+    } catch {
       remaining.push(...batch);
     }
   }

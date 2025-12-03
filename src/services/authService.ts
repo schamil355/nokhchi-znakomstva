@@ -4,6 +4,9 @@ import { getSupabaseClient } from "../lib/supabaseClient";
 import { createRateLimiter } from "../lib/rateLimiter";
 import { useAuthStore } from "../state/authStore";
 import { ProfileInput, upsertProfile, fetchProfile } from "./profileService";
+import { usePreferencesStore } from "../state/preferencesStore";
+import { useNotificationsStore } from "../state/notificationsStore";
+import { getCurrentLocale } from "../localization/LocalizationProvider";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -19,6 +22,18 @@ const registerSchema = credentialsSchema.extend({
 
 const authLimiter = createRateLimiter({ intervalMs: 5_000, maxCalls: 3 });
 
+const authCopy: Record<string, Record<string, string>> = {
+  en: { signInFailed: "Sign in failed" },
+  de: { signInFailed: "Anmeldung fehlgeschlagen" },
+  fr: { signInFailed: "Échec de la connexion" },
+  ru: { signInFailed: "Не удалось войти" }
+};
+
+const tAuth = (key: keyof typeof authCopy.en) => {
+  const locale = getCurrentLocale();
+  return authCopy[locale]?.[key] ?? authCopy.en[key];
+};
+
 export const signInWithPassword = async (email: string, password: string): Promise<Session> =>
   authLimiter(async () => {
     const supabase = getSupabaseClient();
@@ -29,14 +44,34 @@ export const signInWithPassword = async (email: string, password: string): Promi
     });
 
     if (error || !data.session) {
-      throw error ?? new Error("Anmeldung fehlgeschlagen");
+      throw error ?? new Error(tAuth("signInFailed"));
     }
 
+    useNotificationsStore.getState().clear();
     useAuthStore.getState().setSession(data.session);
-    const profile = await fetchProfile(data.session.user.id);
-    if (profile) {
-      useAuthStore.getState().setProfile(profile);
+    usePreferencesStore.getState().setActiveUser(data.session.user.id);
+    let profile = await fetchProfile(data.session.user.id);
+    if (!profile) {
+      // Fallback: minimal Profil anlegen, damit der Profil-Tab nicht hängt
+      const userMeta = data.session.user.user_metadata ?? {};
+      const displayName =
+        userMeta.display_name ||
+        userMeta.full_name ||
+        data.session.user.email?.split("@")[0] ||
+        "User";
+      profile = await upsertProfile(data.session.user.id, {
+        displayName,
+        birthday: "1990-01-01",
+        bio: "",
+        gender: (userMeta.gender as any) || "nonbinary",
+        intention: (userMeta.intention as any) || "serious",
+        interests: [],
+        photos: [],
+        primaryPhotoId: null,
+        primaryPhotoPath: null
+      });
     }
+    useAuthStore.getState().setProfile(profile);
 
     return data.session;
   });
@@ -65,7 +100,9 @@ export const signUpWithPassword = async (
     }
 
     if (data.session) {
+      useNotificationsStore.getState().clear();
       useAuthStore.getState().setSession(data.session);
+      usePreferencesStore.getState().setActiveUser(data.session.user.id);
       await upsertProfile(data.session.user.id, payload.profile);
       return data.session;
     }
@@ -80,25 +117,67 @@ export const signOut = async () => {
     throw error;
   }
   useAuthStore.getState().reset();
+  usePreferencesStore.getState().setActiveUser(null);
+  useNotificationsStore.getState().clear();
 };
+
+const isAbortError = (error: any) =>
+  Boolean(error) &&
+  (
+    error.name === "AbortError" ||
+    error.name === "TimeoutError" ||
+    error.name === "DOMException" ||
+    (typeof error.message === "string" &&
+      (error.message.toLowerCase().includes("aborted") || error.message.toLowerCase().includes("network request failed")))
+  );
 
 export const bootstrapSession = async (): Promise<Session | null> => {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase.auth.getSession();
-  if (error) {
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      if (isAbortError(error)) {
+        return null;
+      }
+      console.warn("Failed to restore session", error);
+      return null;
+    }
+
+    if (!data.session) {
+      return null;
+    }
+
+    useAuthStore.getState().setSession(data.session);
+    usePreferencesStore.getState().setActiveUser(data.session.user.id);
+    let profile = await fetchProfile(data.session.user.id);
+    if (!profile) {
+      const userMeta = data.session.user.user_metadata ?? {};
+      const displayName =
+        userMeta.display_name ||
+        userMeta.full_name ||
+        data.session.user.email?.split("@")[0] ||
+        "User";
+      profile = await upsertProfile(data.session.user.id, {
+        displayName,
+        birthday: "1990-01-01",
+        bio: "",
+        gender: (userMeta.gender as any) || "nonbinary",
+        intention: (userMeta.intention as any) || "serious",
+        interests: [],
+        photos: [],
+        primaryPhotoId: null,
+        primaryPhotoPath: null
+      });
+    }
+    useAuthStore.getState().setProfile(profile);
+
+    return data.session;
+  } catch (error) {
+    if (isAbortError(error)) {
+      // Network timeout/abort – treat as no session without loud logging.
+      return null;
+    }
     console.warn("Failed to restore session", error);
     return null;
   }
-
-  if (!data.session) {
-    return null;
-  }
-
-  useAuthStore.getState().setSession(data.session);
-  const profile = await fetchProfile(data.session.user.id);
-  if (profile) {
-    useAuthStore.getState().setProfile(profile);
-  }
-
-  return data.session;
 };

@@ -9,9 +9,19 @@ server/.env.*
 .expo-shared
 dist
 node_modules
+.DS_Store
+.idea/
+build.ipa
+*.ipa
+supabase/.temp/
+server/supabase/.temp/
+my-app/
+meetmate/
+supabase/supabase.tar.gz
 
 # Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 expo-error.log
+android/app/debug.keystore

@@ -5,8 +5,9 @@ type RateLimiterOptions = {
 
 export const createRateLimiter = ({ intervalMs, maxCalls }: RateLimiterOptions) => {
   let calls = 0;
-  let queue: Array<() => void> = [];
+  let queue: (() => void)[] = [];
   let windowStart = Date.now();
+  let pendingTimer: NodeJS.Timeout | null = null;
 
   const schedule = (resolve: () => void) => {
     queue.push(resolve);
@@ -15,7 +16,7 @@ export const createRateLimiter = ({ intervalMs, maxCalls }: RateLimiterOptions) 
 
   const process = () => {
     const now = Date.now();
-    if (now - windowStart > intervalMs) {
+    if (now - windowStart >= intervalMs) {
       windowStart = now;
       calls = 0;
     }
@@ -26,6 +27,19 @@ export const createRateLimiter = ({ intervalMs, maxCalls }: RateLimiterOptions) 
         calls += 1;
         fn();
       }
+    }
+
+    if (!queue.length && pendingTimer) {
+      clearTimeout(pendingTimer);
+      pendingTimer = null;
+    }
+
+    if (queue.length && calls >= maxCalls && !pendingTimer) {
+      const wait = Math.max(0, intervalMs - (now - windowStart));
+      pendingTimer = setTimeout(() => {
+        pendingTimer = null;
+        process();
+      }, wait);
     }
   };
 
