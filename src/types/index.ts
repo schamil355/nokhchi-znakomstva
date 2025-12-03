@@ -26,6 +26,14 @@ export type Profile = {
   showDistance?: boolean;
   showLastSeen?: boolean;
   lastActiveAt?: string;
+  verified?: boolean;
+  verifiedAt?: string;
+  primaryPhotoPath?: string | null;
+  primaryPhotoId?: number | null;
+  verifiedFaceScore?: number | null;
+  country?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type Like = {
@@ -42,6 +50,8 @@ export type Match = {
   createdAt: string;
   lastMessageAt?: string;
   isActive: boolean;
+  previewPhotoUrl?: string | null;
+  otherDisplayName?: string | null;
 };
 
 export type Message = {

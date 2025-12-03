@@ -11,14 +11,18 @@ export class StorageService {
   private readonly bucket: string;
   private readonly kmsKeyId?: string;
   private readonly tempPrefix: string;
+  private readonly region: string;
+  private readonly endpoint?: string;
 
   constructor(private readonly configService: ConfigService) {
     this.bucket = this.configService.get<string>("s3.bucket", "");
     this.kmsKeyId = this.configService.get<string | undefined>("s3.kmsKeyId");
     this.tempPrefix = this.configService.get<string>("s3.tempPrefix", "temp/verification");
+    this.region = this.configService.get<string>("s3.region", "eu-central-1");
+    this.endpoint = this.configService.get<string | undefined>("s3.endpoint");
     this.client = new S3Client({
-      region: this.configService.get<string>("s3.region", "eu-central-1"),
-      endpoint: this.configService.get<string>("s3.endpoint"),
+      region: this.region,
+      endpoint: this.endpoint,
     });
   }
 
@@ -38,9 +42,18 @@ export class StorageService {
           },
         })
       );
+      this.logger.log(
+        `Selfie uploaded: bucket=${this.bucket} region=${this.region} endpoint=${this.endpoint ?? "default"} key=${key}`
+      );
       return key;
     } catch (error) {
-      this.logger.error("Failed to upload selfie", error as Error);
+      const err = error as Error;
+      this.logger.error(
+        `Failed to upload selfie to bucket ${this.bucket} (region=${this.region}, endpoint=${this.endpoint ?? "default"}): ${
+          err?.message ?? err
+        }`,
+        err,
+      );
       throw new InternalServerErrorException("SELFIE_UPLOAD_FAILED");
     }
   }

@@ -10,6 +10,7 @@ create index if not exists profiles_location_updated_idx
 --------------------------------------------------------------------------------
 -- Discovery RPC with incognito gate & block filtering
 --------------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.get_discovery_profiles(integer, integer);
 create or replace function public.get_discovery_profiles(p_limit integer, p_offset integer default 0)
 returns setof public.profiles
 language plpgsql

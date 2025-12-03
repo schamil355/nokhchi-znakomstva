@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   ActionSheetIOS,
+  ActivityIndicator,
   FlatList,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,12 +13,16 @@ import {
   Text,
   TextInput,
   View,
-  Platform
+  Platform,
+  type AlertButton
 } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { useAuthStore } from "../state/authStore";
 import { Profile, Photo } from "../types";
-import { upsertProfile } from "../services/profileService";
+import { refetchProfile, upsertProfile } from "../services/profileService";
 import GuardedPhoto from "../components/GuardedPhoto";
 import {
   deletePhoto as deletePhotoRemote,
@@ -25,70 +31,720 @@ import {
   uploadOriginalAsync,
   VisibilityMode,
   changeVisibility,
-  revokeAllPermissions
+  revokeAllPermissions,
+  getSignedPhotoUrl
 } from "../services/photoService";
+import { useOnboardingStore } from "../state/onboardingStore";
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { getPhotoUrl, PROFILE_BUCKET } from "../lib/storage";
+import { signOut as signOutService } from "../services/authService";
+import { formatCountryLabel, isWithinChechnyaRadius } from "../lib/geo";
+import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { LinearGradient } from "expo-linear-gradient";
+import VerifiedBadgePng from "../../assets/icons/profile-tab-verified.png";
+
+const BRAND_GREEN = "#0d6e4f";
+const PROFILE_AVATAR_SIZE = 120;
+const PROFILE_ADD_BUTTON_SIZE = 40;
+const PROFILE_ADD_BUTTON_RADIUS = PROFILE_ADD_BUTTON_SIZE / 2;
+const PROFILE_ADD_BUTTON_BOTTOM = 0;
+const PROFILE_ADD_BUTTON_RIGHT = -2;
+const VERIFIED_BADGE_WRAPPER_SIZE = 36;
+const PROFILE_SCREEN_TOP_PADDING = 90;
+const PROFILE_PHOTO_SLOT_COUNT = 6;
+
+const VerifiedBadge = ({ size = VERIFIED_BADGE_WRAPPER_SIZE }) => (
+  <Image source={VerifiedBadgePng} style={{ width: size, height: size }} resizeMode="contain" />
+);
+
+const dedupeProfilePhotos = (photos: Photo[]): Photo[] => {
+  const seen = new Set<string>();
+  const result: Photo[] = [];
+  for (const photo of photos) {
+    const key =
+      (typeof photo.assetId === "number" && Number.isFinite(photo.assetId)
+        ? `asset:${photo.assetId}`
+        : undefined) ??
+      (photo.url ? `url:${photo.url}` : undefined) ??
+      (photo.id ? `id:${photo.id}` : undefined);
+    if (!key) {
+      continue;
+    }
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(photo);
+  }
+  return result;
+};
+
+const toCoordinate = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+type CopyShape = {
+  visibilityOptions: Record<VisibilityMode, string>;
+  locationUnknown: string;
+  locationChechnya: string;
+  defaultProfileName: string;
+  editProfile: string;
+  removePhoto: string;
+  viewLoading: string;
+  edit: {
+    back: string;
+    title: string;
+    subtitle: string;
+    noPhoto: string;
+  };
+  buttons: {
+    addPhotoLoading: string;
+    addPhoto: string;
+    saveLoading: string;
+    save: string;
+    signOutLoading: string;
+    signOut: string;
+    resendEmailLoading: string;
+    resendEmail: string;
+  };
+  labels: {
+    visibility: string;
+    bio: string;
+    interests: string;
+    incognito: string;
+    showDistance: string;
+    showLastSeen: string;
+  };
+  placeholders: {
+    bio: string;
+    interests: string;
+  };
+  hints: {
+    logoutPrimary: string;
+    logoutSecondary: string;
+  };
+  verification: {
+    title: string;
+    subtitle: string;
+  };
+  photoManager: {
+    title: string;
+    subtitle: string;
+    instructions: string;
+    primaryBadge: string;
+    addLabel: string;
+    done: string;
+  };
+  alerts: {
+    savedTitle: string;
+    savedMessage: string;
+    errorTitle: string;
+    saveError: string;
+    permissionTitle: string;
+    permissionMessage: string;
+    photoSavedTitle: string;
+    photoSavedMessage: string;
+    uploadFailedTitle: string;
+    uploadFailedMessage: string;
+    noteTitle: string;
+    noteMessage: string;
+    photoDeleteError: string;
+    signOutErrorTitle: string;
+    signOutErrorMessage: string;
+    signOutConfirmTitle: string;
+    signOutConfirmMessage: string;
+    cancel: string;
+    confirmSignOut: string;
+    actionNotPossibleTitle: string;
+    actionNoAsset: string;
+    visibilityUpdatedTitle: string;
+    visibilityUpdatedMessage: string;
+    visibilityErrorMessage: string;
+    sharesUpdatedTitle: string;
+    sharesUpdatedMessage: string;
+    sharesErrorMessage: string;
+    visibilitySheetTitle: string;
+    changeVisibility: string;
+    revokeShares: string;
+    deletePhoto: string;
+    photoActionsTitle: string;
+    emailSentTitle: string;
+    emailSentMessage: string;
+    emailErrorMessage: string;
+  };
+};
+
+const baseCopy: CopyShape = {
+  visibilityOptions: {
+    public: "Public",
+    match_only: "Matches only",
+    whitelist: "Whitelist",
+    blurred_until_match: "Blurred until match",
+  },
+  locationUnknown: "Location unknown",
+  locationChechnya: "Chechnya",
+  defaultProfileName: "Your profile",
+  editProfile: "Edit profile",
+  removePhoto: "Remove",
+  viewLoading: "Loading your profile…",
+  edit: {
+    back: "Back",
+    title: "Edit profile",
+    subtitle: "Update your photos and details",
+    noPhoto: "No photo",
+  },
+  buttons: {
+    addPhotoLoading: "Uploading…",
+    addPhoto: "Add photo",
+    saveLoading: "Saving…",
+    save: "Save profile",
+    signOutLoading: "Signing out…",
+    signOut: "Sign out",
+    resendEmailLoading: "Sending…",
+    resendEmail: "Resend email",
+  },
+  labels: {
+    visibility: "Default visibility for new photos",
+    bio: "Bio",
+    interests: "Interests",
+    incognito: "Stay anonymous",
+    showDistance: "Show distance",
+    showLastSeen: "Show last seen",
+  },
+  placeholders: {
+    bio: "Tell people a little about yourself…",
+    interests: "e.g. travel, fitness, music",
+  },
+  hints: {
+    logoutPrimary: "Would you like to sign out and return to the start?",
+    logoutSecondary: "Want to sign in with a different account?",
+  },
+  verification: {
+    title: "Confirm your email",
+    subtitle: "Verify your address to receive all notifications.",
+  },
+    photoManager: {
+      title: "My photos",
+      subtitle: "Manage your gallery. The first tile is your main profile photo.",
+      instructions: "The first photo is your profile photo!",
+      primaryBadge: "Profile photo",
+      addLabel: "Add photo",
+      done: "Done"
+    },
+  alerts: {
+    savedTitle: "Saved",
+    savedMessage: "Your profile was updated.",
+    errorTitle: "Error",
+    saveError: "Could not save your profile.",
+    permissionTitle: "Permission required",
+    permissionMessage: "Please allow access to your photos.",
+    photoSavedTitle: "Saved",
+    photoSavedMessage: "Photo registered.",
+    uploadFailedTitle: "Upload failed",
+    uploadFailedMessage: "Please try again later.",
+    noteTitle: "Heads-up",
+    noteMessage: "Older photos can currently only be removed via support.",
+    photoDeleteError: "Could not delete the photo.",
+    signOutErrorTitle: "Sign-out failed",
+    signOutErrorMessage: "Please try again.",
+    signOutConfirmTitle: "Sign out",
+    signOutConfirmMessage: "Are you sure you want to sign out?",
+    cancel: "Cancel",
+    confirmSignOut: "Sign out",
+    actionNotPossibleTitle: "Action unavailable",
+    actionNoAsset: "No asset ID is available for this photo.",
+    visibilityUpdatedTitle: "Updated",
+    visibilityUpdatedMessage: "Photo visibility changed.",
+    visibilityErrorMessage: "Could not update visibility.",
+    sharesUpdatedTitle: "Updated",
+    sharesUpdatedMessage: "All access was revoked.",
+    sharesErrorMessage: "Could not revoke access.",
+    visibilitySheetTitle: "Visibility",
+    changeVisibility: "Change visibility",
+    revokeShares: "Revoke access",
+    deletePhoto: "Delete photo",
+    photoActionsTitle: "Photo actions",
+    emailSentTitle: "Email sent",
+    emailSentMessage: "Check your inbox to confirm your address.",
+    emailErrorMessage: "Could not send the email.",
+  },
+};
+
+const translations: Record<string, CopyShape> = {
+  en: baseCopy,
+  de: {
+    ...baseCopy,
+    visibilityOptions: {
+      public: "Öffentlich",
+      match_only: "Nur Matches",
+      whitelist: "Whitelist",
+      blurred_until_match: "Blur bis Match",
+    },
+    locationUnknown: "Standort unbekannt",
+    locationChechnya: "Tschetschenien",
+    defaultProfileName: "Dein Profil",
+    editProfile: "Profil bearbeiten",
+    removePhoto: "Entfernen",
+    viewLoading: "Lade dein Profil...",
+    edit: {
+      back: "Zurück",
+      title: "Profil bearbeiten",
+      subtitle: "Aktualisiere deine Fotos und Angaben",
+      noPhoto: "Kein Foto",
+    },
+    buttons: {
+      addPhotoLoading: "Wird hochgeladen...",
+      addPhoto: "Foto hinzufügen",
+      saveLoading: "Speichern...",
+      save: "Profil speichern",
+      signOutLoading: "Melde ab...",
+      signOut: "Abmelden",
+      resendEmailLoading: "Sendet...",
+      resendEmail: "E-Mail erneut senden",
+    },
+    labels: {
+      visibility: "Sichtbarkeit neuer Fotos",
+      bio: "Bio",
+      interests: "Interessen",
+      incognito: "Anonym bleiben",
+      showDistance: "Distanz anzeigen",
+      showLastSeen: "Zuletzt online anzeigen",
+    },
+    placeholders: {
+      bio: "Erzähle etwas über dich...",
+      interests: "z.B. Reisen, Fitness, Musik",
+    },
+    hints: {
+      logoutPrimary: "Möchtest du dich abmelden und zur Startseite zurückkehren?",
+      logoutSecondary: "Du möchtest dich mit einem anderen Account anmelden?",
+    },
+    verification: {
+      title: "E-Mail bestätigen",
+      subtitle: "Bestätige deine Adresse, um sämtliche Benachrichtigungen zu erhalten.",
+    },
+    photoManager: {
+      title: "Meine Fotos",
+      subtitle: "Verwalte deine Fotos. Das erste Foto ist dein Profilfoto.",
+      instructions: "Das erste Foto ist dein Profilfoto!",
+      primaryBadge: "Profilfoto",
+      addLabel: "Foto hinzufügen",
+      done: "Fertig"
+    },
+    alerts: {
+      savedTitle: "Gespeichert",
+      savedMessage: "Dein Profil wurde aktualisiert.",
+      errorTitle: "Fehler",
+      saveError: "Konnte Profil nicht speichern.",
+      permissionTitle: "Berechtigung benötigt",
+      permissionMessage: "Bitte erlaube den Zugriff auf deine Fotos.",
+      photoSavedTitle: "Gespeichert",
+      photoSavedMessage: "Foto wurde registriert.",
+      uploadFailedTitle: "Upload fehlgeschlagen",
+      uploadFailedMessage: "Bitte versuche es später erneut.",
+      noteTitle: "Hinweis",
+      noteMessage: "Ältere Fotos können derzeit nur über den Support gelöscht werden.",
+      photoDeleteError: "Foto konnte nicht gelöscht werden.",
+      signOutErrorTitle: "Abmelden fehlgeschlagen",
+      signOutErrorMessage: "Bitte versuche es erneut.",
+      signOutConfirmTitle: "Abmelden",
+      signOutConfirmMessage: "Möchtest du dich wirklich abmelden?",
+      cancel: "Abbrechen",
+      confirmSignOut: "Abmelden",
+      actionNotPossibleTitle: "Aktion nicht möglich",
+      actionNoAsset: "Für dieses Foto liegt keine Asset-ID vor.",
+      visibilityUpdatedTitle: "Aktualisiert",
+      visibilityUpdatedMessage: "Sichtbarkeit wurde geändert.",
+      visibilityErrorMessage: "Sichtbarkeit konnte nicht geändert werden.",
+      sharesUpdatedTitle: "Aktualisiert",
+      sharesUpdatedMessage: "Alle Freigaben wurden entfernt.",
+      sharesErrorMessage: "Freigaben konnten nicht widerrufen werden.",
+      visibilitySheetTitle: "Sichtbarkeit",
+      changeVisibility: "Sichtbarkeit ändern",
+      revokeShares: "Freigaben widerrufen",
+      deletePhoto: "Foto löschen",
+      photoActionsTitle: "Foto-Aktionen",
+      emailSentTitle: "E-Mail gesendet",
+      emailSentMessage: "Bitte prüfe dein Postfach und bestätige deine Adresse.",
+      emailErrorMessage: "E-Mail konnte nicht gesendet werden.",
+    },
+  },
+  fr: {
+    ...baseCopy,
+    labels: {
+      ...baseCopy.labels,
+      incognito: "Rester anonyme",
+    },
+    locationChechnya: "Tchétchénie",
+    photoManager: {
+      title: "Mes photos",
+      subtitle: "Gère ta galerie. La première tuile est ta photo de profil.",
+      instructions: "La première photo est ta photo de profil !",
+      primaryBadge: "Photo de profil",
+      addLabel: "Ajouter une photo",
+      done: "Terminé"
+    },
+    buttons: {
+      ...baseCopy.buttons,
+      signOutLoading: "Déconnexion...",
+      signOut: "Se déconnecter"
+    }
+  },
+  ru: {
+    ...baseCopy,
+    labels: {
+      ...baseCopy.labels,
+      incognito: "Оставаться анонимным",
+    },
+    locationChechnya: "Чечня",
+    photoManager: {
+      title: "Мои фото",
+      subtitle: "Управляй галереей. Первый слот — фото профиля.",
+      instructions: "Первое фото — фото профиля!",
+      primaryBadge: "Фото профиля",
+      addLabel: "Добавить фото",
+      done: "Готово"
+    },
+    buttons: {
+      ...baseCopy.buttons,
+      signOutLoading: "Выходим...",
+      signOut: "Выйти"
+    }
+  },
+};
 
 const ProfileScreen = () => {
+  const navigation = useNavigation<any>();
   const session = useAuthStore((state) => state.session);
+  const copy = useLocalizedCopy(translations);
   const profile = useAuthStore((state) => state.profile);
   const setProfile = useAuthStore((state) => state.setProfile);
+  const onboardingName = useOnboardingStore((state) => state.name);
+  const onboardingDob = useOnboardingStore((state) => state.dob);
+  const onboardingCountry = useOnboardingStore((state) => state.location.country);
+  const onboardingCountryName = useOnboardingStore((state) => state.location.countryName);
+  const onboardingLatitude = useOnboardingStore((state) => state.location.latitude);
+  const onboardingLongitude = useOnboardingStore((state) => state.location.longitude);
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const insets = useSafeAreaInsets();
 
   const [bio, setBio] = useState(profile?.bio ?? "");
-  const [interests, setInterests] = useState(profile?.interests.join(", ") ?? "");
+  const [interests, setInterests] = useState(profile?.interests?.join(", ") ?? "");
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [visibilityMode, setVisibilityMode] = useState<VisibilityMode>("blurred_until_match");
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
+  const [isUpdatingIncognito, setIsUpdatingIncognito] = useState(false);
+  const [visibilityMode, setVisibilityMode] = useState<VisibilityMode>("public");
   const [isIncognito, setIsIncognito] = useState(Boolean(profile?.isIncognito));
   const [showDistance, setShowDistance] = useState(profile?.showDistance ?? true);
   const [showLastSeen, setShowLastSeen] = useState(profile?.showLastSeen ?? true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isFetchingProfile, setIsFetchingProfile] = useState(false);
+  const [primaryPhotoPreview, setPrimaryPhotoPreview] = useState<string | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [isPhotoManagerVisible, setIsPhotoManagerVisible] = useState(false);
+  const [hasPhotoOrderChanges, setHasPhotoOrderChanges] = useState(false);
+  const isEmailVerified = Boolean(session?.user?.email_confirmed_at);
 
   useEffect(() => {
     if (profile) {
       setBio(profile.bio ?? "");
-      setInterests(profile.interests.join(", "));
+      setInterests(profile.interests?.join(", ") ?? "");
       setIsIncognito(Boolean(profile.isIncognito));
       setShowDistance(profile.showDistance ?? true);
       setShowLastSeen(profile.showLastSeen ?? true);
     }
-  }, [profile?.id]);
+  }, [profile]);
+
+  useEffect(() => {
+    if (!profile && isEditing) {
+      setIsEditing(false);
+    }
+  }, [isEditing, profile]);
+
+  useEffect(() => {
+    let mounted = true;
+    const ensureProfile = async () => {
+      if (!session?.user?.id || profile || isFetchingProfile) {
+        return;
+      }
+      setIsFetchingProfile(true);
+      try {
+        await refetchProfile();
+      } catch (error) {
+        console.warn("Failed to fetch profile for ProfileScreen", error);
+      } finally {
+        if (mounted) {
+          setIsFetchingProfile(false);
+        }
+      }
+    };
+    ensureProfile();
+    return () => {
+      mounted = false;
+    };
+  }, [isFetchingProfile, profile, session?.user?.id]);
+
+  const sanitizedProfilePhotos = useMemo(
+    () =>
+      (profile?.photos ?? []).filter((photo) => {
+        const url = photo?.url?.toLowerCase?.() ?? "";
+        const storagePath = (photo as any)?.storagePath?.toLowerCase?.() ?? "";
+        return !(
+          url.includes("/verifications/") ||
+          url.includes("verifications/") ||
+          storagePath.includes("/verifications/") ||
+          storagePath.includes("verifications/")
+        ) && typeof (photo as any).assetId === "number" && Number.isFinite((photo as any).assetId);
+      }),
+    [profile?.photos]
+  );
+
+  const uniquePhotos = useMemo(() => {
+    const seen = new Set<string>();
+    const photos = sanitizedProfilePhotos.filter(Boolean);
+    return photos.filter((photo) => {
+      if (!photo) {
+        return false;
+      }
+      const key =
+        (typeof (photo as any).assetId === "number" && Number.isFinite((photo as any).assetId)
+          ? `asset:${(photo as any).assetId}`
+          : undefined) ??
+        (photo.url ? `url:${photo.url}` : undefined) ??
+        (photo.id ? `id:${photo.id}` : undefined) ??
+        "";
+      if (!key) {
+        return false;
+      }
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }, [sanitizedProfilePhotos]);
 
   const visibilityOptions: { label: string; value: VisibilityMode }[] = useMemo(
     () => [
-      { label: "Öffentlich", value: "public" },
-      { label: "Nur Matches", value: "match_only" },
-      { label: "Whitelist", value: "whitelist" },
-      { label: "Blur bis Match", value: "blurred_until_match" }
+      { label: copy.visibilityOptions.public, value: "public" },
+      { label: copy.visibilityOptions.match_only, value: "match_only" },
+      { label: copy.visibilityOptions.whitelist, value: "whitelist" },
+      { label: copy.visibilityOptions.blurred_until_match, value: "blurred_until_match" }
     ],
-    []
+    [copy.visibilityOptions]
   );
 
-  if (!session || !profile) {
-    return (
-      <View style={styles.center}>
-        <Text>Lade dein Profil...</Text>
-      </View>
-    );
-  }
+  const heroPhoto = uniquePhotos[0];
+  const heroPhotoUriRaw = heroPhoto?.url ?? null;
+  const heroPhotoUri = heroPhotoUriRaw ?? null;
+  const heroAssetId = profile?.primaryPhotoId ?? heroPhoto?.assetId ?? (heroPhoto?.id ? Number(heroPhoto.id) : null);
+  const guardAssetId = heroAssetId;
+  const canUseHeroGuarded = typeof guardAssetId === "number" && Number.isFinite(guardAssetId);
+  const [avatarUri, setAvatarUri] = useState<string | null>(heroPhotoUri ?? primaryPhotoPreview);
+  const age = useMemo(() => {
+    const sourceBirthday = profile?.birthday ?? session?.user?.user_metadata?.birthday ?? onboardingDob ?? undefined;
+    if (!sourceBirthday) {
+      return null;
+    }
+    const birthDate = new Date(sourceBirthday);
+    if (Number.isNaN(birthDate.getTime())) {
+      return null;
+    }
+    const now = new Date();
+    let computed = now.getFullYear() - birthDate.getFullYear();
+    const monthDiff = now.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birthDate.getDate())) {
+      computed -= 1;
+    }
+    return computed;
+  }, [profile?.birthday, session?.user?.user_metadata?.birthday, onboardingDob]);
+  const locationLabel = useMemo(() => {
+    const latCandidate =
+      toCoordinate(profile?.latitude) ??
+      toCoordinate(session?.user?.user_metadata?.latitude) ??
+      toCoordinate(onboardingLatitude);
+    const lonCandidate =
+      toCoordinate(profile?.longitude) ??
+      toCoordinate(session?.user?.user_metadata?.longitude) ??
+      toCoordinate(onboardingLongitude);
+    if (isWithinChechnyaRadius(latCandidate, lonCandidate)) {
+      return copy.locationChechnya;
+    }
+    const countryCode = profile?.country ?? session?.user?.user_metadata?.country ?? onboardingCountry ?? null;
+    const formatted = formatCountryLabel(countryCode, onboardingCountryName ?? null);
+    return formatted ?? copy.locationUnknown;
+  }, [
+    copy.locationUnknown,
+    copy.locationChechnya,
+    onboardingCountry,
+    onboardingCountryName,
+    onboardingLatitude,
+    onboardingLongitude,
+    profile?.country,
+    profile?.latitude,
+    profile?.longitude,
+    session?.user?.user_metadata?.country,
+    session?.user?.user_metadata?.latitude,
+    session?.user?.user_metadata?.longitude
+  ]);
+  const displayName =
+    profile?.displayName ??
+    (onboardingName?.trim().length ? onboardingName.trim() : undefined) ??
+    session?.user?.user_metadata?.display_name ??
+    session?.user?.user_metadata?.full_name ??
+    copy.defaultProfileName;
+  const isVerified = profile?.verified ?? Boolean(session?.user?.user_metadata?.verified);
+  const photoManagerSlots = useMemo(() => {
+    const photos = uniquePhotos;
+    const trimmed = photos.slice(0, PROFILE_PHOTO_SLOT_COUNT);
+    const padded: (Photo | null)[] = [...trimmed];
+    while (padded.length < PROFILE_PHOTO_SLOT_COUNT) {
+      padded.push(null);
+    }
+    return padded;
+  }, [uniquePhotos]);
+
+  useEffect(() => {
+    let active = true;
+    // Ensure primary photo follows first slot
+    if (profile?.photos?.length) {
+      const first = profile.photos[0];
+      const asset = typeof first.assetId === "number" ? first.assetId : Number(first.id);
+      const nextPrimaryId = Number.isFinite(asset) ? (asset as number) : null;
+      if (nextPrimaryId && profile.primaryPhotoId !== nextPrimaryId) {
+        setProfile({ ...profile, primaryPhotoId: nextPrimaryId, primaryPhotoPath: first.url ?? null });
+      }
+    }
+    const loadPreview = async () => {
+      if (!profile || !profile.userId) {
+        if (active) {
+          setPrimaryPhotoPreview(null);
+        }
+        return;
+      }
+      if (heroPhotoUri) {
+        if (active) {
+          setPrimaryPhotoPreview(null);
+        }
+        return;
+      }
+      try {
+        const loadFromPath = async (path: string) => {
+          const url = await getPhotoUrl(path, supabase, PROFILE_BUCKET);
+          if (active) {
+            setPrimaryPhotoPreview(url);
+          }
+        };
+
+        if (profile.primaryPhotoPath) {
+          await loadFromPath(profile.primaryPhotoPath);
+          return;
+        }
+
+        if (typeof guardAssetId === "number" && Number.isFinite(guardAssetId)) {
+          try {
+            const signed = await getSignedPhotoUrl(guardAssetId, "original");
+            if (active) {
+              setPrimaryPhotoPreview(signed.url);
+            }
+            return;
+          } catch (error) {
+            console.warn("[ProfileScreen] hero asset preview failed", error);
+          }
+        }
+
+        const ownerId =
+          typeof profile.userId === "string" && profile.userId.length >= 16 ? profile.userId : null;
+        if (ownerId) {
+          const { data: fallbackAsset, error: fallbackError } = await supabase
+            .from("photo_assets")
+            .select("id, storage_path")
+            .eq("owner_id", ownerId)
+            .order("created_at", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (fallbackError) {
+            throw fallbackError;
+          }
+          if (fallbackAsset?.id) {
+            try {
+              const signed = await getSignedPhotoUrl(fallbackAsset.id, "original");
+              if (active) {
+                setPrimaryPhotoPreview(signed.url);
+              }
+              return;
+            } catch (error) {
+              console.warn("[ProfileScreen] fallback signed url failed", error);
+            }
+          }
+          if (fallbackAsset?.storage_path) {
+            await loadFromPath(fallbackAsset.storage_path);
+            return;
+          }
+        }
+      } catch (error) {
+        const message =
+          typeof error === "object" && error !== null && "message" in error
+            ? String((error as { message?: string }).message)
+            : "";
+        if (!message.includes("Object not found")) {
+          console.warn("[ProfileScreen] primary photo load failed", error);
+        }
+      }
+      if (active) {
+        setPrimaryPhotoPreview(null);
+      }
+    };
+    loadPreview();
+    return () => {
+      active = false;
+    };
+  }, [guardAssetId, heroPhotoUri, profile, setProfile, supabase]);
+
+  useEffect(() => {
+    setAvatarUri(heroPhotoUri ?? primaryPhotoPreview ?? null);
+  }, [heroPhotoUri, primaryPhotoPreview]);
+
+  const openPhotoManager = () => {
+    if (!profile) {
+      return;
+    }
+    setIsPhotoManagerVisible(true);
+  };
 
   const handleSave = async () => {
+    const currentProfile = profile;
+    if (!session?.user?.id || !currentProfile) {
+      return;
+    }
     setIsSaving(true);
     try {
       const updated = await upsertProfile(session.user.id, {
-        displayName: profile.displayName,
-        birthday: profile.birthday,
+        displayName: currentProfile.displayName,
+        birthday: currentProfile.birthday,
         bio,
-        gender: profile.gender,
-        intention: profile.intention,
+        gender: currentProfile.gender,
+        intention: currentProfile.intention,
         interests: interests
           .split(",")
           .map((item) => item.trim())
           .filter(Boolean),
-        photos: profile.photos
+        photos: currentProfile.photos,
+        primaryPhotoPath: currentProfile.primaryPhotoPath ?? null,
+        primaryPhotoId: currentProfile.primaryPhotoId ?? null
       });
       const privacyChanged =
-        profile.isIncognito !== isIncognito ||
-        profile.showDistance !== showDistance ||
-        profile.showLastSeen !== showLastSeen;
+        currentProfile.isIncognito !== isIncognito ||
+        currentProfile.showDistance !== showDistance ||
+        currentProfile.showLastSeen !== showLastSeen;
 
       if (privacyChanged) {
         await updatePrivacySettings({
@@ -101,23 +757,27 @@ const ProfileScreen = () => {
         updated.showLastSeen = showLastSeen;
       }
       setProfile(updated);
-      Alert.alert("Gespeichert", "Dein Profil wurde aktualisiert.");
+      Alert.alert(copy.alerts.savedTitle, copy.alerts.savedMessage);
     } catch (error: any) {
-      Alert.alert("Fehler", error.message ?? "Konnte Profil nicht speichern.");
+      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.saveError);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleAddPhoto = async () => {
+  const handleAddPhoto = async (slotIndex: number | null = null) => {
+    const currentProfile = profile;
+    if (!session?.user?.id || !currentProfile) {
+      return;
+    }
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Berechtigung benötigt", "Bitte erlaube den Zugriff auf deine Fotos.");
+      Alert.alert(copy.alerts.permissionTitle, copy.alerts.permissionMessage);
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       quality: 0.8
     });
 
@@ -127,7 +787,11 @@ const ProfileScreen = () => {
 
     try {
       setIsUploading(true);
+      setUploadingIndex(typeof slotIndex === "number" ? slotIndex : 0);
       const asset = result.assets[0];
+      if (!asset?.uri) {
+        throw new Error(copy.alerts.uploadFailedMessage ?? "Ausgewähltes Foto hat keine gültige URI.");
+      }
       const storagePath = await uploadOriginalAsync(asset.uri, session.user.id);
       const { photoId } = await registerPhoto(storagePath, visibilityMode);
       const newPhoto: Photo = {
@@ -137,42 +801,216 @@ const ProfileScreen = () => {
         url: asset.uri,
         createdAt: new Date().toISOString()
       };
-      setProfile({
-        ...profile,
-        photos: [...profile.photos, newPhoto]
-      });
-      Alert.alert("Gespeichert", "Foto wurde registriert.");
+      const updatedPhotos = dedupeProfilePhotos([...currentProfile.photos]);
+      const targetIndex = typeof slotIndex === "number" ? slotIndex : 0;
+      const clampedIndex = Math.min(Math.max(targetIndex, 0), Math.max(updatedPhotos.length, 0));
+      updatedPhotos.splice(clampedIndex, 0, newPhoto);
+      const deduped = dedupeProfilePhotos(updatedPhotos);
+
+      let nextPrimaryPath = currentProfile.primaryPhotoPath ?? null;
+      let nextPrimaryId = currentProfile.primaryPhotoId ?? null;
+      const shouldUpdatePrimary = clampedIndex === 0 || !nextPrimaryId;
+      if (shouldUpdatePrimary) {
+        nextPrimaryPath = storagePath;
+        nextPrimaryId = photoId;
+        setPrimaryPhotoPreview(asset.uri);
+      }
+
+      const updatedProfile: Profile = {
+        ...currentProfile,
+        photos: deduped,
+        primaryPhotoPath: nextPrimaryPath,
+        primaryPhotoId: nextPrimaryId
+      };
+      setProfile(updatedProfile);
+      setHasPhotoOrderChanges(true);
     } catch (error: any) {
-      Alert.alert("Upload fehlgeschlagen", error.message ?? "Bitte versuche es später erneut.");
+      Alert.alert(copy.alerts.uploadFailedTitle, error.message ?? copy.alerts.uploadFailedMessage);
     } finally {
       setIsUploading(false);
+      setUploadingIndex(null);
     }
   };
 
+  const handleToggleIncognitoDisplay = async (nextValue: boolean) => {
+    if (!session?.user?.id || !profile) {
+      return;
+    }
+    setIsUpdatingIncognito(true);
+    try {
+      setIsIncognito(nextValue);
+      await updatePrivacySettings({
+        is_incognito: nextValue,
+        show_distance: showDistance,
+        show_last_seen: showLastSeen
+      });
+      try {
+        await supabase
+          .from("profiles")
+          .update({ is_incognito: nextValue, show_distance: showDistance, show_last_seen: showLastSeen })
+          .eq("id", session.user.id);
+      } catch (syncError) {
+        console.warn("[Profile] failed to sync incognito/show settings to supabase", syncError);
+      }
+      setProfile({
+        ...profile,
+        isIncognito: nextValue
+      });
+    } catch (error: any) {
+      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.saveError);
+      setIsIncognito(Boolean(profile.isIncognito));
+    } finally {
+      setIsUpdatingIncognito(false);
+    }
+  };
+
+  const handlePhotoManagerDone = useCallback(async () => {
+    if (!profile || !session?.user?.id) {
+      setIsPhotoManagerVisible(false);
+      setHasPhotoOrderChanges(false);
+      return;
+    }
+    if (!hasPhotoOrderChanges) {
+      setIsPhotoManagerVisible(false);
+      return;
+    }
+    try {
+      const first = profile.photos[0];
+      const nextPrimaryId =
+        typeof first?.assetId === "number" ? first.assetId : Number.isFinite(Number(first?.id)) ? Number(first?.id) : null;
+      await upsertProfile(session.user.id, {
+        displayName: profile.displayName,
+        birthday: profile.birthday,
+        bio: profile.bio,
+        gender: profile.gender,
+        intention: profile.intention,
+        interests: profile.interests,
+        photos: profile.photos,
+        primaryPhotoId: nextPrimaryId ?? null,
+        primaryPhotoPath: nextPrimaryId ? null : profile.primaryPhotoPath ?? null
+      });
+    } catch (error: any) {
+      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.saveError);
+    } finally {
+      setHasPhotoOrderChanges(false);
+      setIsPhotoManagerVisible(false);
+    }
+  }, [
+    copy.alerts.errorTitle,
+    copy.alerts.saveError,
+    hasPhotoOrderChanges,
+    profile,
+    session?.user?.id,
+    setIsPhotoManagerVisible
+  ]);
+
+  if (!session) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="small" color={BRAND_GREEN} style={{ marginBottom: 12 }} />
+        <Text>{copy.viewLoading}</Text>
+      </View>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>{copy.viewLoading}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const handleDeletePhoto = async (photo: Photo) => {
+    const currentProfile = profile;
+    if (!currentProfile || !session?.user?.id) {
+      return;
+    }
     if (!photo.assetId) {
-      Alert.alert("Hinweis", "Ältere Fotos können derzeit nur über den Support gelöscht werden.");
+      Alert.alert(copy.alerts.noteTitle, copy.alerts.noteMessage);
       return;
     }
     try {
       await deletePhotoRemote(photo.assetId);
-      const updated: Profile = {
-        ...profile,
-        photos: profile.photos.filter((item) => item.id !== photo.id)
+      const remainingPhotos = currentProfile.photos.filter((item) => item.id !== photo.id);
+      let nextPrimaryId = currentProfile.primaryPhotoId ?? null;
+      let nextPrimaryPath = currentProfile.primaryPhotoPath ?? null;
+      const removedWasPrimary = photo.assetId === currentProfile.primaryPhotoId;
+
+      if (remainingPhotos.length === 0) {
+        nextPrimaryId = null;
+        nextPrimaryPath = null;
+        setPrimaryPhotoPreview(null);
+      } else if (removedWasPrimary) {
+        const first = remainingPhotos[0];
+        nextPrimaryId = typeof first.assetId === "number" ? first.assetId : Number(first.id) ?? null;
+        nextPrimaryPath = null;
+        setPrimaryPhotoPreview(null);
+      }
+
+      const updatedProfile: Profile = {
+        ...currentProfile,
+        photos: remainingPhotos,
+        primaryPhotoId: nextPrimaryId,
+        primaryPhotoPath: nextPrimaryPath
       };
+
       const saved = await upsertProfile(session.user.id, {
-        displayName: updated.displayName,
-        birthday: updated.birthday,
-        bio: updated.bio,
-        gender: updated.gender,
-        intention: updated.intention,
-        interests: updated.interests,
-        photos: updated.photos
+        displayName: updatedProfile.displayName,
+        birthday: updatedProfile.birthday,
+        bio: updatedProfile.bio,
+        gender: updatedProfile.gender,
+        intention: updatedProfile.intention,
+        interests: updatedProfile.interests,
+        photos: updatedProfile.photos,
+        primaryPhotoPath: updatedProfile.primaryPhotoPath ?? null,
+        primaryPhotoId: updatedProfile.primaryPhotoId ?? null
       });
       setProfile(saved);
     } catch (error: any) {
-      Alert.alert("Fehler", error.message ?? "Foto konnte nicht gelöscht werden.");
+      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.photoDeleteError);
     }
+  };
+
+  const handleResendVerification = async () => {
+    if (!session?.user?.email) {
+      return;
+    }
+    setIsSendingVerification(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: session.user.email,
+      });
+      if (error) {
+        throw error;
+      }
+      Alert.alert(copy.alerts.emailSentTitle, copy.alerts.emailSentMessage);
+    } catch (error: any) {
+      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.emailErrorMessage);
+    } finally {
+      setIsSendingVerification(false);
+    }
+  };
+
+  const performSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOutService();
+    } catch (error: any) {
+      Alert.alert(copy.alerts.signOutErrorTitle, error.message ?? copy.alerts.signOutErrorMessage);
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
+  const confirmSignOut = () => {
+    Alert.alert(copy.alerts.signOutConfirmTitle, copy.alerts.signOutConfirmMessage, [
+      { text: copy.alerts.cancel, style: "cancel" },
+      { text: copy.alerts.confirmSignOut, style: "destructive", onPress: () => performSignOut() }
+    ]);
   };
 
   const resolveAssetId = (photo: Photo): number | null => {
@@ -184,40 +1022,44 @@ const ProfileScreen = () => {
   };
 
   const handleVisibilityChange = async (photo: Photo, mode: VisibilityMode) => {
+    const currentProfile = profile;
+    if (!currentProfile) {
+      return;
+    }
     const assetId = resolveAssetId(photo);
     if (!assetId) {
-      Alert.alert("Aktion nicht möglich", "Für dieses Foto liegt keine Asset-ID vor.");
+      Alert.alert(copy.alerts.actionNotPossibleTitle, copy.alerts.actionNoAsset);
       return;
     }
     try {
       await changeVisibility(assetId, mode);
-      const updatedPhotos = profile.photos.map((entry) =>
+      const updatedPhotos = currentProfile.photos.map((entry) =>
         entry.id === photo.id ? { ...entry, visibilityMode: mode } : entry
       );
-      setProfile({ ...profile, photos: updatedPhotos });
-      Alert.alert("Aktualisiert", "Sichtbarkeit wurde geändert.");
+      setProfile({ ...currentProfile, photos: updatedPhotos });
+      Alert.alert(copy.alerts.visibilityUpdatedTitle, copy.alerts.visibilityUpdatedMessage);
     } catch (error: any) {
-      Alert.alert("Fehler", error.message ?? "Sichtbarkeit konnte nicht geändert werden.");
+      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.visibilityErrorMessage);
     }
   };
 
   const handleRevokePermissions = async (photo: Photo) => {
     const assetId = resolveAssetId(photo);
     if (!assetId) {
-      Alert.alert("Aktion nicht möglich", "Für dieses Foto liegt keine Asset-ID vor.");
+      Alert.alert(copy.alerts.actionNotPossibleTitle, copy.alerts.actionNoAsset);
       return;
     }
     try {
       await revokeAllPermissions(assetId);
-      Alert.alert("Aktualisiert", "Alle Freigaben wurden entfernt.");
+      Alert.alert(copy.alerts.sharesUpdatedTitle, copy.alerts.sharesUpdatedMessage);
     } catch (error: any) {
-      Alert.alert("Fehler", error.message ?? "Freigaben konnten nicht widerrufen werden.");
+      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.sharesErrorMessage);
     }
   };
 
   const presentVisibilitySheet = (photo: Photo) => {
-    const options = visibilityOptions.map((option) => option.label).concat("Abbrechen");
-    const cancelButtonIndex = options.length - 1;
+    const labels = visibilityOptions.map((option) => option.label).concat(copy.alerts.cancel);
+    const cancelButtonIndex = labels.length - 1;
     const onSelect = (index: number) => {
       if (index === cancelButtonIndex) {
         return;
@@ -228,21 +1070,28 @@ const ProfileScreen = () => {
       }
     };
     if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions({ options, cancelButtonIndex }, onSelect);
+      ActionSheetIOS.showActionSheetWithOptions({ options: labels, cancelButtonIndex }, onSelect);
     } else {
-      Alert.alert(
-        "Sichtbarkeit",
-        undefined,
-        visibilityOptions.map((option, optionIndex) => ({
-          text: option.label,
-          onPress: () => onSelect(optionIndex)
-        })).concat({ text: "Abbrechen", style: "cancel" })
-      );
+      const buttons: AlertButton[] = visibilityOptions.map((option, optionIndex) => ({
+        text: option.label,
+        onPress: () => onSelect(optionIndex)
+      }));
+      buttons.push({
+        text: copy.alerts.cancel,
+        style: "cancel",
+        onPress: () => onSelect(cancelButtonIndex)
+      });
+      Alert.alert(copy.alerts.visibilitySheetTitle, undefined, buttons);
     }
   };
 
   const handlePhotoActions = (photo: Photo) => {
-    const options = ["Sichtbarkeit ändern", "Freigaben widerrufen", "Foto löschen", "Abbrechen"];
+    const options = [
+      copy.alerts.changeVisibility,
+      copy.alerts.revokeShares,
+      copy.alerts.deletePhoto,
+      copy.alerts.cancel,
+    ];
     const cancelButtonIndex = options.length - 1;
     const onSelect = (index: number) => {
       switch (index) {
@@ -262,24 +1111,115 @@ const ProfileScreen = () => {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions({ options, cancelButtonIndex }, onSelect);
     } else {
-      Alert.alert(
-        "Foto-Aktionen",
-        undefined,
-        options.map((option, index) => ({
-          text: option,
-          onPress: () => onSelect(index),
-          style: index === cancelButtonIndex ? "cancel" : "default"
-        }))
-      );
+      const buttons: AlertButton[] = options.map((option, index) => ({
+        text: option,
+        onPress: () => onSelect(index),
+        style: index === cancelButtonIndex ? ("cancel" as const) : "default"
+      }));
+      Alert.alert(copy.alerts.photoActionsTitle, undefined, buttons);
     }
   };
 
-  return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>{profile.displayName}</Text>
-      <Text style={styles.subheader}>Mitglied seit {new Date(profile.createdAt).toLocaleDateString()}</Text>
+  const renderPhotoManagerModal = () => {
+    if (!profile) {
+      return null;
+    }
+    return (
+      <Modal
+        visible={isPhotoManagerVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={handlePhotoManagerDone}
+      >
+        <View style={styles.photoModalBackdrop}>
+          <Pressable style={styles.photoModalBackdropTouchable} onPress={handlePhotoManagerDone} />
+          <View style={styles.photoModalCard}>
+            <Text style={styles.photoModalTitle}>{copy.photoManager.title}</Text>
+            <Text style={styles.photoModalInstructions}>{copy.photoManager.instructions}</Text>
+            <View style={styles.photoGrid}>
+              {photoManagerSlots.map((slot, index) => {
+                if (slot) {
+                  const assetId = resolveAssetId(slot);
+                  const key = slot.id ?? `photo-${index}`;
+                  return (
+                    <View key={key} style={styles.photoSlot}>
+                      <Pressable
+                        style={styles.photoSlotPressable}
+                        // no drag/reorder, tap does nothing
+                        onPress={() => {}}
+                      >
+                        {assetId ? (
+                          <GuardedPhoto photoId={assetId} style={styles.photoSlotImage} blur={isIncognito} />
+                        ) : slot.url ? (
+                          isIncognito ? (
+                            <LinearGradient
+                              colors={["#b5b5b5", "#f2f2f2"]}
+                              start={{ x: 0.5, y: 0 }}
+                              end={{ x: 0.5, y: 1 }}
+                              style={[styles.photoSlotImage, styles.lockGradientTile]}
+                            >
+                              <Ionicons name="lock-closed" size={22} color="#f7f7f7" style={styles.lockIconCenter} />
+                            </LinearGradient>
+                          ) : (
+                            <Image source={{ uri: slot.url }} style={styles.photoSlotImage} />
+                          )
+                        ) : (
+                          <View style={[styles.photoSlotImage, styles.photoSlotPlaceholder]}>
+                            <Ionicons name="image-outline" size={26} color="#98a2b3" />
+                          </View>
+                        )}
+                      </Pressable>
+                      <Pressable style={styles.photoSlotRemove} onPress={() => handleDeletePhoto(slot)}>
+                        <Ionicons name="close" size={14} color="#34383c" />
+                      </Pressable>
+                      {isUploading && uploadingIndex === index ? (
+                        <View style={styles.photoSlotSpinner}>
+                          <ActivityIndicator color={BRAND_GREEN} />
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                }
+                return (
+                  <View key={`empty-${index}`} style={styles.photoSlot}>
+                    <Pressable
+                      style={[
+                        styles.photoSlotEmpty,
+                        isUploading && uploadingIndex === index && styles.photoSlotEmptyDisabled
+                      ]}
+                      onPress={() => handleAddPhoto(index)}
+                      disabled={isUploading && uploadingIndex === index}
+                    >
+                      {isUploading && uploadingIndex === index ? (
+                        <ActivityIndicator color={BRAND_GREEN} />
+                      ) : (
+                        <Ionicons name="add" size={28} color="#8c919f" />
+                      )}
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+            <Pressable style={styles.photoModalButton} onPress={handlePhotoManagerDone}>
+              <Text style={styles.photoModalButtonText}>{copy.photoManager.done}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  if (isEditing && profile) {
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <Pressable style={styles.backRow} onPress={() => setIsEditing(false)}>
+          <Ionicons name="chevron-back" size={20} color="#2b2d33" />
+          <Text style={styles.backText}>{copy.edit.back}</Text>
+        </Pressable>
+        <Text style={styles.editHeader}>{copy.edit.title}</Text>
+        <Text style={styles.subheader}>{copy.edit.subtitle}</Text>
       <FlatList
-        data={profile.photos}
+        data={profile?.photos ?? []}
         keyExtractor={(photo) => photo.id}
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -290,12 +1230,23 @@ const ProfileScreen = () => {
           return (
             <View style={styles.photoItem}>
               {canUseGuarded ? (
-                <GuardedPhoto photoId={numericId} style={styles.photo} />
+                <GuardedPhoto photoId={numericId} style={styles.photo} blur={isIncognito} />
               ) : item.url ? (
-                <Image style={styles.photo} source={{ uri: item.url }} />
+                isIncognito ? (
+                  <LinearGradient
+                    colors={["#b5b5b5", "#f2f2f2"]}
+                    start={{ x: 0.5, y: 0 }}
+                    end={{ x: 0.5, y: 1 }}
+                    style={[styles.photo, styles.lockGradientTile]}
+                  >
+                    <Ionicons name="lock-closed" size={22} color="#f7f7f7" style={styles.lockIconCenter} />
+                  </LinearGradient>
+                ) : (
+                  <Image style={styles.photo} source={{ uri: item.url }} />
+                )
               ) : (
                 <View style={[styles.photo, styles.placeholder]}>
-                  <Text style={styles.placeholderText}>Kein Foto</Text>
+                  <Text style={styles.placeholderText}>{copy.edit.noPhoto}</Text>
                 </View>
               )}
               <View style={styles.photoActions}>
@@ -306,7 +1257,7 @@ const ProfileScreen = () => {
               </View>
               {!item.assetId ? (
                 <Pressable style={styles.removeTag} onPress={() => handleDeletePhoto(item)}>
-                  <Text style={styles.removeTagText}>Entfernen</Text>
+                  <Text style={styles.removeTagText}>{copy.removePhoto}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -314,7 +1265,7 @@ const ProfileScreen = () => {
         }}
       />
       <View style={styles.section}>
-        <Text style={styles.label}>Sichtbarkeit neuer Fotos</Text>
+        <Text style={styles.label}>{copy.labels.visibility}</Text>
         <View style={styles.visibilityRow}>
           {visibilityOptions.map((option) => (
             <Pressable
@@ -335,13 +1286,15 @@ const ProfileScreen = () => {
         </View>
         <Pressable
           style={[styles.uploadButton, (isUploading || isSaving) && styles.saveButtonDisabled]}
-          onPress={handleAddPhoto}
+          onPress={() => handleAddPhoto()}
           disabled={isUploading || isSaving}
         >
-          <Text style={styles.saveButtonText}>{isUploading ? "Wird hochgeladen..." : "Foto hinzufügen"}</Text>
+          <Text style={styles.saveButtonText}>
+            {isUploading ? copy.buttons.addPhotoLoading : copy.buttons.addPhoto}
+          </Text>
         </Pressable>
       </View>
-      <Text style={styles.label}>Bio</Text>
+      <Text style={styles.label}>{copy.labels.bio}</Text>
       <TextInput
         value={bio}
         onChangeText={setBio}
@@ -349,52 +1302,452 @@ const ProfileScreen = () => {
         multiline
         numberOfLines={5}
         maxLength={300}
-        placeholder="Erzähle etwas über dich..."
+        placeholder={copy.placeholders.bio}
       />
-      <Text style={styles.label}>Interessen</Text>
+      <Text style={styles.label}>{copy.labels.interests}</Text>
       <TextInput
         value={interests}
         onChangeText={setInterests}
         style={styles.input}
-        placeholder="z.B. Reisen, Fitness, Musik"
+        placeholder={copy.placeholders.interests}
       />
       <View style={styles.section}>
         <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>Incognito-Modus</Text>
-          <Switch value={isIncognito} onValueChange={setIsIncognito} />
+          <Text style={styles.switchLabel}>{copy.labels.incognito}</Text>
+          <Switch
+            value={isIncognito}
+            onValueChange={setIsIncognito}
+            trackColor={{ true: BRAND_GREEN, false: "#d5d7dc" }}
+            thumbColor="#fff"
+          />
         </View>
         <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>Distanz anzeigen</Text>
+          <Text style={styles.switchLabel}>{copy.labels.showDistance}</Text>
           <Switch value={showDistance} onValueChange={setShowDistance} />
         </View>
         <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>Zuletzt online anzeigen</Text>
+          <Text style={styles.switchLabel}>{copy.labels.showLastSeen}</Text>
           <Switch value={showLastSeen} onValueChange={setShowLastSeen} />
         </View>
       </View>
-      <Pressable style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={handleSave} disabled={isSaving}>
-        <Text style={styles.saveButtonText}>{isSaving ? "Speichern..." : "Profil speichern"}</Text>
+        <Pressable
+          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={isSaving}
+        >
+          <Text style={styles.saveButtonText}>
+            {isSaving ? copy.buttons.saveLoading : copy.buttons.save}
+          </Text>
+        </Pressable>
+        <View style={styles.logoutSection}>
+          <Text style={styles.logoutHint}>{copy.hints.logoutSecondary}</Text>
+          <Pressable
+            style={[styles.logoutButton, isSigningOut && styles.logoutButtonDisabled]}
+            onPress={confirmSignOut}
+            disabled={isSigningOut}
+          >
+            <Text style={styles.logoutButtonText}>
+              {isSigningOut ? copy.buttons.signOutLoading : copy.buttons.signOut}
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  return (
+    <>
+      <ScrollView contentContainerStyle={styles.displayWrapper}>
+        <View style={styles.avatarWrapper}>
+          {isIncognito ? (
+            <LinearGradient
+              colors={["#b5b5b5", "#f2f2f2"]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={[styles.avatarImage, styles.lockGradientAvatar]}
+            >
+              <Ionicons name="lock-closed" size={26} color="#f7f7f7" style={styles.lockIconCenter} />
+            </LinearGradient>
+          ) : avatarUri ? (
+            <Image
+              source={{ uri: avatarUri }}
+              style={styles.avatarImage}
+              onError={() => setAvatarUri(null)}
+            />
+          ) : canUseHeroGuarded ? (
+            <GuardedPhoto photoId={guardAssetId as number} style={styles.avatarImage} />
+          ) : (
+            <View style={[styles.avatarImage, styles.avatarPlaceholder]}>
+              <Ionicons name="person" size={48} color="#98a2b3" />
+            </View>
+          )}
+        <Pressable
+          style={[styles.addButton, (isUploading || !profile) && styles.addButtonDisabled]}
+          onPress={openPhotoManager}
+          disabled={isUploading || !profile}
+        >
+          <Ionicons name="add" size={20} color="#fff" />
+        </Pressable>
+      </View>
+      <View style={styles.nameRow}>
+        <Text style={styles.nameText}>
+          {displayName}
+          {age ? `, ${age}` : ""}
+        </Text>
+        {isVerified ? (
+          <View style={styles.verifiedBadgeWrapper}>
+            <VerifiedBadge size={VERIFIED_BADGE_WRAPPER_SIZE} />
+          </View>
+        ) : null}
+      </View>
+      <View style={styles.locationRow}>
+        <Ionicons name="location-sharp" size={18} color="#6a6f7a" />
+        <Text style={styles.locationText}>{locationLabel}</Text>
+      </View>
+      <View style={styles.logoutSection}>
+        <View style={styles.switchRow}>
+          <Text style={styles.switchLabel}>{copy.labels.incognito}</Text>
+          <Switch
+            value={isIncognito}
+            onValueChange={handleToggleIncognitoDisplay}
+            disabled={isUpdatingIncognito || isSigningOut}
+            trackColor={{ true: BRAND_GREEN, false: "#d5d7dc" }}
+            thumbColor="#fff"
+          />
+        </View>
+        {!isEmailVerified && (
+          <View style={styles.verificationCard}>
+            <Text style={styles.verificationTitle}>{copy.verification.title}</Text>
+            <Text style={styles.verificationSubtitle}>{copy.verification.subtitle}</Text>
+            <Pressable
+              style={[styles.verificationButton, isSendingVerification && styles.logoutButtonDisabled]}
+              onPress={handleResendVerification}
+              disabled={isSendingVerification}
+            >
+              <Text style={styles.verificationButtonText}>
+                {isSendingVerification ? copy.buttons.resendEmailLoading : copy.buttons.resendEmail}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+        <View style={styles.logoutRow}>
+          <Pressable
+            style={[styles.logoutButton, isSigningOut && styles.logoutButtonDisabled]}
+            onPress={confirmSignOut}
+            disabled={isSigningOut}
+          >
+            <Text style={styles.logoutButtonText}>
+              {isSigningOut ? copy.buttons.signOutLoading : copy.buttons.signOut}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+      <Pressable
+        style={[
+          styles.infoButton,
+          styles.infoButtonOverlay,
+          { bottom: Math.max(20, insets.bottom + 12) }
+        ]}
+        onPress={() => navigation.navigate("Legal")}
+      >
+        <Ionicons name="information-circle-outline" size={22} color="#2b2d33" />
       </Pressable>
     </ScrollView>
+    {renderPhotoManagerModal()}
+  </>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#fff"
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    backgroundColor: "#fff"
+  },
+  loadingText: {
+    color: "#1f2933",
+    fontSize: 16,
+    textAlign: "center"
+  },
+  displayWrapper: {
+    flexGrow: 1,
+    paddingTop: PROFILE_SCREEN_TOP_PADDING,
+    paddingBottom: 40,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    paddingHorizontal: 32
+  },
+  avatarWrapper: {
+    position: "relative"
+  },
+  avatarImage: {
+    width: PROFILE_AVATAR_SIZE,
+    height: PROFILE_AVATAR_SIZE,
+    borderRadius: PROFILE_AVATAR_SIZE / 2,
+    backgroundColor: "#f2f4f7"
+  },
+  lockGradientAvatar: {
+    borderRadius: PROFILE_AVATAR_SIZE / 2
+  },
+  lockGradientTile: {
+    borderRadius: 12
+  },
+  lockIconCenter: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -13 }, { translateY: -13 }]
+  },
+  avatarPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  addButton: {
+    position: "absolute",
+    bottom: PROFILE_ADD_BUTTON_BOTTOM,
+    right: PROFILE_ADD_BUTTON_RIGHT,
+    width: PROFILE_ADD_BUTTON_SIZE,
+    height: PROFILE_ADD_BUTTON_SIZE,
+    borderRadius: PROFILE_ADD_BUTTON_RADIUS,
+    backgroundColor: BRAND_GREEN,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#fff",
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4
+  },
+  addButtonDisabled: {
+    opacity: 0.5
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 24
+  },
+  nameText: {
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#1f2933",
+    textTransform: "none"
+  },
+  verifiedBadgeWrapper: {
+    marginLeft: 0,
+    width: VERIFIED_BADGE_WRAPPER_SIZE,
+    height: VERIFIED_BADGE_WRAPPER_SIZE,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "visible"
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    gap: 6
+  },
+  locationText: {
+    fontSize: 16,
+    color: "#6a6f7a"
+  },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 28
+  },
+  primaryAction: {
+    backgroundColor: "#f3f4f6",
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 999,
+    minWidth: 200,
+    alignItems: "center"
+  },
+  primaryActionDisabled: {
+    opacity: 0.6
+  },
+  primaryActionText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#2b2d33"
+  },
+  infoButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#e9e9e9",
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2
+  },
+  infoButtonOverlay: {
+    position: "absolute",
+    right: 20,
+    bottom: 20
+  },
+  photoModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    justifyContent: "flex-end"
+  },
+  photoModalBackdropTouchable: {
+    ...StyleSheet.absoluteFillObject
+  },
+  photoModalCard: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 30
+  },
+  photoModalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1f2933",
+    textAlign: "center"
+  },
+  photoModalSubtitle: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#6a6f7a",
+    textAlign: "center"
+  },
+  photoModalInstructions: {
+    marginTop: 12,
+    fontSize: 13,
+    color: "#475467",
+    textAlign: "center"
+  },
+  photoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 24
+  },
+  photoSlot: {
+    width: "30%",
+    aspectRatio: 0.66,
+    borderRadius: 18,
+    overflow: "hidden",
+    position: "relative",
+    backgroundColor: "#f2f4f7",
+    marginBottom: 16
+  },
+  photoSlotPressable: {
+    flex: 1
+  },
+  photoSlotImage: {
+    width: "100%",
+    height: "100%"
+  },
+  photoSlotPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f4f5f7"
+  },
+  photoSlotRemove: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#e9e9e9",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  photoSlotEmpty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#d5d9e2",
+    borderStyle: "dashed",
+    borderRadius: 18,
+    backgroundColor: "#f8f9fb"
+  },
+  photoSlotEmptyDisabled: {
+    opacity: 0.5
+  },
+  primaryBadge: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#0d6e4f"
+  },
+  photoModalButton: {
+    marginTop: 28,
+    backgroundColor: BRAND_GREEN,
+    paddingVertical: 14,
+    borderRadius: 999,
+    alignItems: "center"
+  },
+  photoModalButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600"
+  },
+  dragOverlay: {
+    position: "absolute",
+    borderRadius: 18,
+    overflow: "hidden",
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 8
+  },
+  photoSlotSpinner: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.75)",
+    borderRadius: 10
+  },
   container: {
-    padding: 20
+    padding: 20,
+    backgroundColor: "#fff"
   },
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center"
   },
-  header: {
-    fontSize: 26,
+  backRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8
+  },
+  backText: {
+    marginLeft: 6,
+    fontSize: 16,
+    color: "#2b2d33"
+  },
+  editHeader: {
+    fontSize: 24,
     fontWeight: "700"
   },
   subheader: {
     fontSize: 14,
-    color: "#777",
+    color: "#6b7280",
     marginBottom: 16
   },
   section: {
@@ -479,11 +1832,11 @@ const styles = StyleSheet.create({
     borderColor: "#cfd8dc"
   },
   visibilityChipActive: {
-    backgroundColor: "#2f5d62",
-    borderColor: "#2f5d62"
+    backgroundColor: BRAND_GREEN,
+    borderColor: BRAND_GREEN
   },
   visibilityChipText: {
-    color: "#2f5d62",
+    color: BRAND_GREEN,
     fontSize: 13,
     fontWeight: "500"
   },
@@ -492,7 +1845,7 @@ const styles = StyleSheet.create({
   },
   uploadButton: {
     marginTop: 12,
-    backgroundColor: "#2f5d62",
+    backgroundColor: BRAND_GREEN,
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: "center"
@@ -517,7 +1870,7 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: 20,
-    backgroundColor: "#2f5d62",
+    backgroundColor: BRAND_GREEN,
     paddingVertical: 14,
     borderRadius: 12
   },
@@ -539,6 +1892,79 @@ const styles = StyleSheet.create({
   switchLabel: {
     fontSize: 16,
     color: "#333"
+  },
+  logoutSection: {
+    width: "100%",
+    marginTop: 32,
+    alignItems: "stretch",
+    gap: 12
+  },
+  logoutHint: {
+    fontSize: 14,
+    color: "#6a6f7a",
+    textAlign: "left",
+    flex: 1
+  },
+  verificationCard: {
+    width: "100%",
+    backgroundColor: "#f3f6fb",
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16
+  },
+  verificationTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0f172a",
+    marginBottom: 4,
+    textAlign: "center"
+  },
+  verificationSubtitle: {
+    fontSize: 14,
+    color: "#475467",
+    marginBottom: 12,
+    textAlign: "center"
+  },
+  verificationButton: {
+    backgroundColor: "#0d6e4f",
+    paddingVertical: 12,
+    borderRadius: 10
+  },
+  verificationButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    textAlign: "center"
+  },
+  logoutButton: {
+    backgroundColor: "#0f172a",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: "#0f172a",
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2
+  },
+  logoutButtonDisabled: {
+    opacity: 0.6
+  },
+  logoutButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16
+  },
+  logoutRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 12
+  },
+  logoutRowButton: {
+    paddingHorizontal: 20,
+    alignSelf: "flex-end"
   }
 });
 

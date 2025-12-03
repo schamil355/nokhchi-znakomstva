@@ -4,24 +4,28 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  Logger,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import axios from "axios";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { StorageService } from "../common/services/storage.service";
 import { RekognitionService } from "../common/services/rekognition.service";
 import { OtpChannel, OtpService } from "../common/services/otp.service";
 import { RateLimitService } from "../common/services/rate-limit.service";
 import { createHash } from "crypto";
+import { getSupabaseAdminClient } from "../common/supabase-admin";
 
 type VerificationStatus = "pending" | "selfie_ok" | "otp_ok" | "completed" | "failed";
 
 @Injectable()
 export class VerificationService {
+  private readonly logger = new Logger(VerificationService.name);
   private readonly sessionTtlMinutes: number;
   private readonly tempImageTtlMinutes: number;
   private readonly requiredOnSignup: boolean;
   private readonly selfieHashSalt: string;
+  private readonly supabase = getSupabaseAdminClient();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -63,14 +67,12 @@ export class VerificationService {
       },
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId,
-        action: "verification_started",
-        meta: {
-          sessionId: session.id,
-          expiresAt: expiresAt.toISOString(),
-        },
+    await this.recordAuditLog({
+      userId,
+      action: "verification_started",
+      meta: {
+        sessionId: session.id,
+        expiresAt: expiresAt.toISOString(),
       },
     });
 
@@ -118,6 +120,7 @@ export class VerificationService {
   }): Promise<{ similarity: number; next: string }>
   {
     const { userId, sessionId, captureFlag, mimeType, buffer, ip } = params;
+    this.logger.log(`uploadSelfie start user=${userId} session=${sessionId}`);
     if (!captureFlag) {
       throw new BadRequestException("CAMERA_CAPTURE_REQUIRED");
     }
@@ -130,31 +133,36 @@ export class VerificationService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      select: { id: true },
     });
-    if (!user?.profilePhotoUrl) {
-      throw new BadRequestException("PROFILE_PHOTO_REQUIRED");
+    if (!user) {
+      throw new NotFoundException("USER_NOT_FOUND");
     }
 
-    const selfieKey = await this.storage.uploadTempSelfie(buffer, mimeType);
+    let selfieKey: string | null = null;
     let similarityScore = 0;
     let confidenceScore = 0;
     let matched = false;
     const selfieHash = this.hashPayload(buffer);
 
     try {
-      const profileResponse = await axios.get<ArrayBuffer>(user.profilePhotoUrl, {
-        responseType: "arraybuffer",
-      });
-      const profileBuffer = Buffer.from(profileResponse.data);
+      selfieKey = await this.storage.uploadTempSelfie(buffer, mimeType);
+      this.logger.log(`uploadSelfie stored temp key=${selfieKey}`);
+      const profileBuffer = await this.fetchPrimaryPhotoBuffer(userId);
       const comparison = await this.rekognitionService.compareFaces(buffer, profileBuffer);
       similarityScore = comparison.similarity / 100;
       confidenceScore = Math.min(1, comparison.confidence / 100);
       matched = comparison.matched;
     } catch (error) {
+      this.logger.error(
+        `uploadSelfie error user=${userId} session=${sessionId}: ${(error as Error)?.message}`,
+        (error as Error)?.stack
+      );
       throw error instanceof BadRequestException ? error : new InternalServerErrorException("FACE_COMPARE_FAILED");
     } finally {
-      // Ensure raw artifacts never persist longer than the verification request lifecycle.
-      await this.storage.deleteObject(selfieKey);
+      if (selfieKey) {
+        await this.storage.deleteObject(selfieKey);
+      }
     }
 
     const livenessThreshold = this.configService.get<number>("verification.livenessThreshold", 0.5);
@@ -170,7 +178,7 @@ export class VerificationService {
       failureReason = null;
     }
 
-    await this.prisma.$transaction(async (tx: PrismaService) => {
+    await this.prisma.$transaction(async (tx) => {
       await tx.verificationSession.update({
         where: { id: sessionId },
         data: {
@@ -181,18 +189,17 @@ export class VerificationService {
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          userId,
-          action: matched ? "selfie_verified" : "selfie_failed",
-          meta: {
-            sessionId,
-            similarity: similarityScore,
-            confidence: confidenceScore,
-            selfieHash,
-            ip,
-          },
+      await this.recordAuditLog({
+        userId,
+        action: matched ? "selfie_verified" : "selfie_failed",
+        meta: {
+          sessionId,
+          similarity: similarityScore,
+          confidence: confidenceScore,
+          selfieHash,
+          ip,
         },
+        tx,
       });
     });
 
@@ -256,14 +263,12 @@ export class VerificationService {
 
     await this.rateLimitService.setWithExpiry(`risk:otp:${ip}`, "otp_sent", this.configService.get<number>("otp.resendCooldownSeconds", 60));
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId,
-        action: "otp_sent",
-        meta: {
-          channel: resolvedChannel,
-          sessionId: session.id,
-        },
+    await this.recordAuditLog({
+      userId,
+      action: "otp_sent",
+      meta: {
+        channel: resolvedChannel,
+        sessionId: session.id,
       },
     });
 
@@ -286,14 +291,12 @@ export class VerificationService {
     const attemptKey = `otp-verify:${userId}:${sessionId}:${channel}`;
     const attemptLimited = await this.rateLimitService.isRateLimited(attemptKey, 3, 900);
     if (attemptLimited) {
-      await this.prisma.auditLog.create({
-        data: {
-          userId,
-          action: "otp_cooldown",
-          meta: {
-            sessionId,
-            channel,
-          },
+      await this.recordAuditLog({
+        userId,
+        action: "otp_cooldown",
+        meta: {
+          sessionId,
+          channel,
         },
       });
       throw new ForbiddenException("OTP_RATE_LIMIT");
@@ -301,14 +304,12 @@ export class VerificationService {
 
     const success = await this.otpService.verify(userId, channel, code);
     if (!success) {
-      await this.prisma.auditLog.create({
-        data: {
-          userId,
-          action: "otp_failed",
-          meta: {
-            sessionId,
-            channel,
-          },
+      await this.recordAuditLog({
+        userId,
+        action: "otp_failed",
+        meta: {
+          sessionId,
+          channel,
         },
       });
       throw new BadRequestException("OTP_INVALID");
@@ -316,7 +317,7 @@ export class VerificationService {
 
     let finalStatus: VerificationStatus = session.status === "selfie_ok" ? "completed" : "otp_ok";
 
-    await this.prisma.$transaction(async (tx: PrismaService) => {
+    await this.prisma.$transaction(async (tx) => {
       await tx.verificationSession.update({
         where: { id: sessionId },
         data: {
@@ -328,20 +329,21 @@ export class VerificationService {
         await tx.profile.update({
           where: { userId },
           data: {
+            verified: true,
             verifiedAt: new Date(),
+            verifiedMethod: "selfie",
             verifiedScore: session.similarityScore,
           },
         });
       }
 
-      await tx.auditLog.create({
-        data: {
-          userId,
-          action: finalStatus === "completed" ? "verified" : "otp_ok",
-          meta: {
-            sessionId,
-          },
+      await this.recordAuditLog({
+        userId,
+        action: finalStatus === "completed" ? "verified" : "otp_ok",
+        meta: {
+          sessionId,
         },
+        tx,
       });
     });
 
@@ -383,60 +385,76 @@ export class VerificationService {
       },
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId,
-        action: "override",
-        meta: {
-          reason,
-          adminId,
-        },
+    await this.recordAuditLog({
+      userId,
+      action: "override",
+      meta: {
+        reason,
+        adminId,
       },
     });
   }
 
   async expireSessions(): Promise<void> {
-    const expiredSessions = await this.prisma.verificationSession.findMany({
-      where: {
-        expiresAt: {
-          lt: new Date(),
+    try {
+      const expiredSessions = await this.prisma.verificationSession.findMany({
+        where: {
+          expiresAt: {
+            lt: new Date(),
+          },
+          status: {
+            in: ["pending", "selfie_ok", "otp_ok"],
+          },
         },
-        status: {
-          in: ["pending", "selfie_ok", "otp_ok"],
+        select: {
+          id: true,
+          userId: true,
         },
-      },
-      select: {
-        id: true,
-        userId: true,
-      },
-    });
+      });
 
-    if (!expiredSessions.length) {
-      return;
-    }
+      if (!expiredSessions.length) {
+        return;
+      }
 
-    await this.prisma.verificationSession.updateMany({
-      where: {
-        id: {
-          in: expiredSessions.map((session: { id: string }) => session.id),
+      await this.prisma.verificationSession.updateMany({
+        where: {
+          id: {
+            in: expiredSessions.map((session: { id: string }) => session.id),
+          },
         },
-      },
-      data: {
-        status: "failed",
-        failureReason: "expired",
-      },
-    });
-
-    for (const session of expiredSessions) {
-      await this.prisma.auditLog.create({
         data: {
+          status: "failed",
+          failureReason: "expired",
+        },
+      });
+
+      for (const session of expiredSessions) {
+        await this.recordAuditLog({
           userId: session.userId,
           action: "verification_session_expired",
           meta: {
             sessionId: session.id,
           },
-        },
-      });
+        });
+      }
+    } catch (error) {
+      const message = (error as Error)?.message ?? "";
+      // Ignore prepared-statement clashes on pooled connections and try next run.
+      if (message.includes('prepared statement "s0" already exists')) {
+        this.logger.warn("expireSessions skipped due to prepared statement conflict; will retry next run.");
+        return;
+      }
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError ||
+        message.toLowerCase().includes("server has closed the connection") ||
+        message.toLowerCase().includes("connection") ||
+        message.toLowerCase().includes("timeout")
+      ) {
+        this.logger.warn(`expireSessions skipped due to transient prisma error: ${message}`);
+        return;
+      }
+      this.logger.error("expireSessions failed", error as Error);
+      return;
     }
   }
 
@@ -473,5 +491,62 @@ export class VerificationService {
     }
     hash.update(buffer);
     return hash.digest("hex");
+  }
+
+  private async fetchPrimaryPhotoBuffer(userId: string): Promise<Buffer> {
+    this.logger.log(`fetchPrimaryPhotoBuffer user=${userId}`);
+    const profile = await this.prisma.profile.findUnique({
+      where: { userId },
+      select: { primary_photo_path: true, primary_photo_id: true },
+    });
+    if (!profile) {
+      throw new BadRequestException("PROFILE_PHOTO_REQUIRED");
+    }
+
+    let storagePath = profile.primary_photo_path ?? undefined;
+    let bucket = this.configService.get<string>("PHOTOS_ORIGINAL_BUCKET") ?? "photos_private";
+
+    if (!storagePath && profile.primary_photo_id !== null) {
+      const asset = await this.prisma.photo_assets.findUnique({
+        where: { id: profile.primary_photo_id },
+        select: { storage_path: true, storage_bucket: true },
+      });
+      if (!asset) {
+        throw new BadRequestException("PROFILE_PHOTO_REQUIRED");
+      }
+      storagePath = asset.storage_path;
+      bucket = asset.storage_bucket ?? bucket;
+    }
+
+    if (!storagePath) {
+      throw new BadRequestException("PROFILE_PHOTO_REQUIRED");
+    }
+
+    const { data, error } = await this.supabase.storage.from(bucket).download(storagePath);
+    if (error || !data) {
+      this.logger.error(
+        `PROFILE_PHOTO_DOWNLOAD_FAILED bucket=${bucket} path=${storagePath}: ${error?.message ?? "no data"}`
+      );
+      throw new InternalServerErrorException("PROFILE_PHOTO_DOWNLOAD_FAILED");
+    }
+    const arrayBuffer = await data.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+
+  private async recordAuditLog(params: {
+    userId: string;
+    action: string;
+    meta?: Record<string, unknown>;
+    tx?: Prisma.TransactionClient;
+  }): Promise<void> {
+    const target = params.tx ?? this.prisma;
+    const metaValue = params.meta ? (params.meta as Prisma.InputJsonValue) : Prisma.JsonNull;
+    await target.auditLog.create({
+      data: {
+        userId: params.userId,
+        action: params.action,
+        meta: metaValue,
+      },
+    });
   }
 }

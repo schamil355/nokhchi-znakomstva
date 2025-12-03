@@ -23,10 +23,14 @@ export class PhotosService {
   private readonly logger = new Logger(PhotosService.name);
   private readonly supabase: SupabaseClient;
   private readonly signTtlSeconds: number;
+  private readonly originalBucket: string;
+  private readonly blurredBucket: string;
 
   constructor(private readonly rateLimitService: RateLimitService, configService: ConfigService) {
     this.supabase = getSupabaseAdminClient();
     this.signTtlSeconds = Number(configService.get("SIGN_TTL_SECONDS") ?? 120);
+    this.originalBucket = configService.get<string>("PHOTOS_ORIGINAL_BUCKET") ?? "profile-photos";
+    this.blurredBucket = configService.get<string>("PHOTOS_BLURRED_BUCKET") ?? "photos_blurred";
   }
 
   async registerPhoto(ownerId: string, payload: RegisterPhotoDto) {
@@ -52,9 +56,9 @@ export class PhotosService {
       .from("photo_assets")
       .insert({
         owner_id: ownerId,
-        storage_bucket: "photos_private",
+        storage_bucket: this.originalBucket,
         storage_path: payload.storagePath,
-        blurred_bucket: "photos_blurred",
+        blurred_bucket: this.blurredBucket,
         blurred_path: blurredPath,
         visibility_mode: payload.visibility_mode,
       })
@@ -62,8 +66,9 @@ export class PhotosService {
       .single();
 
     if (error || !data) {
+      const reason = error?.message ?? error?.details ?? "PHOTO_ASSET_INSERT_FAILED";
       this.logger.error("Failed to persist photo asset", error);
-      throw new BadRequestException("PHOTO_ASSET_INSERT_FAILED");
+      throw new BadRequestException(reason);
     }
 
     return { photoId: data.id };
@@ -191,7 +196,7 @@ export class PhotosService {
   }
 
   private async downloadOriginal(storagePath: string): Promise<Buffer> {
-    const { data, error } = await this.supabase.storage.from("photos_private").download(storagePath);
+    const { data, error } = await this.supabase.storage.from(this.originalBucket).download(storagePath);
     if (error || !data) {
       this.logger.error(`Failed to download original photo ${storagePath}`, error);
       throw new NotFoundException("PHOTO_NOT_FOUND");

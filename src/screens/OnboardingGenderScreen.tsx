@@ -1,0 +1,338 @@
+import React, { useRef, useState, useCallback, useEffect } from "react";
+import { Image, NativeSyntheticEvent, Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useOnboardingStore } from "../state/onboardingStore";
+import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { usePreferencesStore } from "../state/preferencesStore";
+
+const ACCENT_COLOR = "#0d6e4f";
+
+type Props = NativeStackScreenProps<any>;
+
+type GenderValue = "male" | "female";
+
+type GenderOption = {
+  value: GenderValue;
+  image: ReturnType<typeof require>;
+};
+
+type KeyPressEvent = NativeSyntheticEvent<{
+  key: string;
+}>;
+
+const genderOptions: GenderOption[] = [
+  {
+    value: "male",
+    image: require("../../assets/male_avatar.png")
+  },
+  {
+    value: "female",
+    image: require("../../assets/female_avatar.png")
+  }
+];
+
+type FocusableCard = View & { focus?: () => void };
+
+const translations = {
+  en: {
+    title: "What is your gender?",
+    hint: "Double tap or press Enter to choose this option",
+    continue: "Continue",
+    back: "Back",
+    selected: "Selected",
+    male: "Male",
+    female: "Female"
+  },
+  de: {
+    title: "Was ist dein Geschlecht?",
+    hint: "Doppeltippen oder Enter, um diese Option zu wählen",
+    continue: "Weiter",
+    back: "Zurück",
+    selected: "Ausgewählt",
+    male: "Männlich",
+    female: "Weiblich"
+  },
+  fr: {
+    title: "Quel est ton genre ?",
+    hint: "Touchez deux fois ou appuyez sur Entrée pour choisir cette option",
+    continue: "Continuer",
+    back: "Retour",
+    selected: "Sélectionné",
+    male: "Homme",
+    female: "Femme"
+  },
+  ru: {
+    title: "Какой у тебя пол?",
+    hint: "Дважды нажми или Enter, чтобы выбрать",
+    continue: "Далее",
+    back: "Назад",
+    selected: "Выбрано",
+    male: "Мужской",
+    female: "Женский"
+  }
+};
+
+const OnboardingGenderScreen = ({ navigation }: Props) => {
+  const copy = useLocalizedCopy(translations);
+  const selectedGender = useOnboardingStore((state) => state.selectedGender);
+  const setGender = useOnboardingStore((state) => state.setGender);
+  const setFilters = usePreferencesStore((state) => state.setFilters);
+  const [focusedCard, setFocusedCard] = useState<GenderValue | null>(null);
+  const cardRefs = useRef<(FocusableCard | null)[]>([]);
+
+  useEffect(() => {
+    if (selectedGender === "male") {
+      setFilters({ genders: ["female"] });
+    } else if (selectedGender === "female") {
+      setFilters({ genders: ["male"] });
+    }
+  }, [selectedGender, setFilters]);
+
+  const focusCardByIndex = useCallback((nextIndex: number) => {
+    const safeIndex = ((nextIndex % genderOptions.length) + genderOptions.length) % genderOptions.length;
+    const ref = cardRefs.current[safeIndex];
+    ref?.focus?.();
+  }, []);
+
+  const handleCardKeyDown = useCallback(
+    (event: KeyPressEvent, currentIndex: number) => {
+      const key = event.nativeEvent.key;
+      if (key === "ArrowRight" || key === "ArrowDown") {
+        event.preventDefault?.();
+        focusCardByIndex(currentIndex + 1);
+      }
+      if (key === "ArrowLeft" || key === "ArrowUp") {
+        event.preventDefault?.();
+        focusCardByIndex(currentIndex - 1);
+      }
+      if (key === " " || key === "Enter") {
+        event.preventDefault?.();
+        const option = genderOptions[currentIndex];
+        setGender(option.value);
+      }
+    },
+    [focusCardByIndex, setGender]
+  );
+
+  const handleContinue = () => {
+    if (!selectedGender) {
+      return;
+    }
+    navigation.navigate("OnboardingName");
+  };
+
+  const handleBack = () => {
+    navigation.navigate("CreateAccount");
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+        <Pressable
+          onPress={handleBack}
+          accessibilityRole="button"
+          accessibilityLabel={copy.back}
+          style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+        >
+          <Ionicons name="chevron-back" size={24} color="#1f1f1f" />
+        </Pressable>
+        <View style={styles.progressTrack}>
+            <View style={styles.progressFill} />
+          </View>
+        </View>
+
+        <View style={styles.content}>
+          <Text style={styles.title}>{copy.title}</Text>
+          <View style={styles.cards} accessibilityRole="radiogroup">
+            {genderOptions.map((option, index) => {
+              const isSelected = selectedGender === option.value;
+              const isFocused = focusedCard === option.value;
+              const label = option.value === "male" ? copy.male : copy.female;
+              return (
+                <Pressable
+                  key={option.value}
+                  ref={(node) => {
+                    cardRefs.current[index] = node;
+                  }}
+                  onPress={() => setGender(option.value)}
+                  onFocus={() => setFocusedCard(option.value)}
+                  onBlur={() => setFocusedCard((value) => (value === option.value ? null : value))}
+                  onKeyDown={(event) => handleCardKeyDown(event, index)}
+                  accessibilityRole="radio"
+                  accessibilityLabel={label}
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityHint={copy.hint}
+                  focusable
+                  style={({ pressed }) => [
+                    styles.card,
+                    isSelected && styles.cardSelected,
+                    isFocused && styles.cardFocused,
+                    pressed && styles.cardPressed
+                  ]}
+                >
+                  <View style={styles.cardImageWrapper}>
+                    <Image
+                      source={option.image}
+                      style={styles.cardImage}
+                      resizeMode="contain"
+                      accessibilityIgnoresInvertColors
+                      accessibilityRole="image"
+                      accessibilityLabel={label}
+                    />
+                  </View>
+                  <Text style={styles.cardLabel}>{label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <Pressable
+          onPress={handleContinue}
+          disabled={!selectedGender}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !selectedGender }}
+          accessibilityHint={selectedGender ? copy.continue : copy.hint}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            !selectedGender && styles.primaryButtonDisabled,
+            pressed && selectedGender && styles.primaryButtonPressed
+          ]}
+        >
+          <Text style={styles.primaryButtonText}>{copy.continue}</Text>
+          <Ionicons name="arrow-forward" size={18} color="#fff" />
+        </Pressable>
+
+      </View>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#ffffff"
+  },
+  container: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 24,
+    paddingBottom: 32
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 32
+  },
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff"
+  },
+  backButtonPressed: {
+    opacity: 0.7
+  },
+  progressTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: "#f1f1f1",
+    borderRadius: 999
+  },
+  progressFill: {
+    width: "20%",
+    height: "100%",
+    backgroundColor: ACCENT_COLOR,
+    borderRadius: 999
+  },
+  content: {
+    flex: 1
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "600",
+    color: "#121212",
+    marginBottom: 24,
+    textAlign: "center"
+  },
+  cards: {
+    flexDirection: "row",
+    gap: 16,
+    flexWrap: "wrap"
+  },
+  card: {
+    flex: 1,
+    minWidth: 140,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#e6e6e6",
+    paddingVertical: 28,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    backgroundColor: "#fafafa"
+  },
+  cardSelected: {
+    borderColor: ACCENT_COLOR,
+    backgroundColor: "#ecf5f1",
+    shadowColor: ACCENT_COLOR,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4
+  },
+  cardFocused: {
+    borderColor: ACCENT_COLOR
+  },
+  cardPressed: {
+    transform: [{ scale: 0.98 }]
+  },
+  cardImageWrapper: {
+    width: 120,
+    height: 120,
+    marginBottom: 16
+  },
+  cardImage: {
+    width: "100%",
+    height: "100%"
+  },
+  cardLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#1f1f1f"
+  },
+  primaryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: ACCENT_COLOR,
+    paddingVertical: 16,
+    borderRadius: 999
+  },
+  primaryButtonPressed: {
+    opacity: 0.85
+  },
+  primaryButtonDisabled: {
+    backgroundColor: "#c6dcd3"
+  },
+  primaryButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600"
+  },
+  helperText: {
+    marginTop: 12,
+    textAlign: "center",
+    color: "#4a4a4a"
+  }
+});
+
+export default OnboardingGenderScreen;

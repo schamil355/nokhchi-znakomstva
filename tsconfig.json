@@ -7,14 +7,15 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "lib": ["ES2019", "DOM"],
-    "moduleResolution": "node",
-    "module": "esnext",
+    "moduleResolution": "nodenext",
+    "module": "nodenext",
     "noEmit": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2019",
-    "types": ["jest", "react", "react-native"]
+    "types": ["jest", "react"],
+    "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "extends": "expo/tsconfig.base"
 }

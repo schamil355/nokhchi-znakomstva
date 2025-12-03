@@ -1,0 +1,462 @@
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Alert as RNAlert
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { useAuthStore } from "../state/authStore";
+import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { TouchableOpacity } from "react-native-gesture-handler";
+
+type Props = NativeStackScreenProps<any>;
+
+const ACCENT = "#0d6e4f";
+
+  const translations = {
+    de: {
+    title: "Registrieren",
+    back: "Zur Auswahl zurück",
+    emailPlaceholder: "Gültige E-Mail",
+    phonePlaceholder: "Telefonnummer",
+    passwordPlaceholder: "Passwort",
+    consentText: "Mit dem Häkchen stimmst du unseren",
+    consentSuffix: " zu.",
+    terms: "Bedingungen",
+    conditions: "Datenschutz",
+    and: "und",
+    loading: "Lädt...",
+    next: "Weiter",
+    member: "Schon Mitglied?",
+    login: "Einloggen",
+    hintMissingEmail: "Bitte E-Mail und Passwort eingeben.",
+    hintMissingPhone: "Bitte Telefonnummer und Passwort eingeben.",
+    signupFailed: "Registrierung fehlgeschlagen",
+    tryAgain: "Bitte versuche es erneut.",
+    phoneFormatTitle: "Format",
+    phoneFormatMessage: "Bitte gib die Telefonnummer im internationalen Format (z. B. +49123...) ein.",
+    otpTitle: "SMS-Code eingeben",
+    otpSubtitle: "Wir haben dir einen Bestätigungscode gesendet.",
+    otpPlaceholder: "123456",
+    otpSubmit: "Bestätigen",
+    otpInvalidTitle: "Code ungültig",
+    otpInvalidBody: "Bitte erneut versuchen."
+  },
+  en: {
+    title: "Create account",
+    back: "Back to choice",
+    emailPlaceholder: "Valid email",
+    phonePlaceholder: "Phone number",
+    passwordPlaceholder: "Password",
+    consentText: "By checking the box you agree to our",
+    consentSuffix: ".",
+    terms: "Terms",
+    conditions: "Conditions",
+    and: "and",
+    loading: "Loading...",
+    next: "Next",
+    member: "Already a member?",
+    login: "Log In",
+    hintMissingEmail: "Please enter email and password.",
+    hintMissingPhone: "Please enter phone number and password.",
+    signupFailed: "Registration failed",
+    tryAgain: "Please try again.",
+    phoneFormatTitle: "Format",
+    phoneFormatMessage: "Please enter the phone number in international format (e.g. +49123...).",
+    otpTitle: "Enter SMS code",
+    otpSubtitle: "We sent you a verification code.",
+    otpPlaceholder: "123456",
+    otpSubmit: "Confirm",
+    otpInvalidTitle: "Invalid code",
+    otpInvalidBody: "Please try again."
+  },
+  fr: {
+    title: "Créer un compte",
+    back: "Retour au choix",
+    emailPlaceholder: "Email valide",
+    phonePlaceholder: "Numéro de téléphone",
+    passwordPlaceholder: "Mot de passe",
+    consentText: "En cochant la case, tu acceptes nos",
+    consentSuffix: ".",
+    terms: "Conditions",
+    conditions: "Confidentialité",
+    and: "et",
+    loading: "Chargement...",
+    next: "Suivant",
+    member: "Déjà membre ?",
+    login: "Connexion",
+    hintMissingEmail: "Merci de saisir email et mot de passe.",
+    hintMissingPhone: "Merci de saisir téléphone et mot de passe.",
+    signupFailed: "Échec de l'inscription",
+    tryAgain: "Réessaie.",
+    phoneFormatTitle: "Format",
+    phoneFormatMessage: "Merci de saisir le numéro au format international (ex. +49123…).",
+    otpTitle: "Saisis le code SMS",
+    otpSubtitle: "Nous t'avons envoyé un code de vérification.",
+    otpPlaceholder: "123456",
+    otpSubmit: "Valider",
+    otpInvalidTitle: "Code invalide",
+    otpInvalidBody: "Merci de réessayer."
+  },
+  ru: {
+    title: "Регистрация",
+    back: "Назад к выбору",
+    emailPlaceholder: "Введите e-mail",
+    phonePlaceholder: "Номер телефона",
+    passwordPlaceholder: "Пароль",
+    consentText: "Отмечая, вы соглашаетесь с нашими",
+    consentSuffix: ".",
+    terms: "Условиями",
+    conditions: "Политикой",
+    and: "и",
+    loading: "Загрузка...",
+    next: "Далее",
+    member: "Уже есть аккаунт?",
+    login: "Войти",
+    hintMissingEmail: "Введите e-mail и пароль.",
+    hintMissingPhone: "Введите телефон и пароль.",
+    signupFailed: "Не удалось зарегистрироваться",
+    tryAgain: "Попробуйте еще раз.",
+    phoneFormatTitle: "Формат",
+    phoneFormatMessage: "Введи номер в международном формате (например, +49123...).",
+    otpTitle: "Введите SMS-код",
+    otpSubtitle: "Мы отправили проверочный код.",
+    otpPlaceholder: "123456",
+    otpSubmit: "Подтвердить",
+    otpInvalidTitle: "Код недействителен",
+    otpInvalidBody: "Попробуйте ещё раз."
+  }
+};
+
+const CreateAccountScreen = ({ navigation, route }: Props) => {
+  const mode: "email" | "phone" = route?.params?.mode ?? "email";
+  const copy = useLocalizedCopy(translations);
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const setSession = useAuthStore((state) => state.setSession);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otp, setOtp] = useState("");
+
+  const handleNext = async () => {
+    if (!consent || loading) return;
+    const supabase = getSupabaseClient();
+    const emailTrimmed = email.trim().toLowerCase();
+    const phoneTrimmed = phone.trim();
+    const normalizedPhone = phoneTrimmed.replace(/\s+/g, "");
+
+    if (mode === "email" && (!emailTrimmed || !password)) {
+      RNAlert.alert(copy.hintMissingEmail);
+      return;
+    }
+    if (mode === "phone") {
+      if (!normalizedPhone || !password) {
+        RNAlert.alert(copy.hintMissingPhone);
+        return;
+      }
+      if (!normalizedPhone.startsWith("+")) {
+        RNAlert.alert(copy.phoneFormatTitle, copy.phoneFormatMessage);
+        return;
+      }
+    }
+
+    setLoading(true);
+    try {
+      if (mode === "email") {
+        const { data, error } = await supabase.auth.signUp({
+          email: emailTrimmed,
+          password
+        });
+        if (error || !data.session) {
+          throw error ?? new Error(copy.signupFailed);
+        }
+        setSession(data.session);
+        navigation.navigate("OnboardingGender");
+        return;
+      }
+
+      const { error } = await supabase.auth.signUp({ phone: normalizedPhone, password });
+      if (error) {
+        throw error;
+      }
+
+      setShowOtpModal(true);
+    } catch (err: any) {
+      RNAlert.alert(copy.signupFailed, err?.message ?? copy.tryAgain);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.select({ ios: "padding", android: undefined })}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <Pressable style={styles.backBtn} onPress={() => navigation.navigate("Welcome")}>
+              <Ionicons name="chevron-back" size={20} color="#0d1f1a" />
+            </Pressable>
+            <Text style={styles.title}>{copy.title}</Text>
+          </View>
+
+          {mode === "email" && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>{copy.emailPlaceholder}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={copy.emailPlaceholder}
+                placeholderTextColor="#8e9a97"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          )}
+
+          {mode === "phone" && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>{copy.phonePlaceholder}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={copy.phonePlaceholder}
+                placeholderTextColor="#8e9a97"
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+              />
+            </View>
+          )}
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>{copy.passwordPlaceholder}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder={copy.passwordPlaceholder}
+              placeholderTextColor="#8e9a97"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+          </View>
+
+          <View style={styles.checkboxRow}>
+            <Pressable style={[styles.checkbox, consent && styles.checkboxChecked]} onPress={() => setConsent((v) => !v)}>
+              {consent && <Ionicons name="checkmark" size={14} color="#fff" />}
+            </Pressable>
+            <Text style={styles.checkboxText} numberOfLines={2}>
+              {copy.consentText}{" "}
+              <Text style={styles.link} onPress={() => navigation.navigate("Legal", { screen: "terms" })}>
+                {copy.terms}
+              </Text>{" "}
+              {copy.and}{" "}
+              <Text style={styles.link} onPress={() => navigation.navigate("Legal", { screen: "privacy" })}>
+                {copy.conditions}
+              </Text>
+              {copy.consentSuffix ?? "."}
+            </Text>
+          </View>
+
+          <Pressable
+            style={[styles.cta, (!consent || loading) && styles.ctaDisabled]}
+            onPress={handleNext}
+            disabled={!consent || loading}
+          >
+            <Text style={styles.ctaText}>{loading ? copy.loading : copy.next}</Text>
+          </Pressable>
+
+          <Text style={styles.footer}>
+            {copy.member}{" "}
+            <Text style={styles.link} onPress={() => navigation.navigate("SignIn")}>
+              {copy.login}
+            </Text>
+          </Text>
+        </ScrollView>
+
+        {showOtpModal && (
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowOtpModal(false)}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>{copy.otpTitle}</Text>
+              <Text style={styles.modalSubtitle}>{copy.otpSubtitle}</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={otp}
+                onChangeText={setOtp}
+                placeholder={copy.otpPlaceholder}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+              <Pressable
+                style={[styles.cta, otp.length < 4 && styles.ctaDisabled]}
+                onPress={async () => {
+                  if (otp.length < 4) return;
+                  try {
+                    const supabase = getSupabaseClient();
+                    const { error } = await supabase.auth.verifyOtp({
+                      phone: phone.trim().replace(/\s+/g, ""),
+                      token: otp,
+                      type: "sms"
+                    });
+                    if (error) {
+                      throw error;
+                    }
+                    const {
+                      data: { session }
+                    } = await supabase.auth.getSession();
+                    if (session) {
+                      setSession(session);
+                    }
+                    setShowOtpModal(false);
+                    navigation.navigate("OnboardingGender");
+                  } catch (verifyError: any) {
+                    RNAlert.alert(copy.otpInvalidTitle, verifyError?.message ?? copy.otpInvalidBody);
+                  }
+                }}
+              >
+                <Text style={styles.ctaText}>{copy.otpSubmit}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        )}
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: "#ffffff" },
+  content: {
+    padding: 20,
+    gap: 16,
+    flexGrow: 1,
+    justifyContent: "center"
+  },
+  header: {
+    alignItems: "center",
+    gap: 8
+  },
+  backBtn: {
+    alignSelf: "flex-start",
+    padding: 6
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#0d1f1a"
+  },
+  inputGroup: {
+    gap: 6
+  },
+  label: {
+    color: "#0d1f1a",
+    fontWeight: "600"
+  },
+  input: {
+    backgroundColor: "#f3f3f3",
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "#d8d8d8",
+    color: "#0d1f1a",
+    fontSize: 16
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 4,
+    marginTop: 10
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderColor: "#b6b6b6",
+    borderRadius: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff"
+  },
+  checkboxChecked: {
+    backgroundColor: ACCENT,
+    borderColor: ACCENT
+  },
+  checkboxText: {
+    flex: 1,
+    color: "#5c6c66",
+    fontSize: 13,
+    lineHeight: 18
+  },
+  link: {
+    color: ACCENT,
+    fontWeight: "700"
+  },
+  cta: {
+    marginTop: 12,
+    backgroundColor: ACCENT,
+    borderRadius: 24,
+    paddingVertical: 16,
+    alignItems: "center"
+  },
+  ctaText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600"
+  },
+  ctaDisabled: {
+    opacity: 0.6
+  },
+  footer: {
+    textAlign: "center",
+    color: "#5a625e",
+    fontSize: 14,
+    marginTop: 12
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  modalCard: {
+    width: "85%",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    gap: 12
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center"
+  },
+  modalSubtitle: {
+    color: "#777",
+    textAlign: "center"
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 18,
+    textAlign: "center"
+  }
+});
+
+export default CreateAccountScreen;

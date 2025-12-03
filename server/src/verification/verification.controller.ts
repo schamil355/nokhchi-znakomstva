@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   Post,
   Query,
   Req,
@@ -31,6 +32,7 @@ import { OtpChannel } from "../common/services/otp.service";
 @UseGuards(JwtAuthGuard)
 export class VerificationController {
   constructor(private readonly verificationService: VerificationService) {}
+  private readonly logger = new Logger(VerificationController.name);
 
   @Post("start")
   @ApiOperation({ summary: "Start a new verification session" })
@@ -65,19 +67,33 @@ export class VerificationController {
       throw new BadRequestException("SELFIE_REQUIRED");
     }
     const userId = req.user?.id as string;
-    const result = await this.verificationService.uploadSelfie({
-      userId,
-      sessionId: body.sessionId,
-      captureFlag: body.captureFlag,
-      mimeType: file.mimetype,
-      buffer: file.buffer,
-      ip: req.ip ?? "",
-    });
-    return {
-      ok: true,
-      similarity: result.similarity,
-      next: result.next,
-    };
+    this.logger.log(
+      `uploadSelfie start user=${userId} sessionId=${body.sessionId} mime=${file.mimetype} size=${file.size}`
+    );
+    try {
+      const result = await this.verificationService.uploadSelfie({
+        userId,
+        sessionId: body.sessionId,
+        captureFlag: body.captureFlag,
+        mimeType: file.mimetype,
+        buffer: file.buffer,
+        ip: req.ip ?? "",
+      });
+      this.logger.log(
+        `uploadSelfie ok user=${userId} sessionId=${body.sessionId} similarity=${result.similarity}`
+      );
+      return {
+        ok: true,
+        similarity: result.similarity,
+        next: result.next,
+      };
+    } catch (error) {
+      this.logger.error(
+        `uploadSelfie failed for user=${userId}, sessionId=${body.sessionId}: ${(error as Error)?.message}`,
+        (error as Error)?.stack
+      );
+      throw error;
+    }
   }
 
   @Post("send-otp")

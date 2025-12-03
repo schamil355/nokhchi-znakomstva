@@ -1,18 +1,43 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Image, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { getSignedPhotoUrl } from "../services/photoService";
+import { useLocalizedCopy } from "../localization/LocalizationProvider";
 
 const DEFAULT_TTL_MS = 120_000;
 const REFRESH_GUARD_MS = 10_000;
 const RETRY_BASE_DELAY_MS = 2_000;
 const RETRY_MAX_DELAY_MS = 60_000;
 
+const translations = {
+  en: {
+    unavailable: "Photo not available",
+    retry: "Tap to reload"
+  },
+  de: {
+    unavailable: "Foto nicht verfügbar",
+    retry: "Tippen zum Neu laden"
+  },
+  fr: {
+    unavailable: "Photo indisponible",
+    retry: "Appuie pour recharger"
+  },
+  ru: {
+    unavailable: "Фото недоступно",
+    retry: "Нажми, чтобы обновить"
+  }
+};
+
 type GuardedPhotoProps = {
   photoId: number;
   style?: StyleProp<ViewStyle>;
+  blur?: boolean;
+  lockPosition?: "center" | "top-right";
 };
 
-const GuardedPhoto = ({ photoId, style }: GuardedPhotoProps) => {
+const GuardedPhoto = ({ photoId, style, blur = false, lockPosition = "center" }: GuardedPhotoProps) => {
+  const copy = useLocalizedCopy(translations);
   const [state, setState] = useState<{ url: string; modeReturned: "original" | "blur" } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,20 +121,37 @@ const GuardedPhoto = ({ photoId, style }: GuardedPhotoProps) => {
   if (error || !state) {
     return (
       <Pressable style={[styles.placeholder, style]} onPress={() => load(false)}>
-        <Text style={styles.placeholderText}>{error ?? "Foto nicht verfügbar"}</Text>
-        <Text style={styles.retryText}>Tippen zum Neu laden</Text>
+        <Text style={styles.placeholderText}>{error ?? copy.unavailable}</Text>
+        <Text style={styles.retryText}>{copy.retry}</Text>
       </Pressable>
     );
   }
 
+  const isBlurred = blur || state?.modeReturned === "blur";
+
   return (
     <Animated.View style={[styles.photoWrapper, style, { opacity }]}> 
-      <Image source={{ uri: state.url }} style={styles.photo} resizeMode="cover" />
-      {state.modeReturned === "blur" ? (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>Nur verschwommen sichtbar</Text>
-        </View>
-      ) : null}
+      {isBlurred ? (
+        <LinearGradient
+          colors={["#b5b5b5", "#f2f2f2"]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={[styles.photo, styles.lockBackground]}
+        >
+          <Ionicons
+            name="lock-closed"
+            size={26}
+            color="#f7f7f7"
+            style={[styles.lockIcon, lockPosition === "center" ? styles.lockIconCenter : styles.lockIconTopRight]}
+          />
+        </LinearGradient>
+      ) : (
+        <Image
+          source={{ uri: state.url }}
+          style={styles.photo}
+          resizeMode="cover"
+        />
+      )}
     </Animated.View>
   );
 };
@@ -144,19 +186,22 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%"
   },
-  badge: {
-    position: "absolute",
-    bottom: 12,
-    left: 12,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999
+  lockBackground: {
+    position: "relative",
+    width: "100%",
+    height: "100%"
   },
-  badgeText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600"
+  lockIcon: {
+    position: "absolute"
+  },
+  lockIconCenter: {
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -13 }, { translateY: -13 }]
+  },
+  lockIconTopRight: {
+    top: 12,
+    right: 12
   }
 });
 

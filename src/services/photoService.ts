@@ -1,18 +1,73 @@
 import Constants from "expo-constants";
+import * as FileSystem from "expo-file-system";
+import { decode as decodeBase64 } from "base64-arraybuffer";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { useAuthStore } from "../state/authStore";
+import { getCurrentLocale } from "../localization/LocalizationProvider";
+import { PROFILE_BUCKET } from "../lib/storage";
 
-const rawApiBase =
-  process.env.EXPO_PUBLIC_API_URL ?? Constants.expoConfig?.extra?.apiUrl ?? "http://localhost:3000";
-const API_BASE = rawApiBase.replace(/\/$/, "");
-const DEFAULT_SIGNED_TTL_MS = 120_000;
+const rawApiBase = process.env.EXPO_PUBLIC_API_URL ?? Constants.expoConfig?.extra?.apiUrl ?? null;
+const API_BASE = rawApiBase ? rawApiBase.replace(/\/$/, "") : null;
 
-const ensureApiBase = () => API_BASE;
+const serviceCopy: Record<string, Record<string, string>> = {
+  en: {
+    apiBaseMissing: "API base URL missing. Please set EXPO_PUBLIC_API_URL.",
+    notLoggedIn: "Not signed in.",
+    fileNotFound: "File could not be found.",
+    uploadFailed: "Upload failed.",
+    apiError: "API error",
+    deleteFailed: "Delete failed",
+    revokeFailed: "Could not revoke permission.",
+    revokeAllFailed: "Could not revoke permissions."
+  },
+  de: {
+    apiBaseMissing: "API-Basis-URL fehlt. Bitte EXPO_PUBLIC_API_URL setzen.",
+    notLoggedIn: "Nicht eingeloggt.",
+    fileNotFound: "Datei konnte nicht gefunden werden.",
+    uploadFailed: "Upload fehlgeschlagen.",
+    apiError: "API-Fehler",
+    deleteFailed: "Löschen fehlgeschlagen",
+    revokeFailed: "Freigabe konnte nicht widerrufen werden.",
+    revokeAllFailed: "Freigaben konnten nicht gelöscht werden."
+  },
+  fr: {
+    apiBaseMissing: "URL de base API manquante. Merci de définir EXPO_PUBLIC_API_URL.",
+    notLoggedIn: "Non connecté.",
+    fileNotFound: "Fichier introuvable.",
+    uploadFailed: "Échec du téléchargement.",
+    apiError: "Erreur API",
+    deleteFailed: "Échec de la suppression",
+    revokeFailed: "Impossible de révoquer l'autorisation.",
+    revokeAllFailed: "Impossible de révoquer les autorisations."
+  },
+  ru: {
+    apiBaseMissing: "Не задан базовый URL API. Укажите EXPO_PUBLIC_API_URL.",
+    notLoggedIn: "Не выполнен вход.",
+    fileNotFound: "Файл не найден.",
+    uploadFailed: "Не удалось загрузить.",
+    apiError: "Ошибка API",
+    deleteFailed: "Не удалось удалить",
+    revokeFailed: "Не удалось отозвать доступ.",
+    revokeAllFailed: "Не удалось отозвать все доступы."
+  }
+} satisfies Record<SupportedLocale, Record<string, string>>;
+
+const t = (key: keyof typeof serviceCopy.en) => {
+  const locale = getCurrentLocale();
+  return serviceCopy[locale]?.[key] ?? serviceCopy.en[key];
+};
+
+const ensureApiBase = () => {
+  if (!API_BASE) {
+    throw new Error(t("apiBaseMissing"));
+  }
+  return API_BASE;
+};
 
 const getAccessToken = () => {
   const token = useAuthStore.getState().session?.access_token;
   if (!token) {
-    throw new Error("Nicht eingeloggt.");
+    throw new Error(t("notLoggedIn"));
   }
   return token;
 };
@@ -28,7 +83,7 @@ const jsonRequest = async <T>(path: string, body: Record<string, unknown>, metho
   });
 
   if (!response.ok) {
-    let message = "API-Fehler";
+    let message = t("apiError");
     try {
       const payload = await response.json();
       message = payload.error ?? payload.message ?? message;
@@ -46,25 +101,40 @@ const jsonRequest = async <T>(path: string, body: Record<string, unknown>, metho
 
 export type VisibilityMode = "public" | "match_only" | "whitelist" | "blurred_until_match";
 
+const MIME_MAP: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  heic: "image/heic",
+  heif: "image/heif",
+  webp: "image/webp"
+};
+
+const inferExtension = (uri: string) => {
+  const match = /\.([a-zA-Z0-9]+)$/.exec(uri);
+  return match ? match[1].toLowerCase() : "jpg";
+};
+
 export const uploadOriginalAsync = async (fileUri: string, userId: string): Promise<string> => {
   const supabase = getSupabaseClient();
-  const response = await fetch(fileUri);
-  if (!response.ok) {
-    throw new Error("Datei konnte nicht geladen werden.");
+  const info = await FileSystem.getInfoAsync(fileUri);
+  if (!info.exists) {
+    throw new Error(t("fileNotFound"));
   }
-  const blob = await response.blob();
-  const extension = blob.type.split("/")[1] ?? "jpg";
-  const safeExtension = extension === "jpeg" ? "jpg" : extension;
+  const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
+  const buffer = decodeBase64(base64);
+  const extensionSource = inferExtension(fileUri);
+  const safeExtension = extensionSource === "jpeg" ? "jpg" : extensionSource;
+  const contentType = MIME_MAP[safeExtension] ?? "image/jpeg";
   const fileName = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${safeExtension}`;
 
-  const { error } = await supabase.storage.from("photos_private").upload(fileName, blob, {
-    contentType: blob.type || "image/jpeg",
+  const { error } = await supabase.storage.from(PROFILE_BUCKET).upload(fileName, buffer, {
+    contentType,
     upsert: true
   });
   if (error) {
-    throw new Error(error.message ?? "Upload fehlgeschlagen.");
+    throw new Error(error.message ?? t("uploadFailed"));
   }
-
   return fileName;
 };
 
@@ -93,9 +163,12 @@ export const deletePhoto = (photoId: number) =>
       "Content-Type": "application/json"
     }
   }).then(async (res) => {
+    if (res.status === 404) {
+      return {};
+    }
     if (!res.ok) {
       const payload = await res.json().catch(() => ({}));
-      throw new Error(payload.error ?? payload.message ?? "Löschen fehlgeschlagen");
+      throw new Error(payload.error ?? payload.message ?? t("deleteFailed"));
     }
     return res.json();
   });
@@ -111,7 +184,7 @@ export const revokePermission = (photoId: number, viewerId: string) =>
   }).then(async (res) => {
     if (!res.ok) {
       const payload = await res.json().catch(() => ({}));
-      throw new Error(payload.error ?? payload.message ?? "Freigabe konnte nicht widerrufen werden.");
+      throw new Error(payload.error ?? payload.message ?? t("revokeFailed"));
     }
     return res.json();
   });
@@ -127,7 +200,7 @@ export const revokeAllPermissions = (photoId: number) =>
   }).then(async (res) => {
     if (!res.ok) {
       const payload = await res.json().catch(() => ({}));
-      throw new Error(payload.error ?? payload.message ?? "Freigaben konnten nicht gelöscht werden.");
+      throw new Error(payload.error ?? payload.message ?? t("revokeAllFailed"));
     }
     return res.json();
   });

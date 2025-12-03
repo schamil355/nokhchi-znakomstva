@@ -211,12 +211,6 @@ export default function DatingAppStyleGuide() {
   const [topIndex, setTopIndex] = React.useState(0);
   const topProfile = profiles[topIndex % profiles.length];
 
-  const messages = [
-    { id: 1, from: "Mara", text: "Hey! Dein Profil hat mich direkt angelächelt 😊", time: "18:04" },
-    { id: 2, from: "Ich", text: "Das Kompliment geht zurück! Kaffee am Samstag?", time: "18:05" },
-    { id: 3, from: "Mara", text: "Unbedingt. Lieblingscafé?", time: "18:06" },
-  ];
-
   const [onlyVerified, setOnlyVerified] = React.useState(true);
   const [incognito, setIncognito] = React.useState(false);
   const [showModal, setShowModal] = React.useState(false);
@@ -281,7 +275,7 @@ export default function DatingAppStyleGuide() {
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 bg-[var(--surface)] border border-[var(--border)]" style={{borderRadius:'var(--radius-sm)'}} />
                   <div className="w-16 h-16 bg-[var(--surface)] border border-[var(--border)]" style={{borderRadius:'var(--radius-lg)'}} />
-                  <div a className="w-16 h-16 bg-[var(--surface)] border border-[var(--border)]" style={{borderRadius:'var(--radius-pill)'}} />
+                  <div className="w-16 h-16 bg-[var(--surface)] border border-[var(--border)]" style={{borderRadius:'var(--radius-pill)'}} />
                 </div>
               </div>
               <div>
@@ -423,3 +417,6 @@ export default function DatingAppStyleGuide() {
           )}
         </Section>
       )}
+    </Container>
+  );
+}

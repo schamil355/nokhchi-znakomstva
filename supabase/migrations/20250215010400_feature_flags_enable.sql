@@ -11,13 +11,15 @@ create table if not exists public.feature_flags (
 
 alter table public.feature_flags enable row level security;
 
-create policy if not exists "read feature flags"
+drop policy if exists "read feature flags" on public.feature_flags;
+create policy "read feature flags"
   on public.feature_flags
   for select
   to authenticated
   using (true);
 
-create policy if not exists "write feature flags (admin)"
+drop policy if exists "write feature flags (admin)" on public.feature_flags;
+create policy "write feature flags (admin)"
   on public.feature_flags
   for all
   to authenticated
