@@ -62,3 +62,43 @@ values (123, '<viewer>') on conflict do nothing;
   - `is_incognito=false` ⇒ normal
   - `is_incognito=true` ⇒ profile is hidden unless **(a)** you liked the viewer, or **(b)** you already matched.
   - Additional toggles (`show_distance`, `show_last_seen`) are persisted for UI gating.
+
+## Face-Verify / Buckets / Functions
+
+### Client (.env)
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+
+### Functions (Edge Secrets)
+Set via `supabase secrets set`:
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `PROFILE_BUCKET=profile-photos`
+- `VERIFS_BUCKET=verifications`
+- `AZURE_FACE_ENDPOINT`
+- `AZURE_FACE_KEY`
+
+### Buckets
+- `profile-photos` (private) – Profilbilder / `primary_photo_path`
+- `verifications` (private) – Selfies für Face-Verify
+
+CLI (idempotent), falls Buckets fehlen:
+```
+supabase storage create-bucket profile-photos --public false
+supabase storage create-bucket verifications --public false
+```
+
+### Functions lokal/remote
+- Lokal testen:
+  ```
+  supabase functions serve face-verify --env-file supabase/.env.local
+  ```
+- Remote deploy:
+  ```
+  supabase secrets set SUPABASE_SERVICE_ROLE_KEY=... PROFILE_BUCKET=profile-photos VERIFS_BUCKET=verifications AZURE_FACE_ENDPOINT=... AZURE_FACE_KEY=... --project-ref <project-ref>
+  supabase functions deploy face-verify --project-ref <project-ref>
+  ```
+
+### Flow (Client)
+1. Nach Upload der 3 Fotos: Primärpfad auf `profiles.primary_photo_path` setzen, dann `navigation.navigate("OnboardingVerify", { primaryPhotoPath })`.
+2. Selfie-Scan ruft `face-verify` mit `profilePath/selfiePath` auf.
+3. Bei Erfolg `markProfileVerified` setzen und per `navigation.reset` in die Main-Tabs springen (kein App-Neustart nötig).
