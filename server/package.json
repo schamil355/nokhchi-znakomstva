@@ -7,7 +7,7 @@
     "start:dev": "nest start --watch",
     "build": "nest build",
     "start:prod": "node dist/src/main.js",
-    "lint": "eslint --no-eslintrc --config ./.eslintrc.js \"src/**/*.ts\"",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint -c ./.eslintrc.js \"src/**/*.ts\"",
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
