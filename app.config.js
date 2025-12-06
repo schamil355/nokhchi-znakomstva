@@ -4,6 +4,7 @@ export default ({ config }) => ({
   ...config,
   name: "Нохчи Знакомства",
   slug: "meetmate-clean",
+  runtimeVersion: "1.0.0",
   ios: {
     ...(config.ios ?? {}),
     bundleIdentifier: process.env.EXPO_PUBLIC_IOS_BUNDLE_ID ?? "com.zelimkhan.meetmate-clean",
