@@ -11,6 +11,7 @@ on:
     paths:
       - "server/**"
       - ".github/workflows/server.yml"
+  workflow_dispatch:
 
 jobs:
   server-tests:
