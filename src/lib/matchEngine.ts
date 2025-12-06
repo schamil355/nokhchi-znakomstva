@@ -58,9 +58,12 @@ type EligibilityFilters = {
 };
 
 export const isProfileEligible = (candidate: Profile, filters: EligibilityFilters) => {
-  const age = calculateAge(candidate.birthday);
+  // Allow profiles ohne Geburtsdatum durch den Filter zu kommen
+  const hasBirthday = !!candidate.birthday;
+  const age = hasBirthday ? calculateAge(candidate.birthday) : null;
   const [minAge, maxAge] = filters.ageRange;
-  const matchesBasic = filters.genders.includes(candidate.gender) && age >= minAge && age <= maxAge;
+  const ageMatches = !hasBirthday || (age !== null && age >= minAge && age <= maxAge);
+  const matchesBasic = filters.genders.includes(candidate.gender) && ageMatches;
   if (!matchesBasic) {
     return false;
   }
@@ -80,5 +83,10 @@ export const isProfileEligible = (candidate: Profile, filters: EligibilityFilter
     }
   }
   const candidateRegion = resolveRegion(candidate);
+  // Wenn wir keine Standort-/Länderinfos haben, Region nicht hart blocken
+  const hasLocationInfo = !!candidate.country || typeof candidate.latitude === "number" || typeof candidate.longitude === "number";
+  if (!hasLocationInfo) {
+    return true;
+  }
   return candidateRegion === filters.region;
 };
