@@ -37,9 +37,7 @@
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ],
-      "runtimeVersion": {
-        "policy": "appVersion"
-      }
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "favicon": "./assets/favicon.png"

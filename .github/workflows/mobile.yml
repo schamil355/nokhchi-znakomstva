@@ -33,6 +33,7 @@ jobs:
       SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
       SENTRY_PROJECT: ${{ secrets.SENTRY_MOBILE_PROJECT }}
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EAS_ENABLE_BUILD: ${{ secrets.EAS_ENABLE_BUILD || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,5 +58,6 @@ jobs:
         run: npx sentry-cli info
 
       - name: Optional EAS build (preview)
-        if: github.event_name == 'workflow_dispatch' && env.EXPO_TOKEN != ''
+        # Läuft nur, wenn du per Secret EAS_ENABLE_BUILD=true explizit zustimmst.
+        if: github.event_name == 'workflow_dispatch' && env.EXPO_TOKEN != '' && env.EAS_ENABLE_BUILD == 'true'
         run: npx eas-cli build --profile preview --platform android --non-interactive --no-wait
