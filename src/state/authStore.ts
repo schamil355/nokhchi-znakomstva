@@ -4,9 +4,11 @@ import { Profile, Gender } from "../types";
 import { usePreferencesStore } from "./preferencesStore";
 
 const derivePreferredGenders = (userGender?: Gender | null): Gender[] => {
-  if (userGender === "male") return ["female"];
-  if (userGender === "female") return ["male"];
-  // Fallback: allow all if gender is unset/nonbinary/unknown
+  // Zeige standardmäßig beide Haupt-Geschlechter, um leere Feeds zu vermeiden.
+  // Falls explizit nonbinary/unknown: alle zulassen.
+  if (userGender === "male" || userGender === "female") {
+    return ["female", "male"];
+  }
   return ["female", "male", "nonbinary"];
 };
 
