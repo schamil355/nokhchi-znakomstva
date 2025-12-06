@@ -29,6 +29,9 @@ jobs:
       EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
       EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
       EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ secrets.SENTRY_MOBILE_PROJECT }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,11 +52,7 @@ jobs:
         run: npm run test --if-present
 
       - name: Verify Sentry CLI auth
-        if: ${{ env.EXPO_PUBLIC_SENTRY_DSN != '' && secrets.SENTRY_AUTH_TOKEN != '' }}
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_MOBILE_PROJECT }}
+        if: ${{ env.EXPO_PUBLIC_SENTRY_DSN != '' && env.SENTRY_AUTH_TOKEN != '' }}
         run: npx sentry-cli info
 
       - name: Optional EAS build (preview)
