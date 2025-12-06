@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useMatches } from "../hooks/useMatches";
@@ -34,6 +33,7 @@ type CopyShape = {
   statusNew?: string;
   messageLabel?: string;
   statusSent?: string;
+  likesTitle?: string;
 };
 
 const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
@@ -51,7 +51,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     statusRead: "read",
     statusNew: "new",
     messageLabel: "Message",
-    statusSent: "sent"
+    statusSent: "sent",
+    likesTitle: ""
   },
   de: {
     tabLabel: "Matches",
@@ -68,7 +69,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     statusRead: "gelesen",
     statusNew: "neu",
     messageLabel: "Message",
-    statusSent: "gesendet"
+    statusSent: "gesendet",
+    likesTitle: ""
   },
   fr: {
     tabLabel: "Matches",
@@ -84,7 +86,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     statusRead: "lu",
     statusNew: "nouveau",
     messageLabel: "Message",
-    statusSent: "envoyé"
+    statusSent: "envoyé",
+    likesTitle: ""
   },
   ru: {
     tabLabel: "Матчи",
@@ -100,7 +103,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     statusRead: "прочитано",
     statusNew: "новое",
     messageLabel: "Message",
-    statusSent: "отправлено"
+    statusSent: "отправлено",
+    likesTitle: ""
   },
 };
 
@@ -116,10 +120,60 @@ const MatchesScreen = () => {
   const supabase = useMemo(() => getSupabaseClient(), []);
   const queryClient = useQueryClient();
   const notifications = useNotificationsStore((state) => state.items);
+  const incognitoLikerIds = useMemo(() => {
+    const ids = new Set<string>();
+    notifications.forEach((entry) => {
+      const data = entry.data ?? {};
+      const likerId = data.liker_id ?? data.likerId ?? data.other_user_id ?? data.otherUserId;
+      const isIncognito =
+        data.liker_incognito ?? data.likerIncognito ?? data.other_incognito ?? data.otherIncognito ?? false;
+      if (likerId && isIncognito) {
+        ids.add(String(likerId));
+      }
+    });
+    return ids;
+  }, [notifications]);
+
+  const incognitoMatchIds = useMemo(() => {
+    const ids = new Set<string>();
+    notifications.forEach((entry) => {
+      const data = entry.data ?? {};
+      const matchId = data.match_id ?? data.matchId ?? data.match;
+      const isIncognito =
+        data.liker_incognito ?? data.likerIncognito ?? data.other_incognito ?? data.otherIncognito ?? false;
+      if (matchId && isIncognito) {
+        ids.add(String(matchId));
+      }
+    });
+    return ids;
+  }, [notifications]);
+  const isIncognitoMatch = useCallback(
+    (item: Match) => {
+      const otherParticipant =
+        item.participants.find((participant) => participant !== session?.user.id) ?? item.participants[0];
+      return Boolean(
+        item.otherIsIncognito ||
+          !item.previewPhotoUrl ||
+          incognitoMatchIds.has(item.id) ||
+          (otherParticipant && incognitoLikerIds.has(otherParticipant))
+      );
+    },
+    [incognitoLikerIds, incognitoMatchIds, session?.user?.id]
+  );
   const [lastMessages, setLastMessages] = useState<
     Record<string, { content: string; senderId: string; createdAt: string; readAt?: string | null } | null>
   >({});
   const matchIdsKey = matches.map((m) => m.id).join(",");
+  const regularMatches = useMemo(
+    () =>
+      matches.filter((m) => {
+        if (typeof isIncognitoMatch !== "function") {
+          return Boolean(m.previewPhotoUrl);
+        }
+        return !isIncognitoMatch(m) && m.previewPhotoUrl;
+      }),
+    [isIncognitoMatch, matches]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -169,12 +223,67 @@ const MatchesScreen = () => {
     AsyncStorage.setItem(MATCH_AVATAR_CACHE_KEY, JSON.stringify(avatarCache)).catch(() => undefined);
   }, [avatarCache, avatarCacheLoaded]);
 
-  const renderMatch = ({ item, showSubtitle = true }: { item: Match; showSubtitle?: boolean }) => {
+  // Remove cached avatars for matches without preview photos (e.g., incognito)
+  useEffect(() => {
+    if (!avatarCacheLoaded) return;
+    const missingAvatarMatchIds = matches
+      .filter((m) => !m.previewPhotoUrl)
+      .map((m) => m.id);
+    if (!missingAvatarMatchIds.length) return;
+    setAvatarCache((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const id of missingAvatarMatchIds) {
+        if (Object.prototype.hasOwnProperty.call(next, id)) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [avatarCacheLoaded, matches]);
+
+  // Drop cached avatars for matches that are flagged incognito via notifications
+  useEffect(() => {
+    if (!avatarCacheLoaded || (!incognitoLikerIds.size && !incognitoMatchIds.size)) return;
+    const incognitoByParticipant = matches
+      .filter((match) =>
+        match.participants.some((participant) => {
+          const currentUserId = session?.user?.id;
+          return participant !== currentUserId && incognitoLikerIds.has(participant);
+        })
+      )
+      .map((match) => match.id);
+    const allIncognito = [...new Set([...incognitoByParticipant, ...Array.from(incognitoMatchIds)])];
+    if (!allIncognito.length) return;
+    setAvatarCache((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const id of allIncognito) {
+        if (Object.prototype.hasOwnProperty.call(next, id)) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [avatarCacheLoaded, incognitoLikerIds, incognitoMatchIds, matches, session?.user?.id]);
+
+  const renderMatch = ({
+    item,
+    showSubtitle = true,
+    forcePlaceholder = false
+  }: {
+    item: Match;
+    showSubtitle?: boolean;
+    forcePlaceholder?: boolean;
+  }) => {
     const otherParticipant =
       item.participants.find((participant) => participant !== session?.user.id) ?? item.participants[0];
     const title = item.otherDisplayName ?? (showSubtitle ? copy.matchLabel(item.id.slice(0, 6)) : "");
     const cachedEntry = Object.prototype.hasOwnProperty.call(avatarCache, item.id) ? avatarCache[item.id] : undefined;
-    const avatarUri = cachedEntry?.url ?? item.previewPhotoUrl ?? null;
+    const incognito = forcePlaceholder || isIncognitoMatch(item);
+    const avatarUri = incognito ? null : cachedEntry?.url ?? item.previewPhotoUrl ?? null;
     const shouldShowText = Boolean(title);
     return (
       <Pressable
@@ -203,7 +312,8 @@ const MatchesScreen = () => {
     const otherParticipant =
       item.participants.find((participant) => participant !== session?.user.id) ?? item.participants[0];
     const cachedEntry = Object.prototype.hasOwnProperty.call(avatarCache, item.id) ? avatarCache[item.id] : undefined;
-    const avatarUri = cachedEntry?.url ?? item.previewPhotoUrl ?? null;
+    const isIncognito = isIncognitoMatch(item);
+    const avatarUri = isIncognito ? null : cachedEntry?.url ?? item.previewPhotoUrl ?? null;
     const title = item.otherDisplayName || "Match";
     const lastMessage = lastMessages[item.id];
     const snippet = lastMessage?.content?.trim() || copy.messagesEmpty;
@@ -276,6 +386,9 @@ const MatchesScreen = () => {
   useEffect(() => {
     // Seed cache with existing previewPhotoUrl
     matches.forEach((match) => {
+      if (isIncognitoMatch(match)) {
+        return;
+      }
       const existing = Object.prototype.hasOwnProperty.call(avatarCache, match.id) ? avatarCache[match.id] : undefined;
       if (match.previewPhotoUrl && (!existing || existing.url === null)) {
         setAvatarCache((prev) => ({
@@ -284,7 +397,7 @@ const MatchesScreen = () => {
         }));
       }
     });
-  }, [matches, avatarCache]);
+  }, [avatarCache, isIncognitoMatch, matches]);
 
   useFocusEffect(
     useMemo(
@@ -292,6 +405,9 @@ const MatchesScreen = () => {
         let cancelled = false;
         const refreshAvatars = async () => {
           for (const match of matches) {
+            if (isIncognitoMatch(match)) {
+              continue;
+            }
             const other =
               match.participants.find((p) => p !== session?.user?.id) ?? match.participants[0];
             if (!other) continue;
@@ -354,13 +470,16 @@ const MatchesScreen = () => {
           cancelled = true;
         };
       },
-      [matches, session?.user?.id, supabase]
+      [isIncognitoMatch, matches, session?.user?.id, supabase]
     )
   );
 
   useEffect(() => {
     const now = Date.now();
     const pending = matches.filter((match) => {
+      if (isIncognitoMatch(match)) {
+        return false;
+      }
       const cached = Object.prototype.hasOwnProperty.call(avatarCache, match.id)
         ? avatarCache[match.id]
         : undefined;
@@ -376,11 +495,14 @@ const MatchesScreen = () => {
     }
     let cancelled = false;
     const loadAvatars = async () => {
-      for (const match of pending) {
-        const other =
-          match.participants.find((p) => p !== session?.user?.id) ?? match.participants[0];
-        if (!other) continue;
-        try {
+          for (const match of pending) {
+            if (isIncognitoMatch(match)) {
+              continue;
+            }
+            const other =
+              match.participants.find((p) => p !== session?.user?.id) ?? match.participants[0];
+            if (!other) continue;
+            try {
           const { data, error } = await supabase
             .from("profiles")
             .select("primary_photo_path, photos")
@@ -474,13 +596,19 @@ const MatchesScreen = () => {
     return () => {
       cancelled = true;
     };
-  }, [matches, avatarCache, session?.user?.id, supabase]);
+  }, [avatarCache, isIncognitoMatch, matches, session?.user?.id, supabase]);
 
   useEffect(() => {
     const avatarByMatch = notifications.reduce<Record<string, string | null>>((acc, entry) => {
+      const incognito =
+        entry.data?.liker_incognito ??
+        entry.data?.likerIncognito ??
+        entry.data?.other_incognito ??
+        entry.data?.otherIncognito ??
+        false;
       const matchId = entry.data?.match_id ?? entry.data?.matchId;
       const avatarPath = entry.data?.avatar_path ?? entry.data?.avatarUrl;
-      if (matchId && avatarPath) {
+      if (matchId && avatarPath && !incognito) {
         acc[matchId] = avatarPath;
       }
       return acc;
@@ -537,7 +665,7 @@ const MatchesScreen = () => {
     return () => {
       cancelled = true;
     };
-  }, [matches, lastMessages, supabase]);
+  }, [isIncognitoMatch, lastMessages, matches, supabase]);
 
   useEffect(() => {
     if (!session?.user?.id || !matches.length) {
@@ -579,7 +707,7 @@ const MatchesScreen = () => {
     return () => {
       void channel.unsubscribe();
     };
-  }, [matchIdsKey, matches.length, queryClient, session?.user?.id, setUnread, supabase]);
+  }, [matchIdsKey, matches, matches.length, queryClient, session?.user?.id, setUnread, supabase]);
 
   if (isLoading) {
     return (
@@ -603,14 +731,16 @@ const MatchesScreen = () => {
             <Text style={styles.cardTitle}>{copy.cardTitle}</Text>
             <View style={styles.searchWrapper} />
           </View>
-          {hasMatches ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.matchScroller}>
-              {matches.map((match, index) => (
-                <View key={match.id} style={styles.matchTileWrapper}>
-                  {renderMatch({ item: match, showSubtitle: false })}
-                </View>
-              ))}
-            </ScrollView>
+          {regularMatches.length ? (
+            <View style={styles.scrollerWrapper}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.matchScroller}>
+                {regularMatches.map((match) => (
+                  <View key={match.id} style={styles.matchTileWrapper}>
+                    {renderMatch({ item: match, showSubtitle: false })}
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
           ) : (
             <View style={styles.placeholderRow}>
               <View style={styles.placeholderAvatar} />
@@ -681,16 +811,16 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: "#f3f4f6",
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 24,
-    marginTop: 4,
+    borderRadius: 16,
+    padding: 8,
+    marginBottom: 12,
+    marginTop: 2,
     borderWidth: 1,
     borderColor: "#ebedf2",
     shadowColor: "#0d6e4f",
     shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 }
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 }
   },
   cardHeader: {
     flexDirection: "row",
@@ -725,7 +855,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4
   },
   placeholderRow: {
-    height: 120,
+    height: 70,
     justifyContent: "center",
     alignItems: "flex-start"
   },
@@ -741,6 +871,9 @@ const styles = StyleSheet.create({
   matchScroller: {
     paddingVertical: 4,
     gap: 12
+  },
+  scrollerWrapper: {
+    minHeight: 90
   },
   matchTileWrapper: {
     marginRight: 12
@@ -776,7 +909,9 @@ const styles = StyleSheet.create({
     borderRadius: 34,
     marginRight: 0,
     marginLeft: 0,
-    backgroundColor: "#dfe2e8"
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#e5e7eb"
   },
   messageCard: {
     flexDirection: "row",
@@ -891,7 +1026,7 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     alignItems: "center",
-    marginTop: 150,
+    marginTop: 240,
     marginBottom: 12
   },
   emptyTitle: {
@@ -913,7 +1048,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#dfe2e8",
     paddingVertical: 14,
-    marginTop: 0,
+    marginTop: 16,
     borderRadius: 999,
     alignItems: "center"
   },

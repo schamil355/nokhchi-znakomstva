@@ -183,7 +183,7 @@ const ProfileCard = ({ profile, onLike, onSkip, onView, showActions = true }: Pr
           return;
         }
 
-        const tryFetch = async <T>(fn: () => Promise<T>, attempts = 2): Promise<T | null> => {
+        const tryFetch = async <T,>(fn: () => Promise<T>, attempts = 2): Promise<T | null> => {
           for (let i = 0; i < attempts; i++) {
             try {
               return await fn();

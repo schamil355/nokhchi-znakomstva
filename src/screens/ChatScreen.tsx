@@ -15,6 +15,7 @@ import { GiftedChat, IMessage, Bubble, InputToolbar, Send, Composer } from "reac
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { useMessages } from "../hooks/useMessages";
 import { useMatches, useSendMessage } from "../hooks/useMatches";
 import { useAuthStore } from "../state/authStore";
@@ -69,7 +70,7 @@ const ChatScreen = ({ route, navigation }: Props) => {
       placeholder: "Écrire un message...",
       sendFailed: "Impossible d'envoyer le message."
     },
-    ru: {
+  ru: {
       reportTitle: "Пожаловаться и удалить чат",
       reportBody: "Мы заблокируем контакт и удалим чат.",
       cancel: "Отмена",
@@ -83,7 +84,7 @@ const ChatScreen = ({ route, navigation }: Props) => {
       sendFailed: "Не удалось отправить сообщение."
     }
   });
-  const { errorTitle, placeholder } = copy;
+  const { placeholder } = copy;
   const { matchId, participantId } = route.params ?? {};
   const session = useAuthStore((state) => state.session);
   const insets = useSafeAreaInsets();
@@ -92,9 +93,10 @@ const ChatScreen = ({ route, navigation }: Props) => {
   const { messages, isLoading, sendTyping } = useMessages(matchId);
   const { data: matches = [] } = useMatches();
   const sendMessageMutation = useSendMessage(matchId);
-  const [headerMeta, setHeaderMeta] = useState<{ name: string | null; photo: string | null }>({
+  const [headerMeta, setHeaderMeta] = useState<{ name: string | null; photo: string | null; isIncognito: boolean }>({
     name: null,
-    photo: null
+    photo: null,
+    isIncognito: false
   });
   const notifications = useNotificationsStore((state) => state.items);
   const [inputText, setInputText] = useState("");
@@ -226,10 +228,22 @@ const ChatScreen = ({ route, navigation }: Props) => {
     (avatarProps: any) => {
       const isOwn = avatarProps?.currentMessage?.user?._id === session?.user?.id;
       if (isOwn) return null;
+      if (matchIsIncognito) {
+        return (
+          <LinearGradient
+            colors={["#b5b5b5", "#f2f2f2"]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={styles.incognitoBubbleGradient}
+          >
+            <Ionicons name="lock-closed" size={18} color="#f7f7f7" style={styles.lockIconBubble} />
+          </LinearGradient>
+        );
+      }
       if (!matchPhoto) return null;
       return <Image source={{ uri: matchPhoto }} style={styles.bubbleAvatar} />;
     },
-    [matchPhoto, session?.user?.id]
+    [matchIsIncognito, matchPhoto, session?.user?.id]
   );
 
   useEffect(() => {
@@ -241,10 +255,11 @@ const ChatScreen = ({ route, navigation }: Props) => {
         setHeaderMeta((prev) => {
           const next = {
             name: found.otherDisplayName ?? null,
-            photo: found.previewPhotoUrl ?? null
+            photo: found.previewPhotoUrl ?? null,
+            isIncognito: Boolean(found.otherIsIncognito || !found.previewPhotoUrl)
           };
           if (prev.name === next.name && prev.photo === next.photo) {
-            return prev;
+            return prev.isIncognito === next.isIncognito ? prev : { ...next };
           }
           return next;
         });
@@ -259,9 +274,9 @@ const ChatScreen = ({ route, navigation }: Props) => {
       foundMatch?.participants?.find((p) => p && p !== session?.user?.id) ||
       null;
 
-    if (!fallbackParticipant && foundMatch?.otherDisplayName) {
-      return;
-    }
+      if (!fallbackParticipant && foundMatch?.otherDisplayName) {
+        return;
+      }
 
     const loadProfile = async () => {
       if (!fallbackParticipant) return;
@@ -280,10 +295,11 @@ const ChatScreen = ({ route, navigation }: Props) => {
           }
         }
         if (cancelled) return;
-        setHeaderMeta({
-          name: profile.displayName ?? foundMatch?.otherDisplayName ?? null,
-          photo: photoUrl
-        });
+        setHeaderMeta((prev) => ({
+          name: profile.displayName ?? foundMatch?.otherDisplayName ?? prev.name ?? null,
+          photo: prev.isIncognito ? null : photoUrl ?? prev.photo ?? null,
+          isIncognito: prev.isIncognito
+        }));
       } catch (error) {
         console.warn("[ChatScreen] Failed to fetch participant profile", error);
       }
@@ -305,9 +321,16 @@ const ChatScreen = ({ route, navigation }: Props) => {
     );
     if (avatarFromNotification) {
       const url = avatarFromNotification.data?.avatar_path ?? avatarFromNotification.data?.avatarUrl ?? null;
+      const isIncognito =
+        avatarFromNotification.data?.liker_incognito ??
+        avatarFromNotification.data?.likerIncognito ??
+        avatarFromNotification.data?.other_incognito ??
+        avatarFromNotification.data?.otherIncognito ??
+        false;
       setHeaderMeta((prev) => ({
         name: prev.name,
-        photo: prev.photo ?? (url ?? null)
+        photo: prev.isIncognito || isIncognito ? null : prev.photo ?? (url ?? null),
+        isIncognito: prev.isIncognito || Boolean(isIncognito)
       }));
     }
   }, [matchId, notifications]);
@@ -343,8 +366,10 @@ const ChatScreen = ({ route, navigation }: Props) => {
     }));
 
   const currentMatch = matches.find((item) => item.id === matchId);
+  const matchIsIncognito =
+    headerMeta.isIncognito || Boolean(currentMatch?.otherIsIncognito || !currentMatch?.previewPhotoUrl);
   const matchName = headerMeta.name || currentMatch?.otherDisplayName || "Match";
-  const matchPhoto = headerMeta.photo || currentMatch?.previewPhotoUrl || null;
+  const matchPhoto = matchIsIncognito ? null : headerMeta.photo || currentMatch?.previewPhotoUrl || null;
   const isTyping = Boolean(typingMatches[matchId]);
   const online = currentMatch?.lastMessageAt
     ? Date.now() - new Date(currentMatch.lastMessageAt).getTime() < 5 * 60 * 1000
@@ -364,7 +389,16 @@ const ChatScreen = ({ route, navigation }: Props) => {
           <Ionicons name="chevron-back" size={24} color="#94a3b8" />
         </Pressable>
         <View style={styles.topBarCenter}>
-          {matchPhoto ? (
+          {matchIsIncognito ? (
+            <LinearGradient
+              colors={["#b5b5b5", "#f2f2f2"]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={styles.incognitoAvatar}
+            >
+              <Ionicons name="lock-closed" size={22} color="#f7f7f7" style={styles.lockIcon} />
+            </LinearGradient>
+          ) : matchPhoto ? (
             <Image source={{ uri: matchPhoto }} style={styles.avatarImage} />
           ) : (
             <View style={styles.avatarPlaceholder} />
@@ -547,6 +581,33 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     backgroundColor: "#e2e8f0",
     marginRight: 6
+  },
+  incognitoAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  incognitoBubbleGradient: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 6
+  },
+  lockIcon: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -11 }, { translateY: -11 }]
+  },
+  lockIconBubble: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -9 }, { translateY: -9 }]
   },
   reportText: {
     color: "#eb5757",

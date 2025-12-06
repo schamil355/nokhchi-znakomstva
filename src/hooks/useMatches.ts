@@ -7,17 +7,24 @@ import { getSupabaseClient } from "../lib/supabaseClient";
 
 export const useMatches = () => {
   const session = useAuthStore((state) => state.session);
+  const viewerIsIncognito = useAuthStore((state) => state.profile?.isIncognito);
   const queryClient = useQueryClient();
 
   const matchesQuery = useQuery({
     queryKey: ["matches", session?.user.id],
-    queryFn: () => (session ? fetchMatches(session.user.id) : []),
+    queryFn: () => (session ? fetchMatches(session.user.id, { viewerIsIncognito }) : []),
     enabled: Boolean(session),
     refetchInterval: 5_000,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true
   });
+
+  useEffect(() => {
+    if (session?.user?.id && viewerIsIncognito !== undefined) {
+      queryClient.invalidateQueries({ queryKey: ["matches", session.user.id] });
+    }
+  }, [queryClient, session?.user?.id, viewerIsIncognito]);
 
   useEffect(() => {
     if (!session?.user?.id) return;

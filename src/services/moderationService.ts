@@ -26,10 +26,12 @@ export const reportUser = async (
 
 export const blockUser = async (userId: string, blockedUserId: string) => {
   const supabase = getSupabaseClient();
-  const { error } = await supabase.from("blocks").insert({
-    user_id: userId,
-    blocked_user_id: blockedUserId
-  });
+  const { error } = await supabase
+    .from("blocks")
+    .insert({
+      blocker_id: userId,
+      blocked_id: blockedUserId
+    });
   if (error && error.code !== "23505") {
     throw error;
   }
@@ -40,8 +42,8 @@ export const unblockUser = async (userId: string, blockedUserId: string) => {
   const { error } = await supabase
     .from("blocks")
     .delete()
-    .eq("user_id", userId)
-    .eq("blocked_user_id", blockedUserId);
+    .eq("blocker_id", userId)
+    .eq("blocked_id", blockedUserId);
   if (error) {
     throw error;
   }

@@ -82,7 +82,11 @@ const enqueueMessage = async (message: OfflineMessage) => {
   await writeQueue(queue);
 };
 
-export const fetchMatches = async (userId: string): Promise<Match[]> => {
+type FetchMatchesOptions = {
+  viewerIsIncognito?: boolean;
+};
+
+export const fetchMatches = async (userId: string, options: FetchMatchesOptions = {}): Promise<Match[]> => {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("matches_v")
@@ -94,7 +98,8 @@ export const fetchMatches = async (userId: string): Promise<Match[]> => {
     throw error;
   }
 
-  const matches = (data ?? []).map(mapMatch);
+  let matches = (data ?? []).map(mapMatch);
+
   if (!matches.length) {
     return matches;
   }
@@ -113,14 +118,14 @@ export const fetchMatches = async (userId: string): Promise<Match[]> => {
   try {
     const { data: byUser, error: errUser } = await supabase
       .from("profiles")
-      .select("id, user_id, photos, primary_photo_path, display_name")
+      .select("id, user_id, photos, primary_photo_path, display_name, is_incognito")
       .in("user_id", participantIds);
     if (errUser) {
       console.warn("[fetchMatches] profile lookup by user_id failed", errUser);
     }
     const { data: byId, error: errId } = await supabase
       .from("profiles")
-      .select("id, user_id, photos, primary_photo_path, display_name")
+      .select("id, user_id, photos, primary_photo_path, display_name, is_incognito")
       .in("id", participantIds);
     if (errId) {
       console.warn("[fetchMatches] profile lookup by id failed", errId);
@@ -139,7 +144,7 @@ export const fetchMatches = async (userId: string): Promise<Match[]> => {
     for (const id of missing) {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, user_id, photos, primary_photo_path, display_name")
+        .select("id, user_id, photos, primary_photo_path, display_name, is_incognito")
         .or(`user_id.eq.${id},id.eq.${id}`)
         .maybeSingle();
       if (error) {
@@ -156,6 +161,7 @@ export const fetchMatches = async (userId: string): Promise<Match[]> => {
 
   const photoEntries =
     profiles?.map(async (row: any) => {
+      const isIncognito = Boolean(row.is_incognito);
       let url: string | null = null;
       const firstRaw = Array.isArray(row.photos) && row.photos.length > 0 ? row.photos[0] : null;
       const firstPhoto =
@@ -211,44 +217,57 @@ export const fetchMatches = async (userId: string): Promise<Match[]> => {
         return null;
       };
 
-      // Try primary photo path
-      if (row.primary_photo_path) {
-        url = await resolvePath(row.primary_photo_path);
-      }
+      if (!isIncognito) {
+        // Try primary photo path
+        if (row.primary_photo_path) {
+          url = await resolvePath(row.primary_photo_path);
+        }
 
-      // Fallbacks inside first photo object (handle different key variants)
-      if (!url && firstPhoto) {
-        const candidate =
-          firstPhoto.url ||
-          firstPhoto.signedUrl ||
-          firstPhoto.signed_url ||
-          firstPhoto.storagePath ||
-          firstPhoto.storage_path;
-        const isFileScheme = typeof candidate === "string" && candidate.startsWith("file://");
-        if (candidate && !isFileScheme && /^https?:\/\//.test(String(candidate))) {
-          url = String(candidate);
-        } else if (candidate && !isFileScheme) {
-          url = await resolvePath(String(candidate));
+        // Fallbacks inside first photo object (handle different key variants)
+        if (!url && firstPhoto) {
+          const candidate =
+            firstPhoto.url ||
+            firstPhoto.signedUrl ||
+            firstPhoto.signed_url ||
+            firstPhoto.storagePath ||
+            firstPhoto.storage_path;
+          const isFileScheme = typeof candidate === "string" && candidate.startsWith("file://");
+          if (candidate && !isFileScheme && /^https?:\/\//.test(String(candidate))) {
+            url = String(candidate);
+          } else if (candidate && !isFileScheme) {
+            url = await resolvePath(String(candidate));
+          }
         }
       }
 
       const userId = (row as any)?.user_id ?? (row as any)?.id;
-      return { userId: userId as string, url, displayName: row.display_name as string | null };
+      return {
+        userId: userId as string,
+        url,
+        displayName: row.display_name as string | null,
+        isIncognito
+      };
     }) ?? [];
 
   const resolvedPhotos = await Promise.all(photoEntries);
-  const photoMap = new Map<string, { url: string | null; displayName: string | null }>();
+  const photoMap = new Map<string, { url: string | null; displayName: string | null; isIncognito: boolean }>();
   for (const entry of resolvedPhotos) {
-    photoMap.set(entry.userId, { url: entry.url ?? null, displayName: entry.displayName ?? null });
+    photoMap.set(entry.userId, {
+      url: entry.url ?? null,
+      displayName: entry.displayName ?? null,
+      isIncognito: Boolean(entry.isIncognito)
+    });
   }
 
   return matches.map((match) => {
     const otherParticipant = match.participants.find((participant) => participant !== userId) ?? match.participants[0];
     const profileMeta = otherParticipant ? photoMap.get(otherParticipant) ?? null : null;
+    const forceIncognito = profileMeta?.isIncognito ?? false;
     return {
       ...match,
-      previewPhotoUrl: profileMeta?.url ?? null,
-      otherDisplayName: profileMeta?.displayName ?? null
+      previewPhotoUrl: forceIncognito ? null : profileMeta?.url ?? null,
+      otherDisplayName: profileMeta?.displayName ?? null,
+      otherIsIncognito: forceIncognito
     };
   });
 };

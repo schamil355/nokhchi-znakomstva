@@ -23,10 +23,26 @@ const registerSchema = credentialsSchema.extend({
 const authLimiter = createRateLimiter({ intervalMs: 5_000, maxCalls: 3 });
 
 const authCopy: Record<string, Record<string, string>> = {
-  en: { signInFailed: "Sign in failed" },
-  de: { signInFailed: "Anmeldung fehlgeschlagen" },
-  fr: { signInFailed: "Échec de la connexion" },
-  ru: { signInFailed: "Не удалось войти" }
+  en: {
+    signInFailed: "Sign in failed",
+    confirmEmail: "Please confirm your email before signing in.",
+    networkSlow: "Network is slow or unavailable. Please try again."
+  },
+  de: {
+    signInFailed: "Anmeldung fehlgeschlagen",
+    confirmEmail: "Bitte bestätige zuerst deine E-Mail, bevor du dich anmeldest.",
+    networkSlow: "Netzwerk langsam oder nicht erreichbar. Bitte später erneut versuchen."
+  },
+  fr: {
+    signInFailed: "Échec de la connexion",
+    confirmEmail: "Merci de confirmer ton e-mail avant de te connecter.",
+    networkSlow: "Réseau lent ou indisponible. Réessaie plus tard."
+  },
+  ru: {
+    signInFailed: "Не удалось войти",
+    confirmEmail: "Пожалуйста, подтвердите свою почту перед входом.",
+    networkSlow: "Сеть недоступна или медленная. Повторите попытку позже."
+  }
 };
 
 const tAuth = (key: keyof typeof authCopy.en) => {
@@ -36,78 +52,102 @@ const tAuth = (key: keyof typeof authCopy.en) => {
 
 export const signInWithPassword = async (email: string, password: string): Promise<Session> =>
   authLimiter(async () => {
-    const supabase = getSupabaseClient();
-    const { email: parsedEmail, password: parsedPassword } = credentialsSchema.parse({ email, password });
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: parsedEmail,
-      password: parsedPassword
-    });
-
-    if (error || !data.session) {
-      throw error ?? new Error(tAuth("signInFailed"));
-    }
-
-    useNotificationsStore.getState().clear();
-    useAuthStore.getState().setSession(data.session);
-    usePreferencesStore.getState().setActiveUser(data.session.user.id);
-    let profile = await fetchProfile(data.session.user.id);
-    if (!profile) {
-      // Fallback: minimal Profil anlegen, damit der Profil-Tab nicht hängt
-      const userMeta = data.session.user.user_metadata ?? {};
-      const displayName =
-        userMeta.display_name ||
-        userMeta.full_name ||
-        data.session.user.email?.split("@")[0] ||
-        "User";
-      profile = await upsertProfile(data.session.user.id, {
-        displayName,
-        birthday: "1990-01-01",
-        bio: "",
-        gender: (userMeta.gender as any) || "nonbinary",
-        intention: (userMeta.intention as any) || "serious",
-        interests: [],
-        photos: [],
-        primaryPhotoId: null,
-        primaryPhotoPath: null
+    try {
+      const supabase = getSupabaseClient();
+      const { email: parsedEmail, password: parsedPassword } = credentialsSchema.parse({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: parsedEmail,
+        password: parsedPassword
       });
-    }
-    useAuthStore.getState().setProfile(profile);
 
-    return data.session;
+      if (error || !data.session) {
+        throw error ?? new Error(tAuth("signInFailed"));
+      }
+
+      // Require confirmed email (if Supabase confirm-email is enabled, session may still appear briefly)
+      if (!data.session.user.email_confirmed_at) {
+        await supabase.auth.signOut();
+        throw new Error(tAuth("confirmEmail"));
+      }
+
+      useAuthStore.getState().setSession(data.session);
+      usePreferencesStore.getState().setActiveUser(data.session.user.id);
+      let profile = await fetchProfile(data.session.user.id);
+      if (!profile) {
+        // Fallback: minimal Profil anlegen, damit der Profil-Tab nicht hängt
+        const userMeta = data.session.user.user_metadata ?? {};
+        const displayName =
+          userMeta.display_name ||
+          userMeta.full_name ||
+          data.session.user.email?.split("@")[0] ||
+          "User";
+        profile = await upsertProfile(data.session.user.id, {
+          displayName,
+          birthday: "1990-01-01",
+          bio: "",
+          gender: (userMeta.gender as any) || "nonbinary",
+          intention: (userMeta.intention as any) || "serious",
+          interests: [],
+          photos: [],
+          primaryPhotoId: null,
+          primaryPhotoPath: null
+        });
+      }
+      useAuthStore.getState().setProfile(profile);
+
+      return data.session;
+    } catch (error: any) {
+      if (isAbortError(error) || (typeof error?.message === "string" && error.message.toLowerCase().includes("network request failed"))) {
+        throw new Error(tAuth("networkSlow"));
+      }
+      throw error;
+    }
   });
 
 export const signUpWithPassword = async (
   payload: z.infer<typeof registerSchema> & { profile: ProfileInput }
 ): Promise<Session | null> =>
   authLimiter(async () => {
-    const supabase = getSupabaseClient();
-    const parsed = registerSchema.parse(payload);
-    const { data, error } = await supabase.auth.signUp({
-      email: parsed.email,
-      password: parsed.password,
-      options: {
-        data: {
-          display_name: parsed.displayName,
-          gender: parsed.gender,
-          intention: parsed.intention,
-          birthday: parsed.birthday
+    try {
+      const supabase = getSupabaseClient();
+      const parsed = registerSchema.parse(payload);
+      const { data, error } = await supabase.auth.signUp({
+        email: parsed.email,
+        password: parsed.password,
+        options: {
+          data: {
+            display_name: parsed.displayName,
+            gender: parsed.gender,
+            intention: parsed.intention,
+            birthday: parsed.birthday
+          }
         }
-      }
-    });
+      });
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      if (data.session) {
+        if (!data.session.user.email_confirmed_at) {
+          // Wenn Bestätigung nötig ist, sofort wieder abmelden und Hinweis geben
+          await supabase.auth.signOut();
+          throw new Error(tAuth("confirmEmail"));
+        }
+        useAuthStore.getState().setSession(data.session);
+        usePreferencesStore.getState().setActiveUser(data.session.user.id);
+        await upsertProfile(data.session.user.id, payload.profile);
+        return data.session;
+      }
+
+      // Kein Session-Token => Supabase wartet auf E-Mail-Bestätigung
+      throw new Error(tAuth("confirmEmail"));
+    } catch (error: any) {
+      if (isAbortError(error) || (typeof error?.message === "string" && error.message.toLowerCase().includes("network request failed"))) {
+        throw new Error(tAuth("networkSlow"));
+      }
       throw error;
     }
-
-    if (data.session) {
-      useNotificationsStore.getState().clear();
-      useAuthStore.getState().setSession(data.session);
-      usePreferencesStore.getState().setActiveUser(data.session.user.id);
-      await upsertProfile(data.session.user.id, payload.profile);
-      return data.session;
-    }
-
-    return null;
   });
 
 export const signOut = async () => {

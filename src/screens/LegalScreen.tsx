@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View, Modal } from "react-native";
+import React, { useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View, Modal, Linking } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalizedCopy, useLocale } from "../localization/LocalizationProvider";
 
-const PRIVACY_TEXT = `Datenschutzerklärung für die App "Soul"
+const PRIVACY_URL = "https://islam429.github.io/privacy-terms/privacy.html";
+const TERMS_URL = "https://islam429.github.io/privacy-terms/terms.html";
+
+const PRIVACY_TEXT = `Datenschutzerklärung für die App "нохчи знакомства"
 
 Verantwortlicher: Soul, Mirabellplatz 4, 5020 Salzburg, Österreich, E-Mail: нохчизнакомства@support.com
 
@@ -53,7 +56,7 @@ Nutzung ab 18 Jahren; Konten Minderjähriger werden gelöscht.
 12. Kontakt
 Datenschutzanfragen: нохчизнакомства@support.com`;
 
-const TERMS_TEXT = `Allgemeine Geschäftsbedingungen (AGB) – App "Soul"
+const TERMS_TEXT = `Allgemeine Geschäftsbedingungen (AGB) – App "нохчи знакомства"
 
 1. Anbieter
 Soul, Mirabellplatz 4, 5020 Salzburg, Österreich.
@@ -231,12 +234,20 @@ const LegalScreen = ({ route }: { route?: any }) => {
 
   const rows: { label: string; onPress: () => void }[] = [
     { label: copy.privacy, onPress: () => setShowPrivacy(true) },
-    { label: copy.terms, onPress: () => setShowTerms(true) }
+    { label: copy.terms, onPress: () => setShowTerms(true) },
+    { label: "Privacy (Web)", onPress: () => Linking.openURL(PRIVACY_URL) },
+    { label: "Terms (Web)", onPress: () => Linking.openURL(TERMS_URL) }
   ];
 
   const closeModal = () => {
+    // Wenn aus einem direkten Ziel (z. B. Registrierung) aufgerufen, sofort zurück navigieren,
+    // damit kein leerer Screen zwischenrendern kann.
     if (initialTarget) {
-      navigation.goBack();
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.navigate("Welcome" as never);
+      }
       return;
     }
     setShowPrivacy(false);
@@ -247,7 +258,7 @@ const LegalScreen = ({ route }: { route?: any }) => {
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       {!initialTarget && (
         <>
-          <View style={[styles.header, { paddingTop: Math.max(insets.top - 48, 0) }]}>
+          <View style={[styles.header, { paddingTop: Math.max(insets.top - 32, 0) }]}>
             <Pressable
               style={styles.headerButton}
               onPress={() => {
@@ -288,7 +299,7 @@ const LegalScreen = ({ route }: { route?: any }) => {
 
       <Modal visible={showPrivacy} animationType="slide" onRequestClose={() => setShowPrivacy(false)}>
         <SafeAreaView style={styles.modalSafe}>
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 32 }]}>
             <Pressable style={styles.headerButton} onPress={closeModal}>
               <Ionicons name="close" size={22} color="#1f2933" />
             </Pressable>
@@ -303,7 +314,7 @@ const LegalScreen = ({ route }: { route?: any }) => {
 
       <Modal visible={showTerms} animationType="slide" onRequestClose={() => setShowTerms(false)}>
         <SafeAreaView style={styles.modalSafe}>
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 32 }]}>
             <Pressable style={styles.headerButton} onPress={closeModal}>
               <Ionicons name="close" size={22} color="#1f2933" />
             </Pressable>
@@ -347,7 +358,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 12,
     gap: 16
   },
   card: {
@@ -379,8 +390,8 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 32,
+    paddingBottom: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -396,7 +407,9 @@ const styles = StyleSheet.create({
     flex: 1
   },
   modalContent: {
-    padding: 20
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 32
   },
   modalBody: {
     fontSize: 14,

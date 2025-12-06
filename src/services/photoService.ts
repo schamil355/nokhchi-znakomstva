@@ -5,6 +5,7 @@ import { getSupabaseClient } from "../lib/supabaseClient";
 import { useAuthStore } from "../state/authStore";
 import { getCurrentLocale } from "../localization/LocalizationProvider";
 import { PROFILE_BUCKET } from "../lib/storage";
+import * as ImageManipulator from "expo-image-manipulator";
 
 const rawApiBase = process.env.EXPO_PUBLIC_API_URL ?? Constants.expoConfig?.extra?.apiUrl ?? null;
 const API_BASE = rawApiBase ? rawApiBase.replace(/\/$/, "") : null;
@@ -121,11 +122,19 @@ export const uploadOriginalAsync = async (fileUri: string, userId: string): Prom
   if (!info.exists) {
     throw new Error(t("fileNotFound"));
   }
-  const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
-  const buffer = decodeBase64(base64);
-  const extensionSource = inferExtension(fileUri);
+  // Run a lightweight downscale to keep uploads fast on mobile networks.
+  const manipResult = await ImageManipulator.manipulateAsync(
+    fileUri,
+    [{ resize: { width: 1280 } }],
+    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+  );
+
+  const targetUri = manipResult.uri ?? fileUri;
+  const extensionSource = inferExtension(targetUri);
   const safeExtension = extensionSource === "jpeg" ? "jpg" : extensionSource;
   const contentType = MIME_MAP[safeExtension] ?? "image/jpeg";
+  const base64 = await FileSystem.readAsStringAsync(targetUri, { encoding: FileSystem.EncodingType.Base64 });
+  const buffer = decodeBase64(base64);
   const fileName = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${safeExtension}`;
 
   const { error } = await supabase.storage.from(PROFILE_BUCKET).upload(fileName, buffer, {

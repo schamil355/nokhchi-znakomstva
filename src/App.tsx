@@ -25,6 +25,7 @@ type NotificationCopy = {
   matchBody: string;
   likeTitle: string;
   likeBody: string;
+  likeBodyWithName?: (name: string) => string;
   messageTitle: string;
   messageBody: string;
 };
@@ -36,7 +37,8 @@ const notificationCopy: Record<string, NotificationCopy> = {
     matchTitle: "New match",
     matchBody: "You can chat now.",
     likeTitle: "New like",
-    likeBody: "Someone likes your profile.",
+    likeBody: "Someone liked you.",
+    likeBodyWithName: (name: string) => `${name} liked you.`,
     messageTitle: "New message",
     messageBody: "You received a new message."
   },
@@ -46,7 +48,8 @@ const notificationCopy: Record<string, NotificationCopy> = {
     matchTitle: "Neues Match",
     matchBody: "Ihr könnt jetzt chatten.",
     likeTitle: "Neues Like",
-    likeBody: "Jemand mag dein Profil.",
+    likeBody: "Jemand hat dich geliket",
+    likeBodyWithName: (name: string) => `${name} hat dich geliket`,
     messageTitle: "Neue Nachricht",
     messageBody: "Du hast eine neue Nachricht."
   },
@@ -56,7 +59,8 @@ const notificationCopy: Record<string, NotificationCopy> = {
     matchTitle: "Nouveau match",
     matchBody: "Vous pouvez discuter maintenant.",
     likeTitle: "Nouveau like",
-    likeBody: "Quelqu'un aime votre profil.",
+    likeBody: "Quelqu'un t'a liké.",
+    likeBodyWithName: (name: string) => `${name} t'a liké.`,
     messageTitle: "Nouveau message",
     messageBody: "Vous avez reçu un nouveau message."
   },
@@ -66,7 +70,8 @@ const notificationCopy: Record<string, NotificationCopy> = {
     matchTitle: "Новый матч",
     matchBody: "Можно начинать чат.",
     likeTitle: "Новый лайк",
-    likeBody: "Кому-то понравился твой профиль.",
+    likeBody: "Тебя лайкнули.",
+    likeBodyWithName: (name: string) => `${name} поставил лайк.`,
     messageTitle: "Новое сообщение",
     messageBody: "У тебя новое сообщение."
   }
@@ -157,12 +162,18 @@ const App = (): JSX.Element => {
       const identifier = event.request.identifier || `push-${Date.now()}`;
       const type = event.request.content.data?.type?.toString().toLowerCase() ?? "";
       const payloadData = event.request.content.data ?? {};
+      if (type === "like.received") {
+        return;
+      }
       addNotification({
         id: identifier,
         title: event.request.content.title ?? notificationText.defaultTitle,
         body: event.request.content.body ?? notificationText.defaultBody,
         receivedAt: new Date().toISOString(),
-        data: payloadData
+        data: {
+          type,
+          ...payloadData
+        }
       });
     });
 
@@ -171,12 +182,18 @@ const App = (): JSX.Element => {
       const identifier = event.request.identifier || `push-${Date.now()}`;
       const type = event.request.content.data?.type?.toString().toLowerCase() ?? "";
       const payloadData = event.request.content.data ?? {};
+      if (type === "like.received") {
+        return;
+      }
       addNotification({
         id: identifier,
         title: event.request.content.title ?? notificationText.defaultTitle,
         body: event.request.content.body ?? notificationText.defaultBody,
         receivedAt: new Date().toISOString(),
-        data: payloadData
+        data: {
+          type,
+          ...payloadData
+        }
       });
     });
 
@@ -211,16 +228,81 @@ const App = (): JSX.Element => {
           if (row.processed_at) {
             return;
           }
-          const type = (row.type ?? "").toString();
+          let type = (row.type ?? "").toString();
           const data = (row.payload as Record<string, any>) ?? {};
+          const currentUserId = session?.user?.id ?? null;
+          if (type === "message.new") {
+            const handleMessageNotification = async () => {
+              const messageIdRaw = data.message_id ?? data.messageId ?? null;
+              const messageId = messageIdRaw !== null && messageIdRaw !== undefined ? String(messageIdRaw) : null;
+              let senderId = data.sender_id ?? data.senderId ?? data.sender ?? null;
+
+              if ((!senderId || !data.preview) && messageId) {
+                try {
+                  const { data: msgRow } = await supabase
+                    .from("messages")
+                    .select("sender_id, content, created_at")
+                    .eq("id", messageId)
+                    .maybeSingle();
+                  senderId = senderId ?? (msgRow as any)?.sender_id ?? null;
+                  if (!data.preview && msgRow?.content) {
+                    data.preview = msgRow.content;
+                  }
+                  if (!data.created_at && msgRow?.created_at) {
+                    data.created_at = msgRow.created_at;
+                  }
+                } catch {
+                  // ignore fetch errors
+                }
+              }
+
+              if (senderId && currentUserId && senderId === currentUserId) {
+                return;
+              }
+
+              const title = notificationText.messageTitle;
+              const body = data.preview ?? notificationText.messageBody;
+              const normalizedMessageId =
+                messageId ??
+                (data.message_id ?? data.messageId ? String(data.message_id ?? data.messageId) : null);
+
+              addNotification({
+                id: `message-${normalizedMessageId ?? row.id ?? Date.now()}`,
+                title,
+                body,
+                receivedAt: new Date().toISOString(),
+                data: {
+                  type,
+                  message_id: normalizedMessageId,
+                  ...data,
+                },
+              });
+            };
+
+            void handleMessageNotification();
+            return;
+          }
+          const isIncognitoMatch =
+            type === "match.new" &&
+            Boolean(
+              data.liker_incognito ??
+                data.likerIncognito ??
+                data.other_incognito ??
+                data.otherIncognito ??
+                data.match_incognito ??
+                data.matchIncognito ??
+                false
+            );
+          if (isIncognitoMatch) {
+            type = "like.received";
+          }
           let title = notificationText.defaultTitle;
           let body = data.preview ?? data.body ?? notificationText.defaultBody;
           if (type === "match.new") {
             title = notificationText.matchTitle;
             body = notificationText.matchBody;
           } else if (type === "like.received") {
-            title = notificationText.likeTitle;
-            body = notificationText.likeBody;
+            return;
           } else if (type === "message.new") {
             title = notificationText.messageTitle;
             body = data.preview ?? notificationText.messageBody;
@@ -233,6 +315,7 @@ const App = (): JSX.Element => {
             receivedAt: new Date().toISOString(),
             data: {
               type,
+              ...(isIncognitoMatch ? { liker_incognito: true } : null),
               ...data,
             },
           });

@@ -35,6 +35,8 @@ export class PushService {
   private readonly batchSize: number;
   private readonly maxAttempts: number;
   private readonly allowedProjectIds: string[];
+  private readonly profileFields = "display_name,is_incognito";
+  private readonly matchFields = "user_a,user_b";
 
   constructor(private readonly configService: ConfigService) {
     const skipQuiet = (process.env.SKIP_QUIET_HOURS ?? "true").toLowerCase() === "true";
@@ -43,6 +45,46 @@ export class PushService {
     this.batchSize = this.configService.get<number>("push.batchSize") ?? DEFAULT_BATCH_SIZE;
     this.maxAttempts = this.configService.get<number>("push.maxAttempts") ?? DEFAULT_MAX_ATTEMPTS;
     this.allowedProjectIds = this.configService.get<string[]>("push.allowedProjectIds") ?? [];
+  }
+
+  private async fetchProfileMeta(userId: string | null | undefined): Promise<{ isIncognito: boolean; name: string | null } | null> {
+    if (!userId) return null;
+    try {
+      const { data, error } = await this.supabase
+        .from("profiles")
+        .select(this.profileFields)
+        .eq("id", userId)
+        .maybeSingle();
+      if (error) {
+        return null;
+      }
+      return {
+        isIncognito: Boolean((data as any)?.is_incognito),
+        name: ((data as any)?.display_name as string | null) ?? null
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private async fetchMatchParticipants(matchId: string | null | undefined): Promise<{ userA: string | null; userB: string | null } | null> {
+    if (!matchId) return null;
+    try {
+      const { data, error } = await this.supabase
+        .from("matches")
+        .select(this.matchFields)
+        .eq("id", matchId)
+        .maybeSingle();
+      if (error) {
+        return null;
+      }
+      return {
+        userA: (data as any)?.user_a ?? null,
+        userB: (data as any)?.user_b ?? null
+      };
+    } catch {
+      return null;
+    }
   }
 
   async processQueue(limit = 50) {
@@ -83,16 +125,123 @@ export class PushService {
       return;
     }
 
+    if (job.type === "like.received") {
+      await this.markProcessed(job, false);
+      return;
+    }
+
+    const basePayload = (job.payload ?? {}) as Record<string, any>;
+    if (job.type === "message.new") {
+      const senderId = basePayload.sender_id ?? basePayload.senderId ?? basePayload.sender;
+      if (senderId && senderId === job.user_id) {
+        // Falsch adressierter Eintrag (Sender = user_id). Lege einen neuen Job für den Empfänger an.
+        const participants = await this.fetchMatchParticipants(basePayload.match_id ?? basePayload.matchId);
+        const recipient =
+          participants && senderId === participants.userA
+            ? participants.userB
+            : participants && senderId === participants.userB
+              ? participants.userA
+              : null;
+        if (recipient && recipient !== senderId) {
+          await this.supabase.from("push_queue").insert({
+            user_id: recipient,
+            type: "message.new",
+            payload: job.payload,
+            scheduled_at: new Date().toISOString()
+          });
+        }
+        await this.markProcessed(job, false);
+        return;
+      }
+    }
+
     if (await this.shouldSkipDuplicate(job)) {
       await this.markProcessed(job, false);
       return;
     }
 
+    const hasIncognitoFlag = Boolean(
+      basePayload.liker_incognito ??
+        basePayload.likerIncognito ??
+        basePayload.other_incognito ??
+        basePayload.otherIncognito ??
+        basePayload.match_incognito ??
+        basePayload.matchIncognito ??
+        false
+    );
+
+    let effectiveJob: PushQueueRow = job;
     if (job.type === "match.new") {
-      await this.ensureReciprocalMatchPush(job);
+      let incognito = hasIncognitoFlag;
+      let likerId =
+        basePayload.liker_id ??
+        basePayload.likerId ??
+        basePayload.other_user_id ??
+        basePayload.otherUserId ??
+        null;
+      let likerName =
+        basePayload.liker_name ??
+        basePayload.likerName ??
+        basePayload.display_name ??
+        basePayload.displayName ??
+        null;
+
+      const matchParticipants = await this.fetchMatchParticipants(basePayload.match_id ?? basePayload.matchId);
+      if (!likerId && matchParticipants) {
+        const { userA, userB } = matchParticipants;
+        if (userA === job.user_id) {
+          likerId = userB;
+        } else if (userB === job.user_id) {
+          likerId = userA;
+        }
+      }
+
+      const metaOther = await this.fetchProfileMeta(likerId);
+      const metaSelf = await this.fetchProfileMeta(job.user_id);
+      incognito = incognito || Boolean(metaOther?.isIncognito);
+      likerName = likerName ?? metaOther?.name ?? null;
+
+      // Inkognito-Selbstempfänger bekommt keinen Match/Like-Push
+      if (metaSelf?.isIncognito) {
+        await this.markProcessed(job, false);
+        return;
+      }
+
+      if (incognito) {
+        effectiveJob = {
+          ...job,
+          type: "like.received",
+          payload: {
+            liker_id: likerId,
+            liker_name: likerName,
+            liker_incognito: true,
+            avatar_path: null,
+            created_at: basePayload.created_at ?? new Date().toISOString()
+          }
+        };
+      } else {
+        // Falls Flags fehlen: wenn irgendein Beteiligter inkognito ist, keinen Match-Push senden
+        const otherProfile =
+          matchParticipants && job.user_id === matchParticipants.userA ? matchParticipants.userB : matchParticipants?.userA;
+        const otherMeta = await this.fetchProfileMeta(otherProfile);
+        const eitherIncognito = Boolean(metaOther?.isIncognito) || Boolean(otherMeta?.isIncognito);
+        if (eitherIncognito) {
+          await this.markProcessed(job, false);
+          return;
+        }
+      }
     }
 
-    const rawTokens = await this.fetchTokens(job.user_id);
+    if (await this.shouldSkipDuplicate(effectiveJob)) {
+      await this.markProcessed(job, false);
+      return;
+    }
+
+    if (effectiveJob.type === "match.new") {
+      await this.ensureReciprocalMatchPush(effectiveJob);
+    }
+
+    const rawTokens = await this.fetchTokens(effectiveJob.user_id);
     const tokens = await this.filterTokensByProject(rawTokens);
     if (!tokens.length) {
       await this.markProcessed(job, false);
@@ -106,7 +255,7 @@ export class PushService {
       if (!batchTokens.length) {
         continue;
       }
-      const messages = batchTokens.map((token) => this.composeMessage(token, job));
+      const messages = await Promise.all(batchTokens.map((token) => this.composeMessage(token, effectiveJob)));
       const batchResults = await this.sendExpoBatch(messages);
       results.push(...batchResults);
     }
@@ -192,10 +341,31 @@ export class PushService {
   private async ensureReciprocalMatchPush(job: PushQueueRow) {
     const payload = job.payload ?? {};
     const matchId = payload.match_id ?? payload.matchId;
-    const otherUserId = payload.other_user_id;
+    let otherUserId = payload.other_user_id ?? payload.otherUserId;
     const createdAt = payload.created_at ?? new Date().toISOString();
 
-    if (!matchId || !otherUserId) {
+    if (!matchId) {
+      return;
+    }
+
+    // Fallback: resolve other participant if not provided
+    if (!otherUserId) {
+      try {
+        const participants = await this.fetchMatchParticipants(matchId);
+        if (participants) {
+          const { userA, userB } = participants;
+          if (userA === job.user_id) {
+            otherUserId = userB;
+          } else if (userB === job.user_id) {
+            otherUserId = userA;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!otherUserId) {
       return;
     }
 
@@ -240,10 +410,11 @@ export class PushService {
     const payload = (job.payload ?? {}) as Record<string, any>;
     const matchId = payload.match_id ?? payload.matchId ?? payload.match;
     const likerId = payload.liker_id ?? payload.likerId;
+    const messageId = payload.message_id ?? payload.messageId;
     const windowMs = 15 * 60 * 1000; // 15 minutes
     const windowStart = new Date(Date.now() - windowMs).toISOString();
 
-    const hasDuplicate = async (type: string, field: string, value: any, includeProcessedWindow = true) => {
+    const hasDuplicate = async (type: string, field: string, value: any, includeProcessedWindow = true, anyProcessed = false) => {
       const { data: pending, error: pendingError } = await this.supabase
         .from("push_queue")
         .select("id")
@@ -274,18 +445,41 @@ export class PushService {
         }
       }
 
+      if (anyProcessed) {
+        const { data: anyProcessedRows, error: anyErr } = await this.supabase
+          .from("push_queue")
+          .select("id")
+          .eq("user_id", job.user_id)
+          .eq("type", type)
+          .not("processed_at", "is", null)
+          .neq("id", job.id)
+          .contains("payload", { [field]: value })
+          .limit(1);
+        if (!anyErr && anyProcessedRows && anyProcessedRows.length) {
+          return true;
+        }
+      }
+
       return false;
     };
 
     if (job.type === "match.new" && matchId) {
-      if (await hasDuplicate("match.new", "match_id", matchId, true)) {
+      // Skip if pending/processed recently OR ever processed for this match id
+      if (await hasDuplicate("match.new", "match_id", matchId, true, true)) {
+        return true;
+      }
+    }
+
+    if (job.type === "message.new" && messageId) {
+      // Skip duplicate message push for the same message id
+      if (await hasDuplicate("message.new", "message_id", messageId, true)) {
         return true;
       }
     }
 
     if (job.type === "like.received" && likerId) {
-      // For likes: only skip if there is a pending identical job; allow repeat likes even if processed recently.
-      if (await hasDuplicate("like.received", "liker_id", likerId, false)) {
+      // Skip if pending or processed recently to avoid duplicate like pushes (immer, auch incognito)
+      if (await hasDuplicate("like.received", "liker_id", likerId, true)) {
         return true;
       }
     }
@@ -293,21 +487,40 @@ export class PushService {
     return false;
   }
 
-  private composeMessage(token: string, job: PushQueueRow) {
+  private async composeMessage(token: string, job: PushQueueRow) {
     const payload: Record<string, any> = (job.payload ?? {}) as Record<string, any>;
+    const likerIncognito = Boolean(
+      payload.liker_incognito ?? payload.likerIncognito ?? payload.other_incognito ?? payload.otherIncognito
+    );
+    const rawAvatar =
+      payload.avatarUrl ??
+      payload.avatar_url ??
+      payload.avatar_path ??
+      payload.avatarPath ??
+      payload.avatar ??
+      null;
+    const safeAvatar = likerIncognito ? null : rawAvatar;
     let title = "Neue Nachricht";
     let body = typeof payload.preview === "string" ? payload.preview : "Du hast eine neue Nachricht";
     let ttl: number | undefined;
+    let badge: number | undefined;
     if (job.type === "match.new") {
       title = "Neues Match";
       body = "Ihr könnt jetzt chatten.";
       ttl = 7 * 24 * 60 * 60; // 7 Tage, damit Match-Push lange im Center bleibt
     } else if (job.type === "like.received") {
       title = "Neues Like";
-      body = "Jemand mag dein Profil.";
+      const name =
+        (typeof payload.liker_name === "string" && payload.liker_name.trim()) ||
+        (typeof payload.display_name === "string" && payload.display_name.trim()) ||
+        (await lookupDisplayName(payload.liker_id, this.supabase)) ||
+        null;
+      body = name ? `${name} hat dich geliket` : "Jemand hat dich geliket";
     } else if (job.type === "test.push") {
       title = "Push-Test";
       body = payload.message ?? "Testbenachrichtigung";
+    } else if (job.type === "message.new") {
+      badge = 1;
     }
 
     return {
@@ -316,9 +529,13 @@ export class PushService {
       title,
       body,
       ...(ttl ? { ttl } : null),
+      ...(badge ? { badge } : null),
       data: {
         type: job.type,
         ...payload,
+        avatarUrl: safeAvatar,
+        avatar_path: likerIncognito ? null : payload.avatar_path ?? null,
+        liker_incognito: likerIncognito,
       },
     };
   }
@@ -448,6 +665,21 @@ type ExpoResponseItem = {
     error?: string;
   };
   to?: string;
+};
+
+// Lookup helper for liker display names in like.received payloads
+// Note: declared outside the class to keep the class lean.
+const lookupDisplayName = async (userId: string | null | undefined, supabase: any): Promise<string | null> => {
+  if (!userId) return null;
+  try {
+    const { data, error } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();
+    if (error) {
+      return null;
+    }
+    return (data as any)?.display_name ?? null;
+  } catch {
+    return null;
+  }
 };
 
 const chunk = <T,>(items: T[], size: number): T[][] => {
