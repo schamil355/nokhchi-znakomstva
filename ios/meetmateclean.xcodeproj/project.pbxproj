@@ -402,7 +402,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.shishany.meetmate;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zelimkhan.meetmate-clean;
 				PRODUCT_NAME = meetmateclean;
 				SWIFT_OBJC_BRIDGING_HEADER = "meetmateclean/meetmateclean-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -436,7 +436,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = com.shishany.meetmate;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zelimkhan.meetmate-clean;
 				PRODUCT_NAME = meetmateclean;
 				SWIFT_OBJC_BRIDGING_HEADER = "meetmateclean/meetmateclean-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;

@@ -133,6 +133,17 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   },
 };
 
+const isIncognitoNotification = (entry: NotificationItem): boolean => {
+  const data = entry.data ?? {};
+  return Boolean(
+    data.liker_incognito ??
+      data.likerIncognito ??
+      data.other_incognito ??
+      data.otherIncognito ??
+      false
+  );
+};
+
 const NotificationsScreen = () => {
   const navigation = useNavigation<any>();
   const notifications = useNotificationsStore((state) => state.items);
@@ -172,8 +183,12 @@ const NotificationsScreen = () => {
     setAvatarCache((prev) => {
       const next = { ...prev };
       sortedNotifications.forEach((entry) => {
-        if (entry.data?.avatarUrl && !next[entry.id]) {
-          next[entry.id] = entry.data.avatarUrl;
+        if (isIncognitoNotification(entry)) {
+          return;
+        }
+        const avatarUrl = typeof entry.data?.avatarUrl === "string" ? entry.data.avatarUrl : null;
+        if (avatarUrl && !next[entry.id]) {
+          next[entry.id] = avatarUrl;
         }
       });
       return next;
@@ -189,7 +204,7 @@ const NotificationsScreen = () => {
         entry.data?.type === "match.new" || entry.data?.match_id || entry.data?.matchId;
       const matchId = entry.data?.match_id ?? entry.data?.matchId;
       return isMatch && matchId && !avatarCache[entry.id];
-    });
+    }).filter((entry) => !isIncognitoNotification(entry));
     if (!pending.length) {
       return;
     }
@@ -389,18 +404,20 @@ const NotificationsScreen = () => {
       ) : (
         <View style={styles.section}>
           {sortedNotifications.map((entry) => {
-            const avatarUri =
-              avatarCache[entry.id] ??
-              (typeof entry.data?.avatarUrl === "string" && entry.data.avatarUrl.length > 0
-                ? entry.data.avatarUrl
-                : null);
+            const incognito = isIncognitoNotification(entry);
+            const avatarUri = incognito
+              ? null
+              : avatarCache[entry.id] ??
+                (typeof entry.data?.avatarUrl === "string" && entry.data.avatarUrl.length > 0
+                  ? entry.data.avatarUrl
+                  : null);
             return (
               <Pressable key={entry.id} style={styles.itemRow} onPress={() => handleNotificationPress(entry)}>
                 <View style={[styles.avatarWrapper, !avatarUri && styles.avatarPlaceholder]}>
                   {avatarUri ? (
                     <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
                   ) : (
-                    <Ionicons name="notifications" size={24} color="#b6bac2" />
+                    <Ionicons name={incognito ? "lock-closed" : "notifications"} size={24} color="#b6bac2" />
                   )}
                 </View>
               <View style={styles.itemBody}>

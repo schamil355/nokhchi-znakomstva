@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -31,7 +30,6 @@ import { PROFILE_BUCKET } from "../lib/storage";
 const ACCENT_COLOR = "#0d6e4f";
 const MAX_FILE_SIZE = 700 * 1024; // ~700KB to keep uploads fast on mobile
 const MAX_DIMENSION = 1280; // downscale to speed up uploads
-const GUIDELINES_URL = "https://tschetschenische.app/legal/photo-guidelines";
 
 type Props = NativeStackScreenProps<any>;
 

@@ -106,6 +106,11 @@ export const sendTokenToBackend = async (token: string, provider: "expo" | "fcm"
     return;
   }
 
+  const hasProfile = await ensureProfileExists(supabase, session.user.id);
+  if (!hasProfile) {
+    return;
+  }
+
   const payload = {
     user_id: session.user.id,
     token,
@@ -115,8 +120,10 @@ export const sendTokenToBackend = async (token: string, provider: "expo" | "fcm"
     project_id: resolveProjectId() ?? null
   };
 
+  await supabase.from("devices").delete().eq("token", token);
+
   const { error } = await supabase.from("devices").upsert(payload, {
-    onConflict: "user_id,token"
+    onConflict: "token"
   });
 
   if (error) {
@@ -148,4 +155,34 @@ export const sendExpoTestPush = async () => {
     throw error;
   }
   return { enqueued: true };
+};
+
+const ensureProfileExists = async (supabase: SupabaseClient, userId: string): Promise<boolean> => {
+  try {
+    const { data: profileRow, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profileError) {
+      console.warn("Push registration: profile lookup failed", profileError.message ?? profileError);
+      return false;
+    }
+    if (profileRow?.id) {
+      return true;
+    }
+    const { error: upsertError } = await supabase.from("profiles").upsert({
+      id: userId,
+      user_id: userId,
+      created_at: new Date().toISOString()
+    });
+    if (upsertError) {
+      console.warn("Push registration: profile upsert failed", upsertError.message ?? upsertError);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.warn("Push registration: profile ensure threw", err?.message ?? err);
+    return false;
+  }
 };

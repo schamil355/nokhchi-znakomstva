@@ -36,7 +36,7 @@ export const fetchProfile = async (userId: string): Promise<Profile | null> => {
       id,
       user_id,
       display_name,
-      birthday,
+      birthdate,
       bio,
       gender,
       intention,
@@ -81,11 +81,11 @@ export const upsertProfile = async (userId: string, input: ProfileInput): Promis
   updateLimiter(async () => {
     const supabase = getSupabaseClient();
     const parsed = profileSchema.parse(input);
-    const payload = {
-      id: userId,
-      user_id: userId,
-      display_name: parsed.displayName,
-      birthday: parsed.birthday,
+  const payload = {
+    id: userId,
+    user_id: userId,
+    display_name: parsed.displayName,
+    birthdate: parsed.birthday,
       bio: parsed.bio,
       gender: parsed.gender,
       intention: parsed.intention,
@@ -223,7 +223,7 @@ export const mapProfile = (row: any): Profile => {
     id: row.id,
     userId: row.user_id,
     displayName: row.display_name,
-    birthday: row.birthday,
+    birthday: row.birthday ?? row.birthdate,
     bio: row.bio ?? "",
     gender: row.gender,
     intention: row.intention,

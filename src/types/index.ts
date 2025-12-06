@@ -52,6 +52,7 @@ export type Match = {
   isActive: boolean;
   previewPhotoUrl?: string | null;
   otherDisplayName?: string | null;
+  otherIsIncognito?: boolean;
 };
 
 export type Message = {

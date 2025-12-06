@@ -27,7 +27,8 @@ begin
     and coalesce(m.is_active, true)
   limit 1;
 
-  if recipient is null then
+  -- Kein Push an sich selbst
+  if recipient is null or recipient = new.sender_id then
     return new;
   end if;
 

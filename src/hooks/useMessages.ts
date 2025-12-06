@@ -7,7 +7,7 @@ import {
   subscribeToMessages,
   sendTypingEvent
 } from "../services/matchService";
-import { Match, Message } from "../types";
+import { Message } from "../types";
 import { useAuthStore } from "../state/authStore";
 import { useNotificationsStore } from "../state/notificationsStore";
 import { useChatStore } from "../state/chatStore";
@@ -65,20 +65,6 @@ export const useMessages = (matchId: string) => {
           return [message, ...prev];
         });
         queryClient.invalidateQueries({ queryKey: ["matches"] });
-        if (session?.user?.id && message.senderId !== session.user.id) {
-          const matches = queryClient.getQueryData<Match[]>(["matches", session.user.id]) ?? [];
-          const matchMeta = matches.find((entry) => entry.id === matchId);
-          const matchName =
-            matchMeta?.otherDisplayName ||
-            (matchMeta?.id ? `Match #${matchMeta.id.slice(0, 6)}` : "Match");
-          addNotification({
-            id: `message-${message.id}`,
-            title: matchName,
-            body: message.content,
-            receivedAt: new Date().toISOString(),
-            data: { type: "message", matchId, senderId: message.senderId }
-          });
-        }
       },
       (isTyping) => {
         setTyping(matchId, isTyping);

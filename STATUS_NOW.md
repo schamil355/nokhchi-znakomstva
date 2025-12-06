@@ -43,11 +43,11 @@
 **D) InstaChat (Vor-Match-Nachrichten)**
 | Feld | Inhalt |
 |---|---|
-| Status | NICHT VORHANDEN |
-| Kern-Features umgesetzt | - n/a |
+| Status | NICHT GEPLANT |
+| Kern-Features umgesetzt | - n/a (Requirement gestrichen) |
 | Wichtigste Code-Evidenz | n/a |
 | Relevante Dependencies | n/a |
-| Laufzeit-Hinweise | n/a |
+| Laufzeit-Hinweise | Vor-Match-Messaging wird nicht mehr benötigt; keine Umsetzung vorgesehen. |
 
 **E) Incognito-Modus & Foto-Privatsphäre**
 | Feld | Inhalt |

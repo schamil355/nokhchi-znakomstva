@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "tschetschenische-dating-app",
-    "slug": "tschetschenische-dating-app",
-    "scheme": "tschetschenische",
+    "name": "Нохчи Знакомства",
+    "slug": "meetmate-clean",
+    "scheme": "nochchi",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -17,8 +17,8 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.tschedating.app",
-      "buildNumber": "3",
+      "bundleIdentifier": "com.zelimkhan.meetmate-clean",
+      "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "Wir benötigen die Kamera für Profilfotos.",
         "NSPhotoLibraryUsageDescription": "Wir benötigen Zugriff auf deine Fotos für dein Profil.",
@@ -33,7 +33,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.tschedating.app",
+      "package": "com.zelimkhan.meetmateclean",
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ],
@@ -65,13 +65,13 @@
       "expo-location"
     ],
     "extra": {
-      "releaseChannel": "development",
+      "releaseChannel": "production",
       "eas": {
-        "projectId": "c293442b-e525-4fcf-a532-1c4924a30571"
+        "projectId": "8d41929c-2173-4a52-a275-9d09896a2b0c"
       }
     },
     "updates": {
-      "url": "https://u.expo.dev/c293442b-e525-4fcf-a532-1c4924a30571"
+      "url": "https://u.expo.dev/8d41929c-2173-4a52-a275-9d09896a2b0c"
     }
   }
 }

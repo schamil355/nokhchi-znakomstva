@@ -6,6 +6,23 @@ import NetInfo from "@react-native-community/netinfo";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { useAuthStore } from "../state/authStore";
 
+const ensureProfileExists = async (supabase: ReturnType<typeof getSupabaseClient>, userId: string) => {
+  const { data: profileRow } = await supabase.from("profiles").select("id").eq("id", userId).maybeSingle();
+  if (profileRow?.id) {
+    return true;
+  }
+  const { error: upsertError } = await supabase.from("profiles").upsert({
+    id: userId,
+    user_id: userId,
+    created_at: new Date().toISOString()
+  });
+  if (upsertError) {
+    console.warn("Push registration: failed to upsert profile row", upsertError.message ?? upsertError);
+    return false;
+  }
+  return true;
+};
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     // On iOS use banner/list (no alert); on Android keep alert.
@@ -61,23 +78,9 @@ export const registerPushNotifications = async () => {
 
     const supabase = getSupabaseClient();
 
-    // Ensure profile exists (FK constraint on devices.user_id -> profiles.id)
-    try {
-      const { data: profileRow, error: profileError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", auth.session.user.id)
-        .maybeSingle();
-      if (profileError) {
-        console.warn(
-          "Push registration: profile lookup failed, proceeding anyway",
-          profileError.message ?? profileError
-        );
-      } else if (!profileRow?.id) {
-        console.warn("Push registration: no profile row for user, proceeding anyway", auth.session.user.id);
-      }
-    } catch (profileCheckError: any) {
-      console.warn("Push registration: profile lookup threw, proceeding anyway", profileCheckError?.message ?? profileCheckError);
+    const hasProfile = await ensureProfileExists(supabase, auth.session.user.id);
+    if (!hasProfile) {
+      return;
     }
 
     const platform = Platform.OS;
@@ -106,6 +109,7 @@ export const registerPushNotifications = async () => {
 
     const suffix = token.data ? token.data.slice(-6) : "unknown";
     try {
+      await supabase.from("devices").delete().eq("token", token.data);
       const { error } = await supabase.from("devices").upsert(
         {
           user_id: auth.session.user.id,
@@ -115,7 +119,7 @@ export const registerPushNotifications = async () => {
           project_id: projectId ?? null
         },
         {
-          onConflict: "user_id,token"
+          onConflict: "token"
         }
       );
 

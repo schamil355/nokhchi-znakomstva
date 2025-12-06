@@ -34,7 +34,11 @@ const mockPrisma: any = {
     create: jest.fn(),
   },
   profile: {
+    findUnique: jest.fn(),
     update: jest.fn(),
+  },
+  photo_assets: {
+    findUnique: jest.fn(),
   },
   verificationArtifact: {
     create: jest.fn(),
@@ -68,13 +72,30 @@ const mockRateLimit = {
 
 describe("VerificationService", () => {
   let service: VerificationService;
+  const mockSupabase = {
+    storage: {
+      from: jest.fn(() => ({
+        download: jest.fn().mockResolvedValue({
+          data: {
+            arrayBuffer: async () => Buffer.from("stub-photo"),
+          },
+          error: null,
+        }),
+      })),
+    },
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     process.env.SELFIE_HASH_SALT = "test-salt";
     mockedAxios.get.mockResolvedValue({ data: Buffer.alloc(8) } as any);
     mockPrisma.verificationSession.update.mockResolvedValue({});
+    mockPrisma.profile.findUnique.mockResolvedValue({
+      primary_photo_path: "path/to/photo.jpg",
+      primary_photo_id: null,
+    });
     mockPrisma.profile.update.mockResolvedValue({});
+    mockPrisma.photo_assets.findUnique.mockResolvedValue(null);
     mockPrisma.user.update.mockResolvedValue({});
     mockPrisma.auditLog.create.mockResolvedValue({});
     const moduleRef = await Test.createTestingModule({
@@ -90,6 +111,8 @@ describe("VerificationService", () => {
     }).compile();
 
     service = moduleRef.get(VerificationService);
+    // Stub Supabase storage client used for profile photo download
+    (service as any).supabase = mockSupabase;
   });
 
   it("starts a new session", async () => {

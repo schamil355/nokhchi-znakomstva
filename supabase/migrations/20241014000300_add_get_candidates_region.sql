@@ -72,6 +72,7 @@ create or replace function public.get_candidates_region(
 )
 returns setof public.public_profiles
 language plpgsql
+set search_path = public
 security definer
 as $$
 declare

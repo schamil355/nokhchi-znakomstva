@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage, StateStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export type NotificationItem = {
@@ -23,6 +23,32 @@ type NotificationStore = {
 
 const MAX_NOTIFICATIONS = 50;
 
+// Guarded AsyncStorage to avoid noisy warnings when storage is unavailable (e.g., in certain environments)
+const safeAsyncStorage: StateStorage = {
+  getItem: async (name) => {
+    try {
+      return await AsyncStorage.getItem(name);
+    } catch (error) {
+      console.warn("[notifications-store] getItem failed", error);
+      return null;
+    }
+  },
+  setItem: async (name, value) => {
+    try {
+      await AsyncStorage.setItem(name, value);
+    } catch (error) {
+      console.warn("[notifications-store] setItem failed", error);
+    }
+  },
+  removeItem: async (name) => {
+    try {
+      await AsyncStorage.removeItem(name);
+    } catch (error) {
+      console.warn("[notifications-store] removeItem failed", error);
+    }
+  }
+};
+
 export const useNotificationsStore = create<NotificationStore>()(
   persist(
     (set) => ({
@@ -32,14 +58,30 @@ export const useNotificationsStore = create<NotificationStore>()(
         set((state) => {
           const incomingType = payload.data?.type?.toString().toLowerCase?.() ?? "";
           const likerId = payload.data?.liker_id ?? payload.data?.likerId;
-          const likerIncognito = payload.data?.liker_incognito ?? payload.data?.likerIncognito;
           if (incomingType.includes("like") && likerId) {
             const hasSameLiker = state.items.some(
               (item) =>
                 (item.data?.type?.toString().toLowerCase?.() ?? "").includes("like") &&
                 (item.data?.liker_id ?? item.data?.likerId) === likerId
             );
-            if (hasSameLiker && likerIncognito !== true) {
+            if (hasSameLiker) {
+              return state;
+            }
+          }
+          const rawMessageId =
+            payload.data?.message_id ??
+            payload.data?.messageId ??
+            payload.data?.message_id ??
+            payload.data?.messageId ??
+            null;
+          const messageId = rawMessageId !== null && rawMessageId !== undefined ? String(rawMessageId) : null;
+          if (incomingType.includes("message") && messageId) {
+            const hasSameMessage = state.items.some(
+              (item) =>
+                (item.data?.type?.toString().toLowerCase?.() ?? "").includes("message") &&
+                String(item.data?.message_id ?? item.data?.messageId ?? "") === messageId
+            );
+            if (hasSameMessage) {
               return state;
             }
           }
@@ -82,7 +124,7 @@ export const useNotificationsStore = create<NotificationStore>()(
     }),
     {
       name: "notifications-store",
-      getStorage: () => AsyncStorage
+      storage: createJSONStorage(() => safeAsyncStorage)
     }
   )
 );

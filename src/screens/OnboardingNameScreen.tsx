@@ -119,7 +119,7 @@ const OnboardingNameScreen = ({ navigation }: Props) => {
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: "padding", android: undefined })}
         style={styles.keyboardAvoider}
-        keyboardVerticalOffset={Platform.select({ ios: insets.top + 24, android: 0 })}
+        keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
       >
         <ScrollView
           style={styles.container}
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 8,
-    paddingBottom: 24
+    paddingBottom: 80
   },
   inner: {
     backgroundColor: "#ffffff",
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingBottom: 72,
     backgroundColor: "#ffffff"
   },
   primaryButton: {

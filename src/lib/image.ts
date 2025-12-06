@@ -33,7 +33,6 @@ const translations: Record<string, ImageCopy> = {
   }
 };
 
-const locale = getCurrentLocale();
 const t = (key: keyof typeof translations.en) => {
   const locale = getCurrentLocale();
   return translations[locale]?.[key] ?? translations.en[key];

@@ -3,7 +3,7 @@ import "dotenv/config";
 export default ({ config }) => ({
   ...config,
   name: "Нохчи Знакомства",
-  slug: config.slug ?? "nochchi-znakomstva",
+  slug: "meetmate-clean",
   ios: {
     ...(config.ios ?? {}),
     bundleIdentifier: process.env.EXPO_PUBLIC_IOS_BUNDLE_ID ?? "com.zelimkhan.meetmate-clean",
@@ -16,6 +16,11 @@ export default ({ config }) => ({
     ...(config.android ?? {}),
     package: process.env.EXPO_PUBLIC_ANDROID_PACKAGE ?? "com.zelimkhan.meetmateclean",
     appName: "Нохчи Знакомства"
+  },
+  splash: {
+    image: "./assets/icon.png",
+    resizeMode: "contain",
+    backgroundColor: "#ffffff"
   },
   extra: {
     ...(config.extra ?? {}),

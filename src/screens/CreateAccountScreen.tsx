@@ -16,7 +16,6 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { useAuthStore } from "../state/authStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
-import { TouchableOpacity } from "react-native-gesture-handler";
 
 type Props = NativeStackScreenProps<any>;
 

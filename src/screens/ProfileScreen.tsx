@@ -65,6 +65,7 @@ const dedupeProfilePhotos = (photos: Photo[]): Photo[] => {
       (typeof photo.assetId === "number" && Number.isFinite(photo.assetId)
         ? `asset:${photo.assetId}`
         : undefined) ??
+      (photo.storagePath ? `path:${photo.storagePath}` : undefined) ??
       (photo.url ? `url:${photo.url}` : undefined) ??
       (photo.id ? `id:${photo.id}` : undefined);
     if (!key) {
@@ -415,6 +416,15 @@ const translations: Record<string, CopyShape> = {
       ...baseCopy.buttons,
       signOutLoading: "Выходим...",
       signOut: "Выйти"
+    },
+    alerts: {
+      ...baseCopy.alerts,
+      signOutErrorTitle: "Не удалось выйти",
+      signOutErrorMessage: "Попробуйте еще раз.",
+      signOutConfirmTitle: "Выйти",
+      signOutConfirmMessage: "Вы уверены, что хотите выйти?",
+      cancel: "Отмена",
+      confirmSignOut: "Выйти"
     }
   },
 };
@@ -797,6 +807,7 @@ const ProfileScreen = () => {
       const newPhoto: Photo = {
         id: String(photoId),
         assetId: photoId,
+        storagePath,
         visibilityMode,
         url: asset.uri,
         createdAt: new Date().toISOString()
