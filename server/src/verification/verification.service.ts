@@ -315,7 +315,7 @@ export class VerificationService {
       throw new BadRequestException("OTP_INVALID");
     }
 
-    let finalStatus: VerificationStatus = session.status === "selfie_ok" ? "completed" : "otp_ok";
+    const finalStatus: VerificationStatus = session.status === "selfie_ok" ? "completed" : "otp_ok";
 
     await this.prisma.$transaction(async (tx) => {
       await tx.verificationSession.update({
