@@ -15,6 +15,10 @@ on:
 jobs:
   server-tests:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+      PHOTOS_ORIGINAL_BUCKET: profile-photos
     defaults:
       run:
         working-directory: server

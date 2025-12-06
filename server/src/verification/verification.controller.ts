@@ -24,7 +24,6 @@ import { VerificationStatusResponseDto } from "./dto/status-response.dto";
 import { OverrideVerificationDto } from "./dto/override.dto";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../common/guards/admin.guard";
-import { OtpChannel } from "../common/services/otp.service";
 
 @ApiTags("verification")
 @ApiBearerAuth()
