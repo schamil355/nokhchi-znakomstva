@@ -10,7 +10,7 @@ export class SupportController {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Support – Нохчи знакомста</title>
+  <title>Support – Нохчи Знакомства</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8f9fb; margin: 0; padding: 0; }
     .wrap { max-width: 880px; margin: 0 auto; padding: 28px 20px 48px; }
@@ -27,7 +27,7 @@ export class SupportController {
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>Support für Нохчи знакомста</h1>
+      <h1>Support für Нохчи Знакомства</h1>
       <p>Wenn Sie Fragen haben oder Probleme melden möchten, erreichen Sie uns hier:</p>
 
       <h2>Kontaktmöglichkeiten</h2>
