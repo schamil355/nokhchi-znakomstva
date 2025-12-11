@@ -12,6 +12,7 @@ import { AccountModule } from "./account/account.module";
 import { PushModule } from "./push/push.module";
 import { AdminModule } from "./admin/admin.module";
 import { AuthRedirectController } from "./auth/auth-redirect.controller";
+import { SupportController } from "./support/support.controller";
 
 const enablePush = (process.env.ENABLE_PUSH ?? "").toLowerCase() === "true";
 const enableVerification = (process.env.ENABLE_VERIFICATION ?? "true").toLowerCase() === "true";
@@ -39,6 +40,6 @@ const enableVerification = (process.env.ENABLE_VERIFICATION ?? "true").toLowerCa
     AccountModule,
     AdminModule,
   ],
-  controllers: [PrivacyController, AuthRedirectController],
+  controllers: [PrivacyController, AuthRedirectController, SupportController],
 })
 export class AppModule {}
