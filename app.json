@@ -2,7 +2,7 @@
   "expo": {
     "name": "Нохчи Знакомства",
     "slug": "meetmate-clean",
-    "scheme": "nochchi",
+    "scheme": "meetmate",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
