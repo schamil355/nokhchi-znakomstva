@@ -31,7 +31,7 @@ export class SupportController {
       <p>Wenn Sie Fragen haben oder Probleme melden möchten, erreichen Sie uns hier:</p>
 
       <h2>Kontaktmöglichkeiten</h2>
-      <p>E-Mail-Support: <a href="mailto:nokhchiznakomstva@proton.me">nokhchiznakomstva@proton.me</a></p>
+      <p>E-Mail-Support: <a href="mailto:nokhchiznakomstva@support.com">nokhchiznakomstva@support.com</a></p>
       <p class="muted">Bitte schicken Sie, falls möglich, App-Version (Einstellungen &gt; Über), Gerät/OS-Version, kurze Problembeschreibung und Screenshots mit.</p>
 
       <h2>Antwortzeiten</h2>
