@@ -46,6 +46,10 @@ export class SupportController {
         <li>Vorschläge, Feedback, Verbesserungen</li>
       </ul>
 
+      <h2>Account löschen</h2>
+      <p>In der App: Profil-Tab &gt; <strong>Account löschen</strong> &gt; bestätigen. Falls das nicht möglich ist, schreibe an <a href="mailto:nokhchiznakomstva@support.com">nokhchiznakomstva@support.com</a> mit deiner im Konto verwendeten E-Mail oder Telefonnummer.</p>
+      <p class="muted">Dabei werden Profil, Fotos, Matches, Chats und dein Konto entfernt; gesetzliche Aufbewahrungspflichten (z. B. Zahlungs- oder Protokolldaten) bleiben unberührt.</p>
+
       <h2>Unterstützungssprachen</h2>
       <p>DE, EN, RU (weitere Sprachen nach Verfügbarkeit).</p>
 
@@ -228,11 +232,55 @@ export class SupportController {
       Der Gerichtsstand richtet sich nach den gesetzlichen Regeln.
     </p>
 
-    <h2>13. Kontakt</h2>
-    <p>
-      E-Mail: <a href="mailto:nokhchiznakomstva@support.com">nokhchiznakomstva@support.com</a>
-    </p>
-  </main>
+  <h2>13. Kontakt</h2>
+  <p>
+    E-Mail: <a href="mailto:nokhchiznakomstva@support.com">nokhchiznakomstva@support.com</a>
+  </p>
+</main>
+</body>
+</html>`;
+  }
+
+  @Get("delete-account")
+  @Header("Content-Type", "text/html; charset=utf-8")
+  getDeleteAccountPage() {
+    return `<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Account löschen – Нохчи Знакомства</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8f9fb; margin: 0; padding: 0; }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 28px 20px 48px; }
+    .card { background: #fff; border-radius: 12px; padding: 22px; box-shadow: 0 6px 16px rgba(0,0,0,0.06); }
+    h1 { font-size: 28px; margin: 0 0 14px; color: #122022; }
+    h2 { font-size: 20px; margin: 22px 0 10px; color: #122022; }
+    p, li { margin: 8px 0; color: #2f3a3d; line-height: 1.5; }
+    ul { padding-left: 20px; }
+    a { color: #0d6e4f; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .muted { color: #5c6c66; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Account löschen – Нохчи Знакомства</h1>
+      <p>So kannst du deinen Account und alle zugehörigen Daten löschen:</p>
+      <ul>
+        <li>App öffnen und im Profil-Tab auf <strong>Account löschen</strong> tippen.</li>
+        <li>Hinweis lesen und Löschung bestätigen. Dadurch werden Profil, Fotos, Matches, Chats und dein Konto entfernt.</li>
+        <li>Falls die Löschung im Gerät nicht möglich ist, schreibe an <a href="mailto:nokhchiznakomstva@support.com">nokhchiznakomstva@support.com</a> mit der im Konto verwendeten E-Mail oder Telefonnummer.</li>
+      </ul>
+      <h2>Welche Daten werden gelöscht?</h2>
+      <ul>
+        <li>Profil- und Kontodaten, Matches, Nachrichten, Profilfotos/Selfies.</li>
+        <li>Technische Protokolle und Zahlungsnachweise werden nur insoweit aufbewahrt, wie es gesetzliche Pflichten erfordern.</li>
+      </ul>
+      <p class="muted">Bei Fragen zur Löschung oder zu verbleibenden Daten wende dich bitte an <a href="mailto:nokhchiznakomstva@support.com">nokhchiznakomstva@support.com</a>.</p>
+    </div>
+  </div>
 </body>
 </html>`;
   }
