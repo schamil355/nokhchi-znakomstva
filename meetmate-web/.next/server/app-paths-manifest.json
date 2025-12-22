@@ -1,6 +1,0 @@
-{
-  "/api/settings/privacy/route": "app/api/settings/privacy/route.js",
-  "/[lang]/discover/page": "app/[lang]/discover/page.js",
-  "/[lang]/page": "app/[lang]/page.js",
-  "/[lang]/settings/privacy/page": "app/[lang]/settings/privacy/page.js"
-}

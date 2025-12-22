@@ -1,0 +1,38 @@
+name: CI Web
+
+on:
+  pull_request:
+    paths:
+      - 'meetmate-web/**'
+      - '.github/workflows/ci-web.yml'
+
+jobs:
+  ci-web:
+    name: ci-web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: meetmate-web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: meetmate-web/package-lock.json
+
+      - name: Install
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Test
+        run: npm test --if-present
+
+      - name: Build
+        run: npm run build --if-present

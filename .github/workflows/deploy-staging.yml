@@ -1,0 +1,33 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'server/**'
+      - 'meetmate-web/**'
+      - 'meetmate-admin/**'
+      - 'android/**'
+      - 'ios/**'
+      - 'app.json'
+      - 'app.config.js'
+      - 'eas.json'
+      - '.github/workflows/deploy-staging.yml'
+  workflow_dispatch: {}
+
+jobs:
+  deploy-staging:
+    name: deploy-staging
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build & Deploy to staging
+        run: |
+          echo "TODO: Füge hier den Staging-Deploy ein (z.B. Vercel/EAS Backend Deploy)"
+          # Beispiele:
+          # npm ci && npm run build && vercel deploy --prod --token $VERCEL_TOKEN
+          # eas build --profile preview --platform all
+          # npm ci --prefix server && npm run build --prefix server && npm run deploy:staging --prefix server

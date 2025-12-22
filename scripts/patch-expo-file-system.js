@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 // Patch expo-file-system to use the public ExpoAppDelegateSubscriberRepository API
 
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const target = path.join(
   __dirname,

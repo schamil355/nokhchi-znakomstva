@@ -1,0 +1,35 @@
+# Hinweis: Platzhalter @OWNER_HANDLE bitte durch deinen GitHub-User oder Team ersetzen.
+
+# Standard: Alles erfordert Review vom Owner (verhindert ungeprüfte Merges)
+*                                      @OWNER_HANDLE
+
+# Kritische Pfade (Backend/Infra/CI)
+/server/**                            @OWNER_HANDLE
+/supabase/**                          @OWNER_HANDLE
+/scripts/**                           @OWNER_HANDLE
+/.github/**                           @OWNER_HANDLE
+
+# Mobile native & Expo Config
+/android/**                           @OWNER_HANDLE
+/ios/**                               @OWNER_HANDLE
+/app.json                             @OWNER_HANDLE
+/app.config.js                        @OWNER_HANDLE
+/eas.json                             @OWNER_HANDLE
+
+# Web/Admin Frontends
+/meetmate-web/**                      @OWNER_HANDLE
+/meetmate-admin/**                    @OWNER_HANDLE
+
+# ML/Models (falls produktiv)
+/ml-service/**                        @OWNER_HANDLE
+
+# Root-Konfiguration, die alle Projekte betrifft
+/package.json                         @OWNER_HANDLE
+/package-lock.json                    @OWNER_HANDLE
+/pnpm-lock.yaml                       @OWNER_HANDLE
+/tsconfig.json                        @OWNER_HANDLE
+/babel.config.js                      @OWNER_HANDLE
+/eslint.config.js                     @OWNER_HANDLE
+/metro.config.js                      @OWNER_HANDLE
+/tailwind.config.ts                   @OWNER_HANDLE
+

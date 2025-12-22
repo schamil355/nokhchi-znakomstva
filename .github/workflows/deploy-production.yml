@@ -1,0 +1,29 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit/Branch/Tag für Production-Deploy'
+        required: false
+        default: 'main'
+
+jobs:
+  deploy-production:
+    name: deploy-production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Build & Deploy to production (requires environment approval)
+        run: |
+          echo "TODO: Füge hier den Production-Deploy ein (z.B. Vercel/EAS Backend Deploy)"
+          # Beispiele:
+          # npm ci && npm run build && vercel deploy --prod --token $VERCEL_TOKEN
+          # eas build --profile production --platform all
+          # npm ci --prefix server && npm run build --prefix server && npm run deploy:prod --prefix server
