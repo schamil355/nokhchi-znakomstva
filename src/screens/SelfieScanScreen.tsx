@@ -5,6 +5,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import * as FaceDetector from "expo-face-detector";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { LinearGradient } from "expo-linear-gradient";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { markProfileVerified } from "../lib/verify";
 import { ensureFreshSession } from "../lib/supabaseClient";
@@ -12,7 +13,12 @@ import { useAuthStore } from "../state/authStore";
 import { useOnboardingStore } from "../state/onboardingStore";
 import { startVerificationSession, uploadVerificationSelfie } from "../services/verificationApi";
 
-const ACCENT_COLOR = "#0d6e4f";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  gold: "#d9c08f",
+  sand: "#f2e7d7"
+};
 const CameraViewComponent = CameraView as unknown as React.ComponentType<any>;
 
 type Props = NativeStackScreenProps<any>;
@@ -155,15 +161,45 @@ const SelfieScanScreen = ({ navigation, route }: Props) => {
 
   if (!cameraPermission?.granted) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.permissionContainer}>
-          <Ionicons name="camera-outline" size={48} color={ACCENT_COLOR} />
-          <Text style={styles.permissionText}>{copy.permission}</Text>
-          <Pressable style={styles.permissionButton} onPress={requestPermission}>
-            <Text style={styles.permissionButtonText}>{copy.capture}</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      <LinearGradient
+        colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]}
+        locations={[0, 0.55, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+          <View style={[styles.container, styles.permissionState]}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              accessibilityRole="button"
+              accessibilityLabel={copy.back}
+              style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+            >
+              <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
+            </Pressable>
+            <Ionicons name="camera-outline" size={56} color={PALETTE.gold} />
+            <Text style={[styles.title, styles.titleCentered]}>{copy.title}</Text>
+            <Text style={[styles.subtitle, styles.subtitleCentered]}>{copy.permission}</Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.primaryButton,
+                pressed && styles.primaryButtonPressed
+              ]}
+              onPress={requestPermission}
+            >
+              <LinearGradient
+                colors={[PALETTE.gold, "#8b6c2a"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.primaryInner}
+              >
+                <Text style={styles.primaryButtonText}>{copy.capture}</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
@@ -172,122 +208,175 @@ const SelfieScanScreen = ({ navigation, route }: Props) => {
   const canCapture = !busy && !hasMultipleFaces;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.headerRow}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          accessibilityLabel={copy.back}
-          style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-        >
-          <Ionicons name="chevron-back" size={24} color="#05060a" />
-        </Pressable>
-      </View>
-      <View style={styles.content}>
-        <View style={styles.cameraPanel}>
-          <View style={styles.panelHeader}>
-            <View style={styles.recBadge}>
-              <View style={styles.recDot} />
-              <Text style={styles.recText}>{copy.rec}</Text>
-            </View>
-            <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel={copy.back} style={styles.closeButton}>
-              <Ionicons name="close" size={20} color="#ffffff" />
+    <LinearGradient
+      colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]}
+      locations={[0, 0.55, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              accessibilityRole="button"
+              accessibilityLabel={copy.back}
+              style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+            >
+              <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
             </Pressable>
+            <View style={styles.progressTrack}>
+              <View style={styles.progressFill} />
+            </View>
           </View>
-          <View style={styles.ovalWrapper}>
-            <CameraViewComponent
-              ref={(ref: CameraView | null) => {
-                cameraRef.current = ref;
-              }}
-              style={styles.camera}
-              facing="front"
-              onFacesDetected={onFacesDetected}
-              faceDetectorSettings={{
-                mode: FaceDetector.FaceDetectorMode.fast,
-                detectLandmarks: FaceDetector.FaceDetectorLandmarks.none,
-                runClassifications: FaceDetector.FaceDetectorClassifications.none,
-                minDetectionInterval: 300,
-                tracking: true,
-                trackingId: true
-              }}
-            />
+
+          <Text style={styles.title}>{copy.title}</Text>
+          <Text style={styles.subtitle}>{copy.instructions}</Text>
+          {hasMultipleFaces && <Text style={styles.faceHint}>{copy.faceHint}</Text>}
+
+          <View style={styles.cameraCard}>
+            <View style={styles.panelHeader}>
+              <View style={styles.recBadge}>
+                <View style={styles.recDot} />
+                <Text style={styles.recText}>{copy.rec}</Text>
+              </View>
+              <Pressable
+                onPress={() => navigation.goBack()}
+                accessibilityRole="button"
+                accessibilityLabel={copy.back}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={20} color={PALETTE.sand} />
+              </Pressable>
+            </View>
+            <View style={styles.ovalWrapper}>
+              <CameraViewComponent
+                ref={(ref: CameraView | null) => {
+                  cameraRef.current = ref;
+                }}
+                style={styles.camera}
+                facing="front"
+                onFacesDetected={onFacesDetected}
+                faceDetectorSettings={{
+                  mode: FaceDetector.FaceDetectorMode.fast,
+                  detectLandmarks: FaceDetector.FaceDetectorLandmarks.none,
+                  runClassifications: FaceDetector.FaceDetectorClassifications.none,
+                  minDetectionInterval: 300,
+                  tracking: true,
+                  trackingId: true
+                }}
+              />
+            </View>
           </View>
         </View>
-        <Pressable
-          onPress={handleCapture}
-          disabled={!canCapture}
-          style={[styles.captureButton, !canCapture && styles.captureButtonDisabled]}
-        >
-          <Text style={styles.captureButtonText}>{busy ? copy.verifying : copy.capture}</Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+
+        <View style={styles.footer}>
+          <Pressable
+            onPress={handleCapture}
+            disabled={!canCapture}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canCapture }}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              (!canCapture || busy) && styles.primaryButtonDisabled,
+              pressed && canCapture && !busy && styles.primaryButtonPressed
+            ]}
+          >
+            <LinearGradient
+              colors={[PALETTE.gold, "#8b6c2a"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.primaryInner}
+            >
+              <Text style={styles.primaryButtonText}>{busy ? copy.verifying : copy.capture}</Text>
+            </LinearGradient>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent"
   },
-  permissionContainer: {
+  container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16,
-    backgroundColor: "#fff"
-  },
-  permissionText: {
-    textAlign: "center",
-    color: "#333",
-    paddingHorizontal: 32
-  },
-  permissionButton: {
-    backgroundColor: ACCENT_COLOR,
     paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24
+    paddingTop: 4,
+    backgroundColor: "transparent"
   },
-  permissionButtonText: {
-    color: "#fff",
-    fontWeight: "600"
+  permissionState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 18
   },
-  headerRow: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    gap: 12
+    gap: 16,
+    marginBottom: 16
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: PALETTE.gold,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   backButtonPressed: {
     opacity: 0.7
   },
-  headerTitle: {
-    color: "#05060a",
-    fontSize: 18,
-    fontWeight: "600"
-  },
-  content: {
+  progressTrack: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingBottom: 32,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 20,
-    backgroundColor: "#ffffff"
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderRadius: 999
   },
-  cameraPanel: {
-    backgroundColor: "#ffffff",
-    borderRadius: 32,
+  progressFill: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: PALETTE.gold,
+    borderRadius: 999
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: PALETTE.sand,
+    textAlign: "left"
+  },
+  titleCentered: {
+    textAlign: "center"
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "rgba(242,231,215,0.82)",
+    textAlign: "left",
+    marginTop: 6
+  },
+  subtitleCentered: {
+    textAlign: "center"
+  },
+  faceHint: {
+    marginTop: 10,
+    color: "#f8d7da",
+    textAlign: "left"
+  },
+  cameraCard: {
+    marginTop: 18,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 24,
     padding: 16,
-    alignItems: "center"
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.3)",
+    width: "100%"
   },
   panelHeader: {
     width: "100%",
@@ -300,66 +389,79 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "#101833",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    backgroundColor: "rgba(217,192,143,0.14)",
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 999
   },
   recDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#ff3b30"
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#ff4d4f"
   },
   recText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 12
+    color: PALETTE.sand,
+    fontWeight: "700",
+    fontSize: 12,
+    letterSpacing: 0.5
   },
   closeButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 0,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.6)",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#030714"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   ovalWrapper: {
     width: "100%",
     aspectRatio: 3 / 4,
-    borderRadius: 200,
+    borderRadius: 26,
     overflow: "hidden",
-    backgroundColor: "#eee",
-    alignItems: "center",
-    justifyContent: "center"
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.25)"
   },
   camera: {
     width: "100%",
     height: "100%"
   },
-  faceHint: {
-    marginTop: 14,
-    marginBottom: 4,
-    color: "#b42318",
-    textAlign: "center"
+  footer: {
+    paddingHorizontal: 24,
+    paddingBottom: 32,
+    backgroundColor: "transparent"
   },
-  captureButton: {
-    backgroundColor: ACCENT_COLOR,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
+  primaryButton: {
+    backgroundColor: "transparent",
     borderRadius: 999,
+    paddingVertical: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
+    overflow: "hidden"
+  },
+  primaryButtonDisabled: {
+    opacity: 0.65
+  },
+  primaryButtonPressed: {
+    opacity: 0.9
+  },
+  primaryInner: {
+    width: "100%",
+    paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center"
   },
-  captureButtonDisabled: {
-    backgroundColor: "#5a5a5a"
-  },
-  captureButtonText: {
-    color: "#fff",
+  primaryButtonText: {
+    color: "#ffffff",
     fontSize: 16,
     fontWeight: "600"
-  },
+  }
 });
 
 export default SelfieScanScreen;

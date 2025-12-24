@@ -29,6 +29,7 @@ export default ({ config }) => ({
       ...(config.extra?.eas ?? {}),
       projectId: "8d41929c-2173-4a52-a275-9d09896a2b0c"
     },
+    emailRedirectUrl: process.env.EXPO_PUBLIC_EMAIL_REDIRECT_URL,
     EXPO_PROJECT_ID: process.env.EXPO_PROJECT_ID,
     EXPO_PUBLIC_STORAGE_PUBLIC: process.env.EXPO_PUBLIC_STORAGE_PUBLIC,
     EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,

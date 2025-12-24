@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useOnboardingStore } from "../state/onboardingStore";
@@ -16,7 +17,13 @@ import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { useAuthStore } from "../state/authStore";
 import { upsertProfile } from "../services/profileService";
 
-const ACCENT_COLOR = "#0d6e4f";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  pine: "#1c5d44",
+  gold: "#d9c08f",
+  sand: "#f2e7d7"
+};
 const MIN_AGE = 18;
 const MAX_AGE = 100;
 
@@ -230,8 +237,9 @@ const OnboardingBirthdayScreen = ({ navigation }: Props) => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-      <View style={styles.container}>
+    <LinearGradient colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]} locations={[0, 0.55, 1]} style={{ flex: 1 }}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <View style={styles.container}>
         <View style={styles.header}>
           <Pressable
             onPress={() => navigation.goBack()}
@@ -239,7 +247,7 @@ const OnboardingBirthdayScreen = ({ navigation }: Props) => {
             accessibilityLabel={copy.back}
             style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
           >
-            <Ionicons name="chevron-back" size={24} color="#1f1f1f" />
+            <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
           </Pressable>
           <View style={styles.progressTrack}>
             <View style={styles.progressFill} />
@@ -276,6 +284,8 @@ const OnboardingBirthdayScreen = ({ navigation }: Props) => {
               value={selectedDate}
               mode="date"
               display="spinner"
+              themeVariant="dark"
+              textColor="#ffffff"
               onChange={(_, date) => {
                 if (date) {
                   setSelectedDate(clampDate(date, earliestAllowed, latestAllowed));
@@ -303,22 +313,30 @@ const OnboardingBirthdayScreen = ({ navigation }: Props) => {
             pressed && isValidDate && styles.primaryButtonPressed
           ]}
         >
-          <Text style={styles.primaryButtonText}>{copy.continue}</Text>
-          <Ionicons name="arrow-forward" size={18} color="#fff" />
+          <LinearGradient
+            colors={[PALETTE.gold, "#8b6c2a"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.primaryInner}
+          >
+            <Text style={styles.primaryButtonText}>{copy.continue}</Text>
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
+          </LinearGradient>
         </Pressable>
       </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent"
   },
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "transparent",
     paddingHorizontal: 24,
     paddingBottom: 16
   },
@@ -333,10 +351,10 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: PALETTE.gold,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   backButtonPressed: {
     opacity: 0.7
@@ -344,13 +362,13 @@ const styles = StyleSheet.create({
   progressTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: "#f1f1f1",
+    backgroundColor: "rgba(255,255,255,0.18)",
     borderRadius: 999
   },
   progressFill: {
     width: "60%",
     height: "100%",
-    backgroundColor: ACCENT_COLOR,
+    backgroundColor: PALETTE.gold,
     borderRadius: 999
   },
   hero: {
@@ -359,34 +377,34 @@ const styles = StyleSheet.create({
     marginBottom: 24
   },
   heroImage: {
-    width: 220,
-    height: 220
+    width: 200,
+    height: 200
   },
   title: {
     fontSize: 28,
     fontWeight: "600",
-    color: "#121212",
+    color: PALETTE.sand,
     marginBottom: 8
   },
   subtitle: {
     fontSize: 16,
-    color: "#4a4a4a",
+    color: "rgba(242,231,215,0.8)",
     marginBottom: 24
   },
   dateField: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderWidth: 2,
-    borderColor: "#e6e6e6",
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 18,
-    backgroundColor: "#fff"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   dateFieldFocused: {
-    borderColor: ACCENT_COLOR,
-    shadowColor: ACCENT_COLOR,
+    borderColor: PALETTE.gold,
+    shadowColor: PALETTE.gold,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -398,40 +416,51 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#111"
+    color: "#ffffff"
   },
   ageText: {
     fontSize: 14,
-    color: "#444"
+    color: "#ffffff"
   },
   pickerWrapper: {
     marginTop: 12,
     borderRadius: 20,
-    backgroundColor: "#f7f7f7",
-    paddingVertical: 8
+    backgroundColor: "rgba(0,0,0,0.1)",
+    paddingVertical: 8,
+    marginBottom: 20
   },
   datePicker: {
     width: "100%"
   },
   footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    backgroundColor: "#ffffff"
+    paddingHorizontal: 12,
+    paddingBottom: 32,
+    backgroundColor: "transparent"
   },
   primaryButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: ACCENT_COLOR,
-    paddingVertical: 18,
-    borderRadius: 999
+    borderRadius: 999,
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
+    overflow: "hidden",
+    backgroundColor: "transparent"
+  },
+  primaryInner: {
+    width: "100%",
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8
   },
   primaryButtonPressed: {
-    opacity: 0.85
+    opacity: 0.9
   },
   primaryButtonDisabled: {
-    backgroundColor: "#c6dcd3"
+    opacity: 0.65
   },
   primaryButtonText: {
     color: "#ffffff",

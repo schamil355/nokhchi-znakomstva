@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { LinearGradient } from "expo-linear-gradient";
 import { useOnboardingStore } from "../state/onboardingStore";
 import {
   fetchPushToken,
@@ -23,7 +24,13 @@ import {
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 
-const ACCENT_COLOR = "#0d6e4f";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  pine: "#1c5d44",
+  gold: "#d9c08f",
+  sand: "#f2e7d7"
+};
 const IS_DEV = __DEV__;
 
 type Props = NativeStackScreenProps<any>;
@@ -304,8 +311,15 @@ const OnboardingNotificationsScreen = ({ navigation }: Props) => {
   const showDevTools = IS_DEV && devHarnessActive;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-      <View style={styles.container}>
+    <LinearGradient
+      colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]}
+      locations={[0, 0.55, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <View style={styles.container}>
         <View style={styles.header}>
           <Pressable
             onPress={() => navigation.goBack()}
@@ -313,7 +327,7 @@ const OnboardingNotificationsScreen = ({ navigation }: Props) => {
             accessibilityLabel={copy.back}
             style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
           >
-            <Ionicons name="chevron-back" size={24} color="#1f1f1f" />
+            <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
           </Pressable>
           <View style={styles.progressTrack}>
             <View style={styles.progressFill} />
@@ -395,35 +409,47 @@ const OnboardingNotificationsScreen = ({ navigation }: Props) => {
         )}
       </View>
 
-      <View style={styles.footer}>
-        <Pressable
-          onPress={handleEnableNotifications}
-          disabled={loading}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: loading }}
-          accessibilityHint={copy.permissionHint}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            loading && styles.primaryButtonDisabled,
-            pressed && !loading && styles.primaryButtonPressed
-          ]}
-        >
-          {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryButtonText}>{copy.activate}</Text>}
-        </Pressable>
-      </View>
-    </SafeAreaView>
+        <View style={styles.footer}>
+          <Pressable
+            onPress={handleEnableNotifications}
+            disabled={loading}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: loading }}
+            accessibilityHint={copy.permissionHint}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              loading && styles.primaryButtonDisabled,
+              pressed && !loading && styles.primaryButtonPressed
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <LinearGradient
+                colors={[PALETTE.gold, "#8b6c2a"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.primaryInner}
+              >
+                <Text style={styles.primaryButtonText}>{copy.activate}</Text>
+              </LinearGradient>
+            )}
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent"
   },
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent"
   },
   header: {
     flexDirection: "row",
@@ -436,10 +462,10 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: PALETTE.gold,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   backButtonPressed: {
     opacity: 0.7
@@ -447,13 +473,13 @@ const styles = StyleSheet.create({
   progressTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: "#f1f1f1",
+    backgroundColor: "rgba(255,255,255,0.18)",
     borderRadius: 999
   },
   progressFill: {
     width: "80%",
     height: "100%",
-    backgroundColor: ACCENT_COLOR,
+    backgroundColor: PALETTE.gold,
     borderRadius: 999
   },
   hero: {
@@ -465,27 +491,27 @@ const styles = StyleSheet.create({
   heroTitleAccent: {
     fontSize: 28,
     fontWeight: "700",
-    color: ACCENT_COLOR,
+    color: PALETTE.gold,
     textAlign: "center"
   },
   heroTitle: {
     fontSize: 28,
     fontWeight: "600",
-    color: "#121212",
+    color: PALETTE.sand,
     textAlign: "center",
     marginTop: 4
   },
   statusMessage: {
     marginTop: 24,
     textAlign: "center",
-    color: "#4a4a4a"
+    color: "rgba(242,231,215,0.8)"
   },
   settingsButton: {
     alignSelf: "center",
     marginTop: 16,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: ACCENT_COLOR,
+    borderColor: PALETTE.gold,
     paddingHorizontal: 20,
     paddingVertical: 10
   },
@@ -493,21 +519,27 @@ const styles = StyleSheet.create({
     opacity: 0.85
   },
   settingsButtonText: {
-    color: ACCENT_COLOR,
+    color: PALETTE.sand,
     fontWeight: "600"
   },
   footer: {
     paddingHorizontal: 24,
     paddingBottom: Platform.select({ ios: 32, default: 24 }),
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent"
   },
   primaryButton: {
-    backgroundColor: ACCENT_COLOR,
+    backgroundColor: "transparent",
     borderRadius: 999,
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
+    overflow: "hidden",
+    marginBottom: 12
+  },
+  primaryInner: {
     paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12
+    width: "100%"
   },
   primaryButtonPressed: {
     opacity: 0.9
@@ -522,32 +554,32 @@ const styles = StyleSheet.create({
   },
   skipText: {
     textAlign: "center",
-    color: "#4a4a4a",
+    color: "rgba(242,231,215,0.8)",
     fontWeight: "500"
   },
   devSection: {
     marginTop: 32,
     padding: 16,
     borderRadius: 16,
-    backgroundColor: "#f4f7f5",
+    backgroundColor: "rgba(255,255,255,0.06)",
     borderWidth: 1,
-    borderColor: "#d1e1da",
+    borderColor: "rgba(217,192,143,0.35)",
     gap: 8
   },
   devTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: ACCENT_COLOR
+    color: PALETTE.sand
   },
   devSubtitle: {
     fontSize: 13,
-    color: "#555"
+    color: "rgba(242,231,215,0.85)"
   },
   devButton: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: ACCENT_COLOR,
+    borderColor: PALETTE.gold,
     paddingVertical: 10,
     alignItems: "center"
   },
@@ -558,19 +590,22 @@ const styles = StyleSheet.create({
     opacity: 0.85
   },
   devButtonText: {
-    color: ACCENT_COLOR,
+    color: PALETTE.sand,
     fontWeight: "600"
   },
   devMessage: {
     fontSize: 13,
-    color: "#333"
+    color: "rgba(242,231,215,0.85)"
   },
   devContinueButton: {
     marginTop: 8,
-    backgroundColor: ACCENT_COLOR,
-    paddingVertical: 12,
+    backgroundColor: "transparent",
+    paddingVertical: 0,
     borderRadius: 12,
-    alignItems: "center"
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: PALETTE.gold,
+    overflow: "hidden"
   },
   devContinueText: {
     color: "#ffffff",

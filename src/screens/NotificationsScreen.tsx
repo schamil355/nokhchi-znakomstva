@@ -3,14 +3,21 @@ import { Alert, Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Tex
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import * as Notifications from "expo-notifications";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNotificationsStore, type NotificationItem } from "../state/notificationsStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { getPhotoUrl, PROFILE_BUCKET } from "../lib/storage";
 import { useAuthStore } from "../state/authStore";
+import { LinearGradient } from "expo-linear-gradient";
 
-const brandText = "#1f1f25";
-const secondaryText = "#6f7582";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  gold: "#d9c08f",
+  sand: "#f2e7d7",
+  slate: "rgba(242,231,215,0.7)"
+};
 
 type RelativeCopy = {
   seconds: string;
@@ -370,220 +377,275 @@ const NotificationsScreen = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.headerRow}>
-        <Pressable onPress={handleBack} style={styles.headerIcon}>
-          <Ionicons name="chevron-back" size={28} color={brandText} />
-        </Pressable>
-        <Text style={styles.headerTitle}>{copy.headerTitle}</Text>
-      </View>
-
-      {!notificationsEnabled && (
-        <View style={styles.banner}>
-          <View style={styles.bannerTop}>
-            <View style={styles.bannerIcon}>
-              <Ionicons name="notifications-off-outline" size={26} color="#7c8594" />
-            </View>
-          <Text style={styles.bannerTitle}>{copy.bannerTitle}</Text>
+    <LinearGradient
+      colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]}
+      locations={[0, 0.55, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <ScrollView contentContainerStyle={styles.container}>
+          <View style={styles.headerRow}>
+            <Pressable onPress={handleBack} style={styles.headerIcon}>
+              <Ionicons name="chevron-back" size={28} color={PALETTE.gold} />
+            </Pressable>
+            <Text style={styles.headerTitle}>{copy.headerTitle}</Text>
           </View>
-          <Text style={styles.bannerSubtitle}>{copy.bannerSubtitle}</Text>
-          <Pressable style={styles.activateButton} onPress={handleActivate}>
-            <Text style={styles.activateButtonText}>{copy.activate}</Text>
-          </Pressable>
-        </View>
-      )}
 
-      {sortedNotifications.length === 0 ? (
-        <View style={styles.emptyList}>
-          <View style={styles.emptyIconWrapper}>
-            <Ionicons name="notifications-off-outline" size={34} color={secondaryText} />
-          </View>
-          <Text style={styles.emptyTitle}>{copy.emptyTitle}</Text>
-          <Text style={styles.emptyText}>{copy.emptyText}</Text>
-        </View>
-      ) : (
-        <View style={styles.section}>
-          {sortedNotifications.map((entry) => {
-            const incognito = isIncognitoNotification(entry);
-            const avatarUri = incognito
-              ? null
-              : avatarCache[entry.id] ??
-                (typeof entry.data?.avatarUrl === "string" && entry.data.avatarUrl.length > 0
-                  ? entry.data.avatarUrl
-                  : null);
-            return (
-              <Pressable key={entry.id} style={styles.itemRow} onPress={() => handleNotificationPress(entry)}>
-                <View style={[styles.avatarWrapper, !avatarUri && styles.avatarPlaceholder]}>
-                  {avatarUri ? (
-                    <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-                  ) : (
-                    <Ionicons name={incognito ? "lock-closed" : "notifications"} size={24} color="#b6bac2" />
-                  )}
+          {!notificationsEnabled && (
+            <View style={styles.banner}>
+              <View style={styles.bannerTop}>
+                <View style={styles.bannerIcon}>
+                  <Ionicons name="notifications-off-outline" size={26} color="rgba(242,231,215,0.9)" />
                 </View>
-              <View style={styles.itemBody}>
-                <Text style={styles.itemTitle}>{entry.title}</Text>
-                {!!entry.body && <Text style={styles.itemBodyText}>{entry.body}</Text>}
-                <Text style={styles.itemTime}>{formatRelativeTime(entry.receivedAt)}</Text>
+                <Text style={styles.bannerTitle}>{copy.bannerTitle}</Text>
               </View>
-              <Pressable style={styles.itemButton} onPress={() => handleNotificationPress(entry)}>
-                <Text style={styles.itemButtonText}>{copy.buttonLabel}</Text>
+              <Text style={styles.bannerSubtitle}>{copy.bannerSubtitle}</Text>
+              <Pressable style={({ pressed }) => [styles.activateButton, pressed && styles.activateButtonPressed]} onPress={handleActivate}>
+                <LinearGradient
+                  colors={[PALETTE.gold, "#8b6c2a"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.activateButtonInner}
+                >
+                  <Text style={styles.activateButtonText}>{copy.activate}</Text>
+                </LinearGradient>
               </Pressable>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-    </ScrollView>
+            </View>
+          )}
+
+          {sortedNotifications.length === 0 ? (
+            <View style={styles.emptyList}>
+              <View style={styles.emptyIconWrapper}>
+                <Ionicons name="notifications-off-outline" size={34} color={PALETTE.slate} />
+              </View>
+              <Text style={styles.emptyTitle}>{copy.emptyTitle}</Text>
+              <Text style={styles.emptyText}>{copy.emptyText}</Text>
+            </View>
+          ) : (
+            <View style={styles.section}>
+              {sortedNotifications.map((entry) => {
+                const incognito = isIncognitoNotification(entry);
+                const avatarUri = incognito
+                  ? null
+                  : avatarCache[entry.id] ??
+                    (typeof entry.data?.avatarUrl === "string" && entry.data.avatarUrl.length > 0
+                      ? entry.data.avatarUrl
+                      : null);
+                return (
+                  <Pressable key={entry.id} style={styles.itemRow} onPress={() => handleNotificationPress(entry)}>
+                    <View style={[styles.avatarWrapper, !avatarUri && styles.avatarPlaceholder]}>
+                      {avatarUri ? (
+                        <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                      ) : (
+                        <Ionicons name={incognito ? "lock-closed" : "notifications"} size={24} color="rgba(242,231,215,0.6)" />
+                      )}
+                    </View>
+                  <View style={styles.itemBody}>
+                    <Text style={styles.itemTitle}>{entry.title}</Text>
+                    {!!entry.body && <Text style={styles.itemBodyText}>{entry.body}</Text>}
+                    <Text style={styles.itemTime}>{formatRelativeTime(entry.receivedAt)}</Text>
+                  </View>
+                  <Pressable style={styles.itemButton} onPress={() => handleNotificationPress(entry)}>
+                    <LinearGradient
+                      colors={[PALETTE.gold, "#8b6c2a"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.itemButtonInner}
+                    >
+                      <Text style={styles.itemButtonText}>{copy.buttonLabel}</Text>
+                    </LinearGradient>
+                  </Pressable>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "transparent"
+  },
   container: {
     flexGrow: 1,
-    backgroundColor: "#fff",
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 40
+    paddingTop: 24,
+    paddingBottom: 24
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginBottom: 32
+    marginBottom: 20
   },
   headerIcon: {
     width: 42,
     height: 42,
     borderRadius: 21,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.35)"
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: "600",
-    color: brandText
+    fontWeight: "700",
+    color: PALETTE.sand
   },
   banner: {
-    backgroundColor: "#f7f9fc",
-    borderRadius: 28,
-    padding: 24,
-    marginBottom: 28
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.35)"
   },
   bannerIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(217,192,143,0.14)",
     justifyContent: "center",
-    alignItems: "center"
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.5)"
   },
   bannerTop: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginBottom: 12
+    marginBottom: 8
   },
   bannerTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: brandText
+    color: PALETTE.sand
   },
   bannerSubtitle: {
-    fontSize: 14,
-    color: secondaryText,
-    lineHeight: 20,
-    marginBottom: 20
+    fontSize: 13,
+    color: PALETTE.slate,
+    lineHeight: 19,
+    marginBottom: 14
   },
   activateButton: {
-    backgroundColor: "#0d6e4f",
-    borderRadius: 28,
-    paddingVertical: 16,
-    alignItems: "center"
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.4)"
+  },
+  activateButtonPressed: {
+    opacity: 0.9
+  },
+  activateButtonInner: {
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center"
   },
   activateButtonText: {
-    color: "#fff",
+    color: "#0b1f16",
     fontWeight: "700",
-    fontSize: 16
+    fontSize: 15
   },
   section: {
-    marginBottom: 30
+    marginBottom: 30,
+    gap: 10
   },
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.25)",
+    gap: 12
   },
   avatarWrapper: {
     width: 54,
     height: 54,
     borderRadius: 27,
     overflow: "hidden",
-    marginRight: 14
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.35)",
+    alignItems: "center",
+    justifyContent: "center"
   },
   avatarPlaceholder: {
-    backgroundColor: "#f3f4f7",
-    borderWidth: 1,
-    borderColor: "#e1e3e8",
-    justifyContent: "center",
-    alignItems: "center"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   avatarImage: {
     width: "100%",
     height: "100%"
   },
   itemBody: {
-    flex: 1
+    flex: 1,
+    gap: 2
   },
   itemTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: brandText,
-    marginBottom: 4
+    fontSize: 15,
+    fontWeight: "700",
+    color: PALETTE.sand
   },
   itemBodyText: {
-    fontSize: 14,
-    color: secondaryText,
-    marginBottom: 4
+    color: "rgba(242,231,215,0.82)",
+    fontSize: 13
   },
   itemTime: {
-    fontSize: 13,
-    color: secondaryText
+    color: "rgba(242,231,215,0.6)",
+    fontSize: 12
   },
   itemButton: {
-    backgroundColor: "#f1f1f3",
-    paddingHorizontal: 16,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.4)"
+  },
+  itemButtonInner: {
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 20
+    alignItems: "center",
+    justifyContent: "center"
   },
   itemButtonText: {
-    color: brandText,
-    fontWeight: "600"
+    color: "#0b1f16",
+    fontWeight: "700",
+    fontSize: 13
   },
   emptyList: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 40
+    paddingVertical: 80,
+    gap: 12
   },
   emptyIconWrapper: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: "#f4f6f9",
-    justifyContent: "center",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.25)",
     alignItems: "center",
-    marginBottom: 16
+    justifyContent: "center"
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: "600",
-    color: brandText,
-    marginBottom: 6
+    fontWeight: "700",
+    color: PALETTE.sand
   },
   emptyText: {
-    fontSize: 14,
-    color: secondaryText,
+    color: PALETTE.slate,
     textAlign: "center",
-    lineHeight: 20
+    paddingHorizontal: 10
   }
 });
 

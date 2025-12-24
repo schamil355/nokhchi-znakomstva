@@ -1,17 +1,20 @@
 import "react-native-url-polyfill/auto";
 import "./sentry";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
+import * as Linking from "expo-linking";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import ErrorBoundary from "./components/ErrorBoundary";
 import * as Notifications from "expo-notifications";
 import { useNotificationsStore } from "./state/notificationsStore";
 import AppNavigator from "./navigation/AppNavigator";
 import { useAuthStore } from "./state/authStore";
+import { useOnboardingStore } from "./state/onboardingStore";
 import { bootstrapSession } from "./services/authService";
 import { registerPushNotifications } from "./services/pushService";
 import { track, flushEvents } from "./lib/analytics";
@@ -84,6 +87,27 @@ const getNotificationCopy = (): NotificationCopy => {
 
 export const navigationRef = createNavigationContainerRef<any>();
 
+const ONBOARDING_ROUTES = new Set<string>([
+  "Welcome",
+  "SignIn",
+  "RegisterChoice",
+  "CreateAccount",
+  "OnboardingGender",
+  "OnboardingName",
+  "OnboardingBirthday",
+  "OnboardingNotifications",
+  "OnboardingLocation",
+  "OnboardingPhotos",
+  "OnboardingVerify",
+  "OnboardingVerifySuccess",
+  "SelfieScan",
+  "OnboardingNext",
+  "EmailPending"
+]);
+
+const LAST_ONBOARDING_KEY = "onboarding:lastRoute";
+const ONBOARDING_RESUME_ENABLED = false;
+
 const App = (): JSX.Element => {
   const queryClient = useMemo(
     () =>
@@ -106,12 +130,49 @@ const App = (): JSX.Element => {
 
   const setSession = useAuthStore((state) => state.setSession);
   const session = useAuthStore((state) => state.session);
+  const profile = useAuthStore((state) => state.profile);
+  const verifiedOverride = useAuthStore((state) => state.verifiedOverride);
+  const showVerifySuccess = useOnboardingStore((state) => state.showVerifySuccess);
   const addNotification = useNotificationsStore((state) => state.addNotification);
   const notifications = useNotificationsStore((state) => state.items);
   const hasUnseen = useNotificationsStore((state) => state.hasUnseen);
   const [isBootstrapped, setIsBootstrapped] = useState(false);
   const supabase = useMemo(() => getSupabaseClient(), []);
   const notificationText = useMemo(() => getNotificationCopy(), []);
+  const [navReady, setNavReady] = useState(false);
+  const pendingNavigationRef = useRef<{ name: string; params?: any } | null>(null);
+  const [lastOnboardingRoute, setLastOnboardingRoute] = useState<string | null>(null);
+  const hasAppliedOnboardingRouteRef = useRef(false);
+
+  const isVerified = Boolean(profile?.verified) || verifiedOverride;
+  const needsOnboarding = !profile || !isVerified;
+  const shouldStayInOnboarding = !session || needsOnboarding || showVerifySuccess;
+
+  const navigateToOnboardingGender = useCallback(() => {
+    const target = { name: "OnboardingGender" };
+    if (navigationRef.isReady()) {
+      navigationRef.reset({
+        index: 0,
+        routes: [target as any]
+      });
+      pendingNavigationRef.current = null;
+      return;
+    }
+    pendingNavigationRef.current = target;
+  }, []);
+
+  useEffect(() => {
+    if (!ONBOARDING_RESUME_ENABLED) {
+      return;
+    }
+    void AsyncStorage.getItem(LAST_ONBOARDING_KEY)
+      .then((value) => {
+        if (value && ONBOARDING_ROUTES.has(value)) {
+          setLastOnboardingRoute(value);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -207,6 +268,86 @@ const App = (): JSX.Element => {
     const badgeCount = hasUnseen ? notifications.length : 0;
     Notifications.setBadgeCountAsync(badgeCount).catch(() => undefined);
   }, [notifications, hasUnseen]);
+
+  // If navigation isn't ready when a redirect arrives, replay it once ready.
+  useEffect(() => {
+    if (navReady && pendingNavigationRef.current && navigationRef.isReady()) {
+      const target = pendingNavigationRef.current;
+      navigationRef.reset({
+        index: 0,
+        routes: [target as any]
+      });
+      pendingNavigationRef.current = null;
+    }
+  }, [navReady]);
+
+  // Persist the last visited onboarding route on navigation changes.
+  const handleNavStateChange = useCallback(() => {
+    if (!ONBOARDING_RESUME_ENABLED) return;
+    const route = navigationRef.getCurrentRoute();
+    const name = route?.name;
+    if (name && ONBOARDING_ROUTES.has(name)) {
+      void AsyncStorage.setItem(LAST_ONBOARDING_KEY, name).catch(() => undefined);
+    }
+  }, []);
+
+  // Navigate back to the last onboarding screen when applicable.
+  useEffect(() => {
+    if (!ONBOARDING_RESUME_ENABLED) return;
+    if (!navReady || !navigationRef.isReady()) return;
+    if (hasAppliedOnboardingRouteRef.current) return;
+    if (!shouldStayInOnboarding) return;
+    if (lastOnboardingRoute && ONBOARDING_ROUTES.has(lastOnboardingRoute)) {
+      navigationRef.navigate("Auth", { screen: lastOnboardingRoute });
+      hasAppliedOnboardingRouteRef.current = true;
+    }
+  }, [lastOnboardingRoute, navReady, shouldStayInOnboarding]);
+
+  const handleAuthRedirect = useCallback(
+    async (url: string) => {
+      if (!url || !url.includes("auth/callback")) return;
+      try {
+        const fragment = url.includes("#") ? url.split("#")[1] : url.split("?")[1] ?? "";
+        const params = new URLSearchParams(fragment);
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
+        if (!accessToken || !refreshToken) {
+          return;
+        }
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+        if (error) {
+          console.warn("Failed to set session from redirect", error);
+          return;
+        }
+        if (data.session) {
+          setSession(data.session);
+          navigateToOnboardingGender();
+        }
+      } catch (error) {
+        console.warn("Failed to handle auth redirect", error);
+      }
+    },
+    [navigateToOnboardingGender, setSession, supabase]
+  );
+
+  useEffect(() => {
+    let active = true;
+    void Linking.getInitialURL().then((initial) => {
+      if (active && initial) {
+        void handleAuthRedirect(initial);
+      }
+    });
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      void handleAuthRedirect(url);
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [handleAuthRedirect]);
 
   useEffect(() => {
     if (!session?.user?.id) {
@@ -355,7 +496,7 @@ const App = (): JSX.Element => {
         <SafeAreaProvider>
           <ErrorBoundary>
             <QueryClientProvider client={queryClient}>
-              <NavigationContainer ref={navigationRef}>
+              <NavigationContainer ref={navigationRef} onReady={() => setNavReady(true)} onStateChange={handleNavStateChange}>
                 <StatusBar style="dark" />
                 <AppNavigator isAuthenticated={Boolean(session)} />
               </NavigationContainer>

@@ -13,8 +13,16 @@ import { getSupabaseClient } from "../lib/supabaseClient";
 import { getPhotoUrl } from "../lib/storage";
 import { fetchProfile } from "../services/profileService";
 import { useNotificationsStore } from "../state/notificationsStore";
+import { LinearGradient } from "expo-linear-gradient";
 
-const brandGreen = "#0d6e4f";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  pine: "#1c5d44",
+  gold: "#d9c08f",
+  sand: "#f2e7d7",
+  slate: "rgba(242,231,215,0.75)"
+};
 const MATCH_AVATAR_CACHE_KEY = "matches_avatar_cache";
 const AVATAR_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour for refreshing signed URLs
 
@@ -29,6 +37,8 @@ type CopyShape = {
   emptySubtitle: string;
   ctaFilters: string;
   messagesEmpty: string;
+  directChatLabel?: string;
+  directChatHint?: string;
   statusRead?: string;
   statusNew?: string;
   messageLabel?: string;
@@ -48,11 +58,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     emptySubtitle: "Expand your filters to discover more people near you.",
     ctaFilters: "Adjust filters",
     messagesEmpty: "No conversations yet.",
+    directChatLabel: "Direct chat",
+    directChatHint: "Direct chat is coming soon.",
+    likesTitle: "",
     statusRead: "read",
     statusNew: "new",
     messageLabel: "Message",
     statusSent: "sent",
-    likesTitle: ""
   },
   de: {
     tabLabel: "Matches",
@@ -66,11 +78,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       "Erweitere deine Suche in den Filtereinstellungen, um einen potenziellen Match in deiner Nähe zu finden!",
     ctaFilters: "Filtereinstellungen",
     messagesEmpty: "Noch keine Nachrichten vorhanden.",
+    directChatLabel: "DirektChat",
+    directChatHint: "Direktchat kommt bald.",
+    likesTitle: "",
     statusRead: "gelesen",
     statusNew: "neu",
     messageLabel: "Message",
     statusSent: "gesendet",
-    likesTitle: ""
   },
   fr: {
     tabLabel: "Matches",
@@ -83,11 +97,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     emptySubtitle: "Étends ta recherche dans les filtres pour trouver des matches proches.",
     ctaFilters: "Filtres",
     messagesEmpty: "Aucune conversation pour le moment.",
+    directChatLabel: "Direct chat",
+    directChatHint: "Le direct chat arrive bientôt.",
+    likesTitle: "",
     statusRead: "lu",
     statusNew: "nouveau",
     messageLabel: "Message",
     statusSent: "envoyé",
-    likesTitle: ""
   },
   ru: {
     tabLabel: "Матчи",
@@ -100,11 +116,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     emptySubtitle: "Расширь поиск в фильтрах, чтобы найти подходящих людей рядом.",
     ctaFilters: "Настроить фильтры",
     messagesEmpty: "Пока нет переписок.",
+    directChatLabel: "Direct chat",
+    directChatHint: "Direct chat скоро будет доступен.",
+    likesTitle: "",
     statusRead: "прочитано",
     statusNew: "новое",
     messageLabel: "Message",
     statusSent: "отправлено",
-    likesTitle: ""
   },
 };
 
@@ -117,6 +135,7 @@ const MatchesScreen = () => {
   const copy = useLocalizedCopy(translations);
   const [avatarCache, setAvatarCache] = useState<Record<string, { url: string | null; ts: number }>>({});
   const [avatarCacheLoaded, setAvatarCacheLoaded] = useState(false);
+  const [activeTab, setActiveTab] = useState<"matches" | "directChat">("matches");
   const supabase = useMemo(() => getSupabaseClient(), []);
   const queryClient = useQueryClient();
   const notifications = useNotificationsStore((state) => state.items);
@@ -709,81 +728,134 @@ const MatchesScreen = () => {
     };
   }, [matchIdsKey, matches, matches.length, queryClient, session?.user?.id, setUnread, supabase]);
 
+  const content = (
+    <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
+      <ScrollView contentContainerStyle={styles.wrapper}>
+        <View style={styles.tabsSingle}>
+          <View style={styles.segmentWrapper}>
+            {(["matches", "directChat"] as const).map((tab) => {
+              const active = activeTab === tab;
+              const label = tab === "matches" ? copy.tabLabel : copy.directChatLabel ?? "DirektChat";
+              return (
+                <Pressable
+                  key={tab}
+                  style={[styles.segment, active && styles.segmentActive]}
+                  onPress={() => setActiveTab(tab)}
+                >
+                  {active ? (
+                    <LinearGradient
+                      colors={[PALETTE.gold, "#8b6c2a"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.segmentInner}
+                    >
+                      <Text style={styles.segmentTextActive}>{label}</Text>
+                    </LinearGradient>
+                  ) : (
+                    <View style={[styles.segmentInner, styles.segmentInnerInactive]}>
+                      <Text style={styles.segmentText}>{label}</Text>
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {activeTab === "matches" ? (
+          <>
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>{copy.cardTitle}</Text>
+                <View style={styles.headerSpacer} />
+              </View>
+              {regularMatches.length ? (
+                <View style={styles.scrollerWrapper}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.matchScroller}>
+                    {regularMatches.map((match) => (
+                      <View key={match.id} style={styles.matchTileWrapper}>
+                        {renderMatch({ item: match, showSubtitle: false })}
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : (
+                <View style={styles.placeholderRow}>
+                  <View style={styles.placeholderAvatar} />
+                </View>
+              )}
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{copy.sectionTitle}</Text>
+              {messageThreads.length ? (
+                messageThreads.map((match) => renderMessageRow(match))
+              ) : (
+                <Text style={styles.messagesEmpty}>{copy.messagesEmpty}</Text>
+              )}
+            </View>
+
+            {!hasMatches && (
+              <>
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyTitle}>{copy.emptyTitle}</Text>
+                  <Text style={styles.emptySubtitle}>{copy.emptySubtitle}</Text>
+                </View>
+                <Pressable style={styles.ctaButton} onPress={() => navigation.navigate("Settings")}>
+                  <LinearGradient
+                    colors={[PALETTE.gold, "#8b6c2a"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.ctaButtonInner}
+                  >
+                    <Text style={styles.ctaText}>{copy.ctaFilters}</Text>
+                  </LinearGradient>
+                </Pressable>
+              </>
+            )}
+          </>
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{copy.directChatLabel ?? "DirektChat"}</Text>
+            {messageThreads.length ? (
+              messageThreads.map((match) => renderMessageRow(match))
+            ) : (
+              <Text style={styles.messagesEmpty}>{copy.directChatHint ?? copy.messagesEmpty}</Text>
+            )}
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
+      <LinearGradient colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]} locations={[0, 0.55, 1]} style={{ flex: 1 }}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={PALETTE.gold} />
+        </View>
+      </LinearGradient>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
-      <ScrollView contentContainerStyle={styles.wrapper}>
-        <View style={styles.tabsSingle}>
-          <View style={styles.tabsSinglePill}>
-            <Text style={styles.tabsSingleText}>{copy.tabLabel}</Text>
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>{copy.cardTitle}</Text>
-            <View style={styles.searchWrapper} />
-          </View>
-          {regularMatches.length ? (
-            <View style={styles.scrollerWrapper}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.matchScroller}>
-                {regularMatches.map((match) => (
-                  <View key={match.id} style={styles.matchTileWrapper}>
-                    {renderMatch({ item: match, showSubtitle: false })}
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          ) : (
-            <View style={styles.placeholderRow}>
-              <View style={styles.placeholderAvatar} />
-            </View>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{copy.sectionTitle}</Text>
-          {messageThreads.length ? (
-            messageThreads.map((match) => renderMessageRow(match))
-          ) : (
-            <Text style={styles.messagesEmpty}>{copy.messagesEmpty}</Text>
-          )}
-        </View>
-
-        {!hasMatches && (
-          <>
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyTitle}>{copy.emptyTitle}</Text>
-              <Text style={styles.emptySubtitle}>{copy.emptySubtitle}</Text>
-            </View>
-            <Pressable style={styles.ctaButton} onPress={() => navigation.navigate("Settings")}>
-              <Text style={styles.ctaText}>{copy.ctaFilters}</Text>
-            </Pressable>
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+    <LinearGradient colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]} locations={[0, 0.55, 1]} style={{ flex: 1 }}>
+      {content}
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#fff"
+    backgroundColor: "transparent"
   },
   wrapper: {
     paddingHorizontal: 16,
-    paddingTop: 64,
-    paddingBottom: 24,
-    backgroundColor: "#fff",
-    flexGrow: 1
+    paddingTop: 48,
+    paddingBottom: 32,
+    flexGrow: 1,
+    gap: 16
   },
   center: {
     flex: 1,
@@ -794,68 +866,106 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     width: "100%",
-    marginBottom: 24
+    marginBottom: 12,
+    paddingHorizontal: 4
   },
-  tabsSinglePill: {
+  segmentWrapper: {
+    flexDirection: "row",
+    width: "100%",
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    gap: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.32)",
+    backgroundColor: "rgba(0,0,0,0.18)"
+  },
+  segment: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
+    minHeight: 40,
     borderRadius: 10,
-    backgroundColor: brandGreen
+    overflow: "hidden",
+    borderWidth: 0,
+    borderColor: "transparent",
+    backgroundColor: "transparent"
   },
-  tabsSingleText: {
-    color: "#fff",
+  segmentActive: {
+    borderWidth: 0,
+    borderColor: "transparent"
+  },
+  segmentText: {
+    color: "rgba(242,231,215,0.7)",
     fontWeight: "700",
-    fontSize: 16
+    fontSize: 14,
+    letterSpacing: 0.2
+  },
+  segmentTextActive: {
+    color: PALETTE.sand
+  },
+  segmentInner: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 10
+  },
+  segmentInnerInactive: {
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   card: {
-    backgroundColor: "#f3f4f6",
+    backgroundColor: "rgba(0,0,0,0.18)",
     borderRadius: 16,
-    padding: 8,
-    marginBottom: 12,
+    padding: 12,
+    marginBottom: 8,
     marginTop: 2,
     borderWidth: 1,
-    borderColor: "#ebedf2",
-    shadowColor: "#0d6e4f",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 }
+    borderColor: "rgba(217,192,143,0.32)",
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    marginBottom: 16
+    marginBottom: 12
+  },
+  headerSpacer: {
+    width: 16,
+    height: 1
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#2b2d33",
+    color: PALETTE.sand,
     textAlign: "left",
     flex: 1
   },
-  searchWrapper: {
-    alignItems: "center",
-    justifyContent: "center"
-  },
   section: {
-    marginBottom: 24
+    marginBottom: 24,
+    gap: 12
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#2b2d33",
+    color: PALETTE.sand,
     marginBottom: 12
   },
   messagesEmpty: {
-    fontSize: 14,
-    color: "#7c8089",
+    fontSize: 15,
+    color: "rgba(242,231,215,0.7)",
     paddingHorizontal: 4
   },
   placeholderRow: {
-    height: 70,
+    height: 80,
     justifyContent: "center",
     alignItems: "flex-start"
   },
@@ -864,9 +974,10 @@ const styles = StyleSheet.create({
     height: 68,
     borderRadius: 34,
     borderWidth: 2,
-    borderColor: "#d5d6dc",
+    borderColor: "rgba(217,192,143,0.35)",
     borderStyle: "dashed",
-    marginVertical: 12
+    marginVertical: 12,
+    backgroundColor: "rgba(255,255,255,0.04)"
   },
   matchScroller: {
     paddingVertical: 4,
@@ -888,11 +999,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     textAlign: "center",
-    marginTop: 8
+    marginTop: 8,
+    color: PALETTE.sand
   },
   matchSubtitle: {
     fontSize: 12,
-    color: "#666",
+    color: "rgba(242,231,215,0.65)",
     marginTop: 2,
     textAlign: "center"
   },
@@ -911,23 +1023,23 @@ const styles = StyleSheet.create({
     marginLeft: 0,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#e5e7eb"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   messageCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "rgba(0,0,0,0.16)",
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#ebedf2",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1
+    borderColor: "rgba(217,192,143,0.22)",
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2
   },
   messageAvatarWrapper: {
     width: 52,
@@ -938,13 +1050,13 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#dfe2e8"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   messageAvatarPlaceholder: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#dfe2e8"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   statusDot: {
     position: "absolute",
@@ -952,15 +1064,15 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     borderWidth: 2,
-    borderColor: "#f5f5f5",
+    borderColor: "rgba(15,26,18,0.8)",
     top: -2,
     right: 4
   },
   statusDotActive: {
-    backgroundColor: "#0fc15b"
+    backgroundColor: "#19bc7c"
   },
   statusDotOffline: {
-    backgroundColor: "#f7a531"
+    backgroundColor: "#d99f3c"
   },
   messageContent: {
     flex: 1,
@@ -969,18 +1081,18 @@ const styles = StyleSheet.create({
   messageName: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#111827"
+    color: PALETTE.sand
   },
   messageNameUnread: {
     fontWeight: "800",
-    color: "#0f172a"
+    color: "#fff"
   },
   messagePreview: {
     fontSize: 14,
-    color: "#4b5563"
+    color: "rgba(242,231,215,0.75)"
   },
   messagePreviewUnread: {
-    color: "#0f172a"
+    color: PALETTE.sand
   },
   messageMeta: {
     marginLeft: 10,
@@ -988,10 +1100,10 @@ const styles = StyleSheet.create({
   },
   messageStatus: {
     fontSize: 12,
-    color: "#6b7280"
+    color: "rgba(242,231,215,0.65)"
   },
   messageStatusUnread: {
-    color: brandGreen,
+    color: PALETTE.gold,
     fontWeight: "700"
   },
   unreadPill: {
@@ -999,21 +1111,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10,
-    backgroundColor: brandGreen,
+    backgroundColor: PALETTE.gold,
     alignItems: "center",
     justifyContent: "center"
   },
   unreadPillText: {
-    color: "#fff",
+    color: "#0b1f16",
     fontWeight: "700",
     fontSize: 12
   },
   emptyText: {
     fontSize: 16,
-    color: "#666"
+    color: PALETTE.sand
   },
   badge: {
-    backgroundColor: "#eb5757",
+    backgroundColor: PALETTE.gold,
     borderRadius: 12,
     minWidth: 24,
     paddingHorizontal: 6,
@@ -1021,12 +1133,12 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   badgeText: {
-    color: "#fff",
-    fontWeight: "600"
+    color: "#0b1f16",
+    fontWeight: "700"
   },
   emptyContainer: {
     alignItems: "center",
-    marginTop: 240,
+    marginTop: 120,
     marginBottom: 12
   },
   emptyTitle: {
@@ -1034,28 +1146,33 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 8,
     textAlign: "center",
-    color: "#2b2d33"
+    color: PALETTE.sand
   },
   emptySubtitle: {
     fontSize: 15,
-    color: "#7b7f8d",
+    color: "rgba(242,231,215,0.75)",
     textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: 16
   },
   ctaButton: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#dfe2e8",
-    paddingVertical: 14,
     marginTop: 16,
     borderRadius: 999,
-    alignItems: "center"
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.5)"
+  },
+  ctaButtonInner: {
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999
   },
   ctaText: {
-    color: "#2b2d33",
+    color: "#ffffff",
     fontWeight: "700",
-    fontSize: 16
+    fontSize: 16,
+    letterSpacing: 0.2
   }
 });
 

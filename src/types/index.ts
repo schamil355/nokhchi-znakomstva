@@ -23,6 +23,8 @@ export type Profile = {
   updatedAt: string;
   isPremium: boolean;
   isIncognito?: boolean;
+  hideNearby?: boolean;
+  hideNearbyRadius?: number | null;
   showDistance?: boolean;
   showLastSeen?: boolean;
   lastActiveAt?: string;

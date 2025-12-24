@@ -47,6 +47,8 @@ export const fetchProfile = async (userId: string): Promise<Profile | null> => {
       is_premium,
       last_active_at,
       is_incognito,
+      hide_nearby,
+      hide_nearby_radius,
       show_distance,
       show_last_seen,
       verified,
@@ -233,6 +235,11 @@ export const mapProfile = (row: any): Profile => {
     updatedAt: row.updated_at,
     isPremium: Boolean(row.is_premium),
     isIncognito: Boolean(row.is_incognito),
+    hideNearby: Boolean(row.hide_nearby),
+    hideNearbyRadius:
+      typeof row.hide_nearby_radius === "number" && Number.isFinite(row.hide_nearby_radius)
+        ? row.hide_nearby_radius
+        : null,
     showDistance: row.show_distance ?? true,
     showLastSeen: row.show_last_seen ?? true,
     lastActiveAt: row.last_active_at ?? undefined,

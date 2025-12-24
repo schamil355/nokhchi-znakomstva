@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { signInWithPassword } from "../services/authService";
 import { useAuthStore } from "../state/authStore";
 import { getSupabaseClient } from "../lib/supabaseClient";
@@ -99,6 +102,14 @@ const translations = {
   }
 };
 
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  pine: "#1c5d44",
+  gold: "#d9c08f",
+  sand: "#f2e7d7"
+};
+
 const SignInScreen = ({ navigation }: Props) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -149,96 +160,123 @@ const SignInScreen = ({ navigation }: Props) => {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.select({ ios: "padding", android: undefined })}
-      style={styles.container}
+    <LinearGradient
+      colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]}
+      locations={[0, 0.55, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={{ flex: 1 }}
     >
-      <View style={styles.darkLayout}>
-        <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>‹</Text>
-        </Pressable>
-        <Text style={styles.title}>{copy.title}</Text>
-        <View style={styles.form}>
-          <Text style={styles.label}>{copy.emailLabel}</Text>
-          <TextInput
-            style={styles.input}
-            placeholder={copy.emailPlaceholder}
-            placeholderTextColor="#8e9a97"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <View style={styles.passwordRow}>
-            <Text style={styles.label}>{copy.passwordLabel}</Text>
-            <Pressable onPress={() => { setResetEmail(email); setResetVisible(true); }}>
-              <Text style={styles.forgotText}>{copy.forgot}</Text>
-            </Pressable>
-          </View>
-          <TextInput
-            style={styles.input}
-            placeholder={copy.passwordPlaceholder}
-            placeholderTextColor="#8e9a97"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
-          <Pressable
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleSubmit}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>{loading ? copy.loading : copy.submit}</Text>
-          </Pressable>
-        </View>
-        <Pressable onPress={() => navigation.navigate("CreateAccount", { mode: "email" })}>
-          <Text style={styles.signupHint}>
-            {copy.signupHint} <Text style={styles.signupLink}>{copy.signupLink}</Text>
-          </Text>
-        </Pressable>
-      </View>
-
-      {resetVisible && (
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
         <KeyboardAvoidingView
           behavior={Platform.select({ ios: "padding", android: undefined })}
-          keyboardVerticalOffset={Platform.select({ ios: 100, default: 0 })}
-          style={styles.resetBackdrop}
+          style={styles.container}
         >
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setResetVisible(false)} />
-          <View style={styles.resetCard}>
-            <Text style={styles.resetTitle}>{copy.resetTitle}</Text>
-            <Text style={styles.resetInfo}>{copy.resetInfo}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={copy.resetPlaceholder}
-              placeholderTextColor="#8e9a97"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={resetEmail}
-              onChangeText={setResetEmail}
-            />
-            <Pressable
-              style={[styles.button, resetLoading && styles.buttonDisabled]}
-              onPress={handlePasswordReset}
-              disabled={resetLoading}
-            >
-              <Text style={styles.buttonText}>{resetLoading ? copy.loading : copy.resetSend}</Text>
+          <View style={styles.darkLayout}>
+            <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
+              <Ionicons name="chevron-back" size={22} color={PALETTE.gold} />
             </Pressable>
-            <Pressable onPress={() => setResetVisible(false)}>
-              <Text style={styles.resetCancel}>{copy.close}</Text>
+            <Text style={styles.title}>{copy.title}</Text>
+            <View style={styles.form}>
+              <Text style={styles.label}>{copy.emailLabel}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={copy.emailPlaceholder}
+                placeholderTextColor="rgba(242,231,215,0.65)"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+                value={email}
+                onChangeText={setEmail}
+              />
+              <View style={styles.passwordRow}>
+                <Text style={styles.label}>{copy.passwordLabel}</Text>
+                <Pressable onPress={() => { setResetEmail(email); setResetVisible(true); }}>
+                  <Text style={styles.forgotText}>{copy.forgot}</Text>
+                </Pressable>
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder={copy.passwordPlaceholder}
+                placeholderTextColor="rgba(242,231,215,0.65)"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+              <Pressable
+                style={[styles.button, loading && styles.buttonDisabled]}
+                onPress={handleSubmit}
+                disabled={loading}
+              >
+                <LinearGradient
+                  colors={[PALETTE.gold, "#8b6c2a"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.buttonInner}
+                >
+                  <Text style={styles.buttonText}>{loading ? copy.loading : copy.submit}</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+            <Pressable onPress={() => navigation.navigate("CreateAccount", { mode: "email" })}>
+              <Text style={styles.signupHint}>
+                {copy.signupHint} <Text style={styles.signupLink}>{copy.signupLink}</Text>
+              </Text>
             </Pressable>
           </View>
+
+          {resetVisible && (
+            <KeyboardAvoidingView
+              behavior={Platform.select({ ios: "padding", android: undefined })}
+              keyboardVerticalOffset={Platform.select({ ios: 100, default: 0 })}
+              style={styles.resetBackdrop}
+            >
+              <Pressable style={StyleSheet.absoluteFill} onPress={() => setResetVisible(false)} />
+              <View style={styles.resetCard}>
+                <Text style={styles.resetTitle}>{copy.resetTitle}</Text>
+                <Text style={styles.resetInfo}>{copy.resetInfo}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={copy.resetPlaceholder}
+                  placeholderTextColor="rgba(0,0,0,0.35)"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  value={resetEmail}
+                  onChangeText={setResetEmail}
+                />
+                <Pressable
+                  style={[styles.button, resetLoading && styles.buttonDisabled]}
+                  onPress={handlePasswordReset}
+                  disabled={resetLoading}
+                >
+                  <LinearGradient
+                    colors={[PALETTE.gold, "#8b6c2a"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.buttonInner}
+                  >
+                    <Text style={styles.buttonText}>{resetLoading ? copy.loading : copy.resetSend}</Text>
+                  </LinearGradient>
+                </Pressable>
+                <Pressable onPress={() => setResetVisible(false)}>
+                  <Text style={styles.resetCancel}>{copy.close}</Text>
+                </Pressable>
+              </View>
+            </KeyboardAvoidingView>
+          )}
         </KeyboardAvoidingView>
-      )}
-    </KeyboardAvoidingView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "transparent"
+  },
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
     justifyContent: "center",
     paddingHorizontal: 24
   },
@@ -249,14 +287,10 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     padding: 6
   },
-  backText: {
-    color: "#0d1f1a",
-    fontSize: 22
-  },
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#0d1f1a",
+    color: PALETTE.sand,
     textAlign: "center",
     marginBottom: 8
   },
@@ -271,7 +305,7 @@ const styles = StyleSheet.create({
     marginTop: 12
   },
   label: {
-    color: "#0d1f1a",
+    color: PALETTE.sand,
     fontWeight: "600"
   },
   passwordRow: {
@@ -280,24 +314,32 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   forgotText: {
-    color: "#0d6e4f",
+    color: "#d8c18f",
     fontWeight: "500"
   },
   input: {
-    backgroundColor: "#f3f3f3",
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: "#d8d8d8",
-    color: "#0d1f1a",
+    borderWidth: 1.2,
+    borderColor: "rgba(217,192,143,0.5)",
+    color: PALETTE.sand,
     fontSize: 16
   },
   button: {
-    backgroundColor: "#0d6e4f",
-    paddingVertical: 14,
+    backgroundColor: "transparent",
     borderRadius: 24,
-    marginTop: 4
+    marginTop: 4,
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
+    overflow: "hidden"
+  },
+  buttonInner: {
+    width: "100%",
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center"
   },
   buttonDisabled: {
     opacity: 0.7
@@ -309,12 +351,12 @@ const styles = StyleSheet.create({
     fontSize: 16
   },
   signupHint: {
-    color: "#5a625e",
+    color: PALETTE.sand,
     textAlign: "center",
     marginTop: 16
   },
   signupLink: {
-    color: "#0d6e4f",
+    color: "#d8c18f",
     fontWeight: "700"
   },
   resetBackdrop: {

@@ -64,7 +64,14 @@ const RegisterScreen = ({ navigation }: Props) => {
         routes: [{ name: "Main" }]
       });
     } catch (error: any) {
-      Alert.alert("Registrierung fehlgeschlagen", error.message ?? "Bitte Eingaben prüfen.");
+      const fallbackMessage =
+        typeof error?.message === "string"
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : JSON.stringify(error ?? {}, null, 2);
+      console.error("Registration failed", error, fallbackMessage);
+      Alert.alert("Registrierung fehlgeschlagen", fallbackMessage ?? "Bitte Eingaben prüfen.");
     } finally {
       setLoading(false);
     }

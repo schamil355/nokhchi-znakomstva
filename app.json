@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.zelimkhan.meetmate-clean",
-      "buildNumber": "4",
+      "buildNumber": "18",
       "infoPlist": {
         "NSCameraUsageDescription": "Wir benötigen die Kamera für Profilfotos.",
         "NSPhotoLibraryUsageDescription": "Wir benötigen Zugriff auf deine Fotos für dein Profil.",

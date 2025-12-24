@@ -11,15 +11,23 @@ import {
   Alert as RNAlert
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { useAuthStore } from "../state/authStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { getEmailRedirectUrl } from "../services/authService";
 
 type Props = NativeStackScreenProps<any>;
 
-const ACCENT = "#0d6e4f";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  pine: "#1c5d44",
+  gold: "#d9c08f",
+  sand: "#f2e7d7"
+};
 
   const translations = {
     de: {
@@ -175,13 +183,22 @@ const CreateAccountScreen = ({ navigation, route }: Props) => {
       if (mode === "email") {
         const { data, error } = await supabase.auth.signUp({
           email: emailTrimmed,
-          password
+          password,
+          options: { emailRedirectTo: getEmailRedirectUrl() }
         });
-        if (error || !data.session) {
-          throw error ?? new Error(copy.signupFailed);
+        if (error) {
+          throw error;
         }
-        setSession(data.session);
-        navigation.navigate("OnboardingGender");
+        if (data.session) {
+          setSession(data.session);
+          navigation.navigate("OnboardingGender");
+          return;
+        }
+        if (data.user?.email) {
+          navigation.navigate("EmailPending", { email: data.user.email });
+          return;
+        }
+        RNAlert.alert(copy.signupFailed, copy.tryAgain);
         return;
       }
 
@@ -199,145 +216,168 @@ const CreateAccountScreen = ({ navigation, route }: Props) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.select({ ios: "padding", android: undefined })}
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <Pressable style={styles.backBtn} onPress={() => navigation.navigate("Welcome")}>
-              <Ionicons name="chevron-back" size={20} color="#0d1f1a" />
-            </Pressable>
-            <Text style={styles.title}>{copy.title}</Text>
-          </View>
-
-          {mode === "email" && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>{copy.emailPlaceholder}</Text>
-              <TextInput
-                style={styles.input}
-                placeholder={copy.emailPlaceholder}
-                placeholderTextColor="#8e9a97"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-          )}
-
-          {mode === "phone" && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>{copy.phonePlaceholder}</Text>
-              <TextInput
-                style={styles.input}
-                placeholder={copy.phonePlaceholder}
-                placeholderTextColor="#8e9a97"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-              />
-            </View>
-          )}
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{copy.passwordPlaceholder}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={copy.passwordPlaceholder}
-              placeholderTextColor="#8e9a97"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </View>
-
-          <View style={styles.checkboxRow}>
-            <Pressable style={[styles.checkbox, consent && styles.checkboxChecked]} onPress={() => setConsent((v) => !v)}>
-              {consent && <Ionicons name="checkmark" size={14} color="#fff" />}
-            </Pressable>
-            <Text style={styles.checkboxText} numberOfLines={2}>
-              {copy.consentText}{" "}
-              <Text style={styles.link} onPress={() => navigation.navigate("Legal", { screen: "terms" })}>
-                {copy.terms}
-              </Text>{" "}
-              {copy.and}{" "}
-              <Text style={styles.link} onPress={() => navigation.navigate("Legal", { screen: "privacy" })}>
-                {copy.conditions}
-              </Text>
-              {copy.consentSuffix ?? "."}
-            </Text>
-          </View>
-
-          <Pressable
-            style={[styles.cta, (!consent || loading) && styles.ctaDisabled]}
-            onPress={handleNext}
-            disabled={!consent || loading}
-          >
-            <Text style={styles.ctaText}>{loading ? copy.loading : copy.next}</Text>
-          </Pressable>
-
-          <Text style={styles.footer}>
-            {copy.member}{" "}
-            <Text style={styles.link} onPress={() => navigation.navigate("SignIn")}>
-              {copy.login}
-            </Text>
-          </Text>
-        </ScrollView>
-
-        {showOtpModal && (
-          <Pressable style={styles.modalBackdrop} onPress={() => setShowOtpModal(false)}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>{copy.otpTitle}</Text>
-              <Text style={styles.modalSubtitle}>{copy.otpSubtitle}</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={otp}
-                onChangeText={setOtp}
-                placeholder={copy.otpPlaceholder}
-                keyboardType="number-pad"
-                maxLength={6}
-              />
-              <Pressable
-                style={[styles.cta, otp.length < 4 && styles.ctaDisabled]}
-                onPress={async () => {
-                  if (otp.length < 4) return;
-                  try {
-                    const supabase = getSupabaseClient();
-                    const { error } = await supabase.auth.verifyOtp({
-                      phone: phone.trim().replace(/\s+/g, ""),
-                      token: otp,
-                      type: "sms"
-                    });
-                    if (error) {
-                      throw error;
-                    }
-                    const {
-                      data: { session }
-                    } = await supabase.auth.getSession();
-                    if (session) {
-                      setSession(session);
-                    }
-                    setShowOtpModal(false);
-                    navigation.navigate("OnboardingGender");
-                  } catch (verifyError: any) {
-                    RNAlert.alert(copy.otpInvalidTitle, verifyError?.message ?? copy.otpInvalidBody);
-                  }
-                }}
-              >
-                <Text style={styles.ctaText}>{copy.otpSubmit}</Text>
+    <LinearGradient
+      colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]}
+      locations={[0, 0.55, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <KeyboardAvoidingView
+          behavior={Platform.select({ ios: "padding", android: undefined })}
+          style={{ flex: 1 }}
+        >
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <View style={styles.header}>
+              <Pressable style={styles.backBtn} onPress={() => navigation.navigate("Welcome")}>
+                <Ionicons name="chevron-back" size={20} color={PALETTE.gold} />
               </Pressable>
+              <Text style={styles.title}>{copy.title}</Text>
             </View>
-          </Pressable>
-        )}
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+            {mode === "email" && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>{copy.emailPlaceholder}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={copy.emailPlaceholder}
+                  placeholderTextColor="rgba(242,231,215,0.65)"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+            )}
+
+            {mode === "phone" && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>{copy.phonePlaceholder}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={copy.phonePlaceholder}
+                  placeholderTextColor="rgba(242,231,215,0.65)"
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            )}
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>{copy.passwordPlaceholder}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={copy.passwordPlaceholder}
+                placeholderTextColor="rgba(242,231,215,0.65)"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
+
+            <View style={styles.checkboxRow}>
+              <Pressable style={[styles.checkbox, consent && styles.checkboxChecked]} onPress={() => setConsent((v) => !v)}>
+                {consent && <Ionicons name="checkmark" size={14} color="#fff" />}
+              </Pressable>
+              <Text style={styles.checkboxText} numberOfLines={2}>
+                {copy.consentText}{" "}
+                <Text style={styles.link} onPress={() => navigation.navigate("Legal", { screen: "terms" })}>
+                  {copy.terms}
+                </Text>{" "}
+                {copy.and}{" "}
+                <Text style={styles.link} onPress={() => navigation.navigate("Legal", { screen: "privacy" })}>
+                  {copy.conditions}
+                </Text>
+                {copy.consentSuffix ?? "."}
+              </Text>
+            </View>
+
+            <Pressable
+              style={[styles.cta, (!consent || loading) && styles.ctaDisabled]}
+              onPress={handleNext}
+              disabled={!consent || loading}
+            >
+              <LinearGradient
+                colors={[PALETTE.gold, "#8b6c2a"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.ctaInner}
+              >
+                <Text style={styles.ctaText}>{loading ? copy.loading : copy.next}</Text>
+              </LinearGradient>
+            </Pressable>
+
+            <Text style={styles.footer}>
+              {copy.member}{" "}
+              <Text style={styles.link} onPress={() => navigation.navigate("SignIn")}>
+                {copy.login}
+              </Text>
+            </Text>
+          </ScrollView>
+
+          {showOtpModal && (
+            <Pressable style={styles.modalBackdrop} onPress={() => setShowOtpModal(false)}>
+              <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>{copy.otpTitle}</Text>
+                <Text style={styles.modalSubtitle}>{copy.otpSubtitle}</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={otp}
+                  onChangeText={setOtp}
+                  placeholder={copy.otpPlaceholder}
+                  placeholderTextColor="rgba(0,0,0,0.4)"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+                <Pressable
+                  style={[styles.cta, otp.length < 4 && styles.ctaDisabled]}
+                  onPress={async () => {
+                    if (otp.length < 4) return;
+                    try {
+                      const supabase = getSupabaseClient();
+                      const { error } = await supabase.auth.verifyOtp({
+                        phone: phone.trim().replace(/\s+/g, ""),
+                        token: otp,
+                        type: "sms"
+                      });
+                      if (error) {
+                        throw error;
+                      }
+                      const {
+                        data: { session }
+                      } = await supabase.auth.getSession();
+                      if (session) {
+                        setSession(session);
+                      }
+                      setShowOtpModal(false);
+                      navigation.navigate("OnboardingGender");
+                    } catch (verifyError: any) {
+                      RNAlert.alert(copy.otpInvalidTitle, verifyError?.message ?? copy.otpInvalidBody);
+                    }
+                  }}
+                >
+                  <LinearGradient
+                    colors={[PALETTE.gold, "#8b6c2a"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.ctaInner}
+                  >
+                    <Text style={styles.ctaText}>{copy.otpSubmit}</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            </Pressable>
+          )}
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#ffffff" },
+  safeArea: { flex: 1, backgroundColor: "transparent" },
   content: {
     padding: 20,
     gap: 16,
@@ -355,23 +395,23 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#0d1f1a"
+    color: PALETTE.sand
   },
   inputGroup: {
     gap: 6
   },
   label: {
-    color: "#0d1f1a",
+    color: PALETTE.sand,
     fontWeight: "600"
   },
   input: {
-    backgroundColor: "#f3f3f3",
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: "#d8d8d8",
-    color: "#0d1f1a",
+    borderWidth: 1.2,
+    borderColor: "rgba(217,192,143,0.5)",
+    color: PALETTE.sand,
     fontSize: 16
   },
   checkboxRow: {
@@ -385,32 +425,41 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderWidth: 1,
-    borderColor: "#b6b6b6",
+    borderColor: PALETTE.gold,
     borderRadius: 4,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   checkboxChecked: {
-    backgroundColor: ACCENT,
-    borderColor: ACCENT
+    backgroundColor: PALETTE.gold,
+    borderColor: PALETTE.gold
   },
   checkboxText: {
     flex: 1,
-    color: "#5c6c66",
+    color: PALETTE.sand,
     fontSize: 13,
     lineHeight: 18
   },
   link: {
-    color: ACCENT,
+    color: "#d8c18f",
     fontWeight: "700"
   },
   cta: {
     marginTop: 12,
-    backgroundColor: ACCENT,
+    backgroundColor: "transparent",
     borderRadius: 24,
+    paddingVertical: 0,
+    alignItems: "center",
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
+    overflow: "hidden"
+  },
+  ctaInner: {
+    width: "100%",
     paddingVertical: 16,
-    alignItems: "center"
+    alignItems: "center",
+    justifyContent: "center"
   },
   ctaText: {
     color: "#fff",
@@ -422,7 +471,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     textAlign: "center",
-    color: "#5a625e",
+    color: PALETTE.sand,
     fontSize: 14,
     marginTop: 12
   },

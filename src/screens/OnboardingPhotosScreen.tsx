@@ -13,6 +13,7 @@ import {
   ScrollView
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -27,7 +28,13 @@ import { registerPhoto, deletePhoto as deletePhotoRemote } from "../services/pho
 import { mapProfile } from "../services/profileService";
 import { PROFILE_BUCKET } from "../lib/storage";
 
-const ACCENT_COLOR = "#0d6e4f";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  pine: "#1c5d44",
+  gold: "#d9c08f",
+  sand: "#f2e7d7"
+};
 const MAX_FILE_SIZE = 700 * 1024; // ~700KB to keep uploads fast on mobile
 const MAX_DIMENSION = 1280; // downscale to speed up uploads
 
@@ -645,8 +652,15 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
   const canContinue = Boolean(primaryTile?.photoId && !primaryTile?.uploading && !loading);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-      <View style={styles.container}>
+    <LinearGradient
+      colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]}
+      locations={[0, 0.55, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <View style={styles.container}>
         <View style={styles.header}>
           <Pressable
             onPress={() => navigation.goBack()}
@@ -654,7 +668,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
             accessibilityLabel={copy.back}
             style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
           >
-            <Ionicons name="chevron-back" size={24} color="#1f1f1f" />
+            <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
           </Pressable>
           <View style={styles.progressTrack}>
             <View style={styles.progressFill} />
@@ -706,9 +720,9 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
         </View>
 
         <View style={styles.guidelinesBox}>
-          {copy.guidelines.map((item, idx) => (
+          {copy.guidelines.map((item) => (
             <View key={item} style={styles.guidelineRow}>
-              <Ionicons name="checkmark-circle" size={18} color={ACCENT_COLOR} />
+              <Ionicons name="checkmark-circle" size={18} color={PALETTE.gold} />
               <Text style={styles.guidelineText}>{item}</Text>
             </View>
           ))}
@@ -716,13 +730,13 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
             <Text style={styles.guidelineLink}>{copy.rulesLink}</Text>
           </Pressable>
         </View>
-      </View>
+        </View>
 
-      <View style={styles.footer}>
-        <Pressable
-          onPress={uploadPhotos}
-          disabled={!canContinue}
-          accessibilityRole="button"
+        <View style={styles.footer}>
+          <Pressable
+            onPress={uploadPhotos}
+            disabled={!canContinue}
+            accessibilityRole="button"
           accessibilityState={{ disabled: !canContinue }}
           style={({ pressed }) => [
             styles.primaryButton,
@@ -730,37 +744,52 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
             pressed && canContinue && styles.primaryButtonPressed
           ]}
         >
-          {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryButtonText}>{copy.continue}</Text>}
-        </Pressable>
-      </View>
+          {loading ? (
+            <View style={styles.primaryInner}>
+              <ActivityIndicator color="#ffffff" />
+            </View>
+          ) : (
+            <LinearGradient
+              colors={[PALETTE.gold, "#8b6c2a"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+                style={styles.primaryInner}
+              >
+                <Text style={styles.primaryButtonText}>{copy.continue}</Text>
+              </LinearGradient>
+            )}
+          </Pressable>
+        </View>
 
-      <Modal visible={showRules} animationType="slide" onRequestClose={() => setShowRules(false)}>
-        <SafeAreaView style={styles.modalSafe} edges={["top", "left", "right"]}>
-          <View style={styles.modalHeader}>
-            <Pressable style={styles.modalClose} onPress={() => setShowRules(false)}>
-              <Ionicons name="close" size={22} color="#1f2933" />
-            </Pressable>
-            <Text style={styles.modalTitle}>{copy.rulesTitle ?? copy.rulesLink}</Text>
-            <View style={styles.modalClose} />
-          </View>
-          <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalContent}>
-            <Text style={styles.modalBody}>{copy.rulesBody}</Text>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-    </SafeAreaView>
+        <Modal visible={showRules} animationType="slide" onRequestClose={() => setShowRules(false)}>
+          <SafeAreaView style={styles.modalSafe} edges={["top", "left", "right"]}>
+            <View style={styles.modalHeader}>
+              <Pressable style={styles.modalClose} onPress={() => setShowRules(false)}>
+                <Ionicons name="close" size={22} color="#1f2933" />
+              </Pressable>
+              <Text style={styles.modalTitle}>{copy.rulesTitle ?? copy.rulesLink}</Text>
+              <View style={styles.modalClose} />
+            </View>
+            <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalContent}>
+              <Text style={styles.modalBody}>{copy.rulesBody}</Text>
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent"
   },
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent",
+    paddingBottom: 12
   },
   header: {
     flexDirection: "row",
@@ -773,10 +802,10 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: PALETTE.gold,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   backButtonPressed: {
     opacity: 0.7
@@ -784,36 +813,36 @@ const styles = StyleSheet.create({
   progressTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: "#f1f1f1",
+    backgroundColor: "rgba(255,255,255,0.18)",
     borderRadius: 999
   },
   progressFill: {
-    width: "98%",
+    width: "100%",
     height: "100%",
-    backgroundColor: ACCENT_COLOR,
+    backgroundColor: PALETTE.gold,
     borderRadius: 999
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "700",
-    color: "#111",
+    color: PALETTE.sand,
     textAlign: "center"
   },
   subtitle: {
-    fontSize: 14,
-    color: "#4a4a4a",
+    fontSize: 15,
+    color: "rgba(242,231,215,0.86)",
     textAlign: "center",
     marginTop: 8
   },
   instructions: {
     textAlign: "center",
-    color: "#6b6b6b",
-    marginTop: 8
+    color: "rgba(242,231,215,0.72)",
+    marginTop: 10
   },
   tilesRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 32,
+    marginTop: 26,
     alignItems: "flex-start"
   },
   tileWrapper: {
@@ -824,22 +853,29 @@ const styles = StyleSheet.create({
     width: "100%",
     aspectRatio: 3 / 4,
     borderRadius: 18,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderStyle: "dashed",
-    borderColor: "#d4d4d4",
+    borderColor: "rgba(217,192,143,0.5)",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fafafa"
+    backgroundColor: "rgba(255,255,255,0.06)",
+    overflow: "hidden"
   },
   tilePressed: {
-    borderColor: ACCENT_COLOR
+    borderColor: PALETTE.gold,
+    backgroundColor: "rgba(217,192,143,0.08)"
   },
   primaryTile: {
-    borderColor: ACCENT_COLOR
+    borderColor: PALETTE.gold,
+    shadowColor: PALETTE.gold,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 6
   },
   plus: {
     fontSize: 40,
-    color: "#bdbdbd"
+    color: "rgba(242,231,215,0.78)"
   },
   tileImage: {
     width: "100%",
@@ -855,7 +891,7 @@ const styles = StyleSheet.create({
   },
   tileErrorText: {
     fontSize: 11,
-    color: "#d64550",
+    color: "#f8d7da",
     textAlign: "center",
     marginTop: 6
   },
@@ -865,21 +901,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: "#eef5f1"
+    backgroundColor: "rgba(217,192,143,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.5)"
   },
   profileLabelText: {
-    color: ACCENT_COLOR,
-    fontWeight: "600",
+    color: PALETTE.gold,
+    fontWeight: "700",
     fontSize: 12
   },
   guidelinesBox: {
-    marginTop: 32,
-    borderRadius: 18,
-    borderWidth: 2,
+    marginTop: 28,
+    borderRadius: 16,
+    borderWidth: 1.2,
     borderStyle: "dashed",
-    borderColor: "#dcdcdc",
+    borderColor: "rgba(217,192,143,0.45)",
     padding: 16,
-    gap: 8
+    gap: 10,
+    backgroundColor: "rgba(255,255,255,0.06)"
   },
   guidelineRow: {
     flexDirection: "row",
@@ -887,12 +926,12 @@ const styles = StyleSheet.create({
     gap: 8
   },
   guidelineText: {
-    color: "#333",
+    color: "rgba(242,231,215,0.9)",
     fontSize: 14
   },
   guidelineLink: {
-    color: ACCENT_COLOR,
-    fontWeight: "600",
+    color: "#d8c18f",
+    fontWeight: "700",
     marginTop: 12
   },
   modalSafe: {
@@ -935,18 +974,27 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: 24,
     paddingBottom: Platform.select({ ios: 32, default: 24 }),
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent",
+    marginTop: 20
   },
   primaryButton: {
-    backgroundColor: ACCENT_COLOR,
+    backgroundColor: "transparent",
     borderRadius: 999,
-    paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12
+    marginBottom: 12,
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
+    overflow: "hidden"
+  },
+  primaryInner: {
+    width: "100%",
+    paddingVertical: 18,
+    alignItems: "center",
+    justifyContent: "center"
   },
   primaryButtonDisabled: {
-    backgroundColor: "#cfd8d3"
+    opacity: 0.65
   },
   primaryButtonPressed: {
     opacity: 0.9
@@ -958,7 +1006,7 @@ const styles = StyleSheet.create({
   },
   skipText: {
     textAlign: "center",
-    color: "#4a4a4a",
+    color: "rgba(242,231,215,0.8)",
     fontWeight: "500"
   }
 });

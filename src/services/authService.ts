@@ -1,4 +1,5 @@
 import { Session } from "@supabase/supabase-js";
+import Constants from "expo-constants";
 import { z } from "zod";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { createRateLimiter } from "../lib/rateLimiter";
@@ -48,6 +49,12 @@ const authCopy: Record<string, Record<string, string>> = {
 const tAuth = (key: keyof typeof authCopy.en) => {
   const locale = getCurrentLocale();
   return authCopy[locale]?.[key] ?? authCopy.en[key];
+};
+
+export const getEmailRedirectUrl = (): string => {
+  const fromEnv = process.env.EXPO_PUBLIC_EMAIL_REDIRECT_URL;
+  const fromConfig = (Constants.expoConfig as any)?.extra?.emailRedirectUrl;
+  return fromEnv || fromConfig || "meetmate://auth/callback";
 };
 
 export const signInWithPassword = async (email: string, password: string): Promise<Session> =>
@@ -143,6 +150,7 @@ export const signUpWithPassword = async (
       // Kein Session-Token => Supabase wartet auf E-Mail-Bestätigung
       throw new Error(tAuth("confirmEmail"));
     } catch (error: any) {
+      console.error("signUpWithPassword error", error);
       if (isAbortError(error) || (typeof error?.message === "string" && error.message.toLowerCase().includes("network request failed"))) {
         throw new Error(tAuth("networkSlow"));
       }
@@ -152,9 +160,13 @@ export const signUpWithPassword = async (
 
 export const signOut = async () => {
   const supabase = getSupabaseClient();
-  const { error } = await supabase.auth.signOut();
-  if (error) {
-    throw error;
+  const { data: current } = await supabase.auth.getSession();
+  // Wenn keine Session vorhanden ist, Zustand trotzdem aufräumen, ohne Fehler zu werfen.
+  if (current?.session) {
+    const { error } = await supabase.auth.signOut();
+    if (error && !String(error.message ?? "").toLowerCase().includes("session missing")) {
+      throw error;
+    }
   }
   useAuthStore.getState().reset();
   usePreferencesStore.getState().setActiveUser(null);

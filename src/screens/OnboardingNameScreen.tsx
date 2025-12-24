@@ -11,12 +11,19 @@ import {
   View
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useOnboardingStore } from "../state/onboardingStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 
-const ACCENT_COLOR = "#0d6e4f";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  pine: "#1c5d44",
+  gold: "#d9c08f",
+  sand: "#f2e7d7"
+};
 const NAME_MAX_LENGTH = 50;
 const LABEL_ID = "onboarding-name-label";
 const DESCRIPTION_ID = "onboarding-name-description";
@@ -115,110 +122,121 @@ const OnboardingNameScreen = ({ navigation }: Props) => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-      <KeyboardAvoidingView
-        behavior={Platform.select({ ios: "padding", android: undefined })}
-        style={styles.keyboardAvoider}
-        keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
-      >
-        <ScrollView
-          style={styles.container}
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+    <LinearGradient colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]} locations={[0, 0.55, 1]} style={{ flex: 1 }}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <KeyboardAvoidingView
+          behavior={Platform.select({ ios: "padding", android: undefined })}
+          style={styles.keyboardAvoider}
+          keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
         >
-          <View style={styles.inner}>
-            <View style={styles.header}>
-              <Pressable
-                onPress={() => navigation.goBack()}
-                accessibilityRole="button"
-                accessibilityLabel={copy.accessibilityBack}
-                style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-              >
-                <Ionicons name="chevron-back" size={24} color="#1f1f1f" />
-              </Pressable>
-              <View style={styles.progressTrack}>
-                <View style={styles.progressFill} />
+          <ScrollView
+            style={styles.container}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.inner}>
+              <View style={styles.header}>
+                <Pressable
+                  onPress={() => navigation.goBack()}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.accessibilityBack}
+                  style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+                >
+                  <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
+                </Pressable>
+                <View style={styles.progressTrack}>
+                  <View style={styles.progressFill} />
+                </View>
+              </View>
+
+              <View style={styles.hero}>
+                <Image source={avatarSource} style={styles.heroImage} resizeMode="contain" />
+              </View>
+
+              <Text style={styles.title}>{copy.title}</Text>
+              <Text style={styles.subtitle} nativeID={DESCRIPTION_ID}>
+                {copy.subtitle}
+              </Text>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel} nativeID={LABEL_ID}>
+                  {copy.label}
+                </Text>
+                <TextInput
+                  value={nameInput}
+                  onChangeText={handleChangeName}
+                  placeholder={copy.accessibilityPlaceholder}
+                  placeholderTextColor="rgba(242,231,215,0.65)"
+                  maxLength={NAME_MAX_LENGTH}
+                  accessibilityLabel={copy.accessibilityPlaceholder}
+                  accessibilityLabelledBy={LABEL_ID}
+                  accessibilityHint={copy.inputHint}
+                  returnKeyType="done"
+                  onSubmitEditing={handleContinue}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
+                  style={[styles.textInput, isFocused && styles.textInputFocused]}
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  keyboardAppearance="light"
+                />
               </View>
             </View>
+          </ScrollView>
 
-            <View style={styles.hero}>
-              <Image source={avatarSource} style={styles.heroImage} resizeMode="contain" />
-            </View>
-
-            <Text style={styles.title}>{copy.title}</Text>
-            <Text style={styles.subtitle} nativeID={DESCRIPTION_ID}>
-              {copy.subtitle}
-            </Text>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel} nativeID={LABEL_ID}>
-                {copy.label}
-              </Text>
-              <TextInput
-                value={nameInput}
-                onChangeText={handleChangeName}
-                placeholder=""
-                maxLength={NAME_MAX_LENGTH}
-                accessibilityLabel={copy.accessibilityPlaceholder}
-                accessibilityLabelledBy={LABEL_ID}
-                accessibilityHint={copy.inputHint}
-                returnKeyType="done"
-                onSubmitEditing={handleContinue}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                style={[styles.textInput, isFocused && styles.textInputFocused]}
-                autoCapitalize="words"
-                autoComplete="name"
-                keyboardAppearance="light"
-              />
-            </View>
+          <View style={[styles.footer, { paddingBottom: 16 + insets.bottom }]}>
+            <Pressable
+              onPress={handleContinue}
+              disabled={continueDisabled}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: continueDisabled }}
+              accessibilityHint={continueDisabled ? copy.inputHint : copy.accessibilityContinue}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                continueDisabled && styles.primaryButtonDisabled,
+                pressed && !continueDisabled && styles.primaryButtonPressed
+              ]}
+            >
+              <LinearGradient
+                colors={[PALETTE.gold, "#8b6c2a"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.primaryInner}
+              >
+                <Text style={styles.primaryButtonText}>{copy.continue}</Text>
+                <Ionicons name="arrow-forward" size={18} color="#fff" />
+              </LinearGradient>
+            </Pressable>
           </View>
-        </ScrollView>
-
-        <View style={[styles.footer, { paddingBottom: 16 + insets.bottom }]}>
-          <Pressable
-            onPress={handleContinue}
-            disabled={continueDisabled}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: continueDisabled }}
-            accessibilityHint={continueDisabled ? copy.inputHint : copy.accessibilityContinue}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              continueDisabled && styles.primaryButtonDisabled,
-              pressed && !continueDisabled && styles.primaryButtonPressed
-            ]}
-          >
-            <Text style={styles.primaryButtonText}>{copy.continue}</Text>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent"
   },
   keyboardAvoider: {
     flex: 1
   },
   container: {
     flex: 1,
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent"
   },
   content: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 80
   },
   inner: {
-    backgroundColor: "#ffffff",
-    gap: 0
+    gap: 0,
+    marginHorizontal: 4,
+    marginTop: 4
   },
   header: {
     flexDirection: "row",
@@ -231,10 +249,10 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: PALETTE.gold,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   backButtonPressed: {
     opacity: 0.7
@@ -242,13 +260,13 @@ const styles = StyleSheet.create({
   progressTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: "#f1f1f1",
+    backgroundColor: "rgba(255,255,255,0.18)",
     borderRadius: 999
   },
   progressFill: {
     width: "40%",
     height: "100%",
-    backgroundColor: ACCENT_COLOR,
+    backgroundColor: PALETTE.gold,
     borderRadius: 999
   },
   hero: {
@@ -263,12 +281,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "600",
-    color: "#121212",
+    color: PALETTE.sand,
     marginBottom: 8
   },
   subtitle: {
     fontSize: 16,
-    color: "#4a4a4a",
+    color: "rgba(242,231,215,0.8)",
     marginBottom: 24
   },
   inputGroup: {
@@ -277,47 +295,57 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#333333",
+    color: PALETTE.sand,
     marginBottom: 8
   },
   textInput: {
-    borderWidth: 2,
-    borderColor: "#e6e6e6",
+    borderWidth: 1.2,
+    borderColor: "rgba(217,192,143,0.5)",
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 14,
     fontSize: 18,
     fontWeight: "500",
-    backgroundColor: "#fff",
-    color: "#111"
+    backgroundColor: "rgba(255,255,255,0.08)",
+    color: PALETTE.sand
   },
   textInputFocused: {
-    borderColor: ACCENT_COLOR,
-    shadowColor: ACCENT_COLOR,
+    borderColor: PALETTE.gold,
+    shadowColor: PALETTE.gold,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 4
   },
   footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 72,
-    backgroundColor: "#ffffff"
+    paddingHorizontal: 12,
+    paddingBottom: 48,
+    backgroundColor: "transparent"
   },
   primaryButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: ACCENT_COLOR,
-    paddingVertical: 18,
-    borderRadius: 999
+    borderRadius: 999,
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
+    overflow: "hidden",
+    backgroundColor: "transparent"
+  },
+  primaryInner: {
+    width: "100%",
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8
   },
   primaryButtonPressed: {
-    opacity: 0.85
+    opacity: 0.9
   },
   primaryButtonDisabled: {
-    backgroundColor: "#c6dcd3"
+    opacity: 0.65
   },
   primaryButtonText: {
     color: "#ffffff",

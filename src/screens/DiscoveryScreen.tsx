@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useDiscoveryFeed, useRecentProfiles } from "../hooks/useDiscoveryFeed";
 import { sendLike, skipProfile } from "../services/discoveryService";
+import { ensureDirectConversation } from "../services/directChatService";
+import { reportUser } from "../services/moderationService";
 import { useAuthStore } from "../state/authStore";
 import { usePreferencesStore } from "../state/preferencesStore";
 import { Profile } from "../types";
@@ -12,9 +15,16 @@ import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { useNotificationsStore } from "../state/notificationsStore";
 import * as Notifications from "expo-notifications";
+import { LinearGradient } from "expo-linear-gradient";
 
-const ACCENT = "#0d6e4f";
-const BORDER_COLOR = "#e4e6ea";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  gold: "#d9c08f",
+  sand: "#f2e7d7"
+};
+
+const ACCENT = PALETTE.gold;
 const MAX_DISTANCE_KM = 130;
 const AUTO_EXTEND_STEP = 20;
 
@@ -33,9 +43,16 @@ type CopyShape = {
     likeFallback: string;
     skipFallback: string;
   };
-  invite: {
-    title: string;
-    body: string;
+  actions: {
+    directChat: string;
+    directChatFailed: string;
+    report: string;
+    reportTitle: string;
+    reportBody: string;
+    reportConfirm: string;
+    reportCancel: string;
+    reportSuccess: string;
+    reportFailed: string;
   };
 };
 
@@ -49,11 +66,18 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     errors: {
       title: "Error",
       likeFallback: "We couldn't send your like.",
-      skipFallback: "Couldn't skip this profile.",
+      skipFallback: "Couldn't skip this profile."
     },
-    invite: {
-      title: "Fun fact",
-      body: "Inviting friends is coming soon!",
+    actions: {
+      directChat: "Direct chat",
+      directChatFailed: "Couldn't start a direct chat.",
+      report: "Report",
+      reportTitle: "Report this profile?",
+      reportBody: "We will review the report and may block this user.",
+      reportConfirm: "Report",
+      reportCancel: "Cancel",
+      reportSuccess: "Report received. Thank you.",
+      reportFailed: "Report failed. Please try again."
     },
   },
   de: {
@@ -65,11 +89,18 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     errors: {
       title: "Fehler",
       likeFallback: "Dein Like konnte nicht gesendet werden.",
-      skipFallback: "Profil konnte nicht übersprungen werden.",
+      skipFallback: "Profil konnte nicht übersprungen werden."
     },
-    invite: {
-      title: "Fun Fact",
-      body: "Freunde einladen folgt in Kürze!",
+    actions: {
+      directChat: "Direktchat",
+      directChatFailed: "Direktchat konnte nicht gestartet werden.",
+      report: "Melden",
+      reportTitle: "Profil melden?",
+      reportBody: "Wir prüfen Meldungen und können den Nutzer blockieren.",
+      reportConfirm: "Melden",
+      reportCancel: "Abbrechen",
+      reportSuccess: "Meldung erhalten. Danke!",
+      reportFailed: "Meldung fehlgeschlagen."
     },
   },
   fr: {
@@ -81,11 +112,18 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     errors: {
       title: "Erreur",
       likeFallback: "Impossible d'envoyer ton like.",
-      skipFallback: "Impossible d'ignorer ce profil.",
+      skipFallback: "Impossible d'ignorer ce profil."
     },
-    invite: {
-      title: "Fun fact",
-      body: "L'invitation d'amis arrive bientôt !",
+    actions: {
+      directChat: "Direct chat",
+      directChatFailed: "Impossible d'ouvrir le direct chat.",
+      report: "Signaler",
+      reportTitle: "Signaler ce profil ?",
+      reportBody: "Nous examinerons ce signalement et pourrons bloquer l'utilisateur.",
+      reportConfirm: "Signaler",
+      reportCancel: "Annuler",
+      reportSuccess: "Signalement reçu. Merci.",
+      reportFailed: "Échec du signalement. Réessaie."
     },
   },
   ru: {
@@ -97,11 +135,18 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     errors: {
       title: "Ошибка",
       likeFallback: "Не удалось отправить лайк.",
-      skipFallback: "Не удалось пропустить профиль.",
+      skipFallback: "Не удалось пропустить профиль."
     },
-    invite: {
-      title: "Инфо",
-      body: "Приглашение друзей появится скоро!",
+    actions: {
+      directChat: "Прямой чат",
+      directChatFailed: "Не удалось открыть прямой чат.",
+      report: "Пожаловаться",
+      reportTitle: "Пожаловаться на профиль?",
+      reportBody: "Мы рассмотрим жалобу и можем заблокировать пользователя.",
+      reportConfirm: "Пожаловаться",
+      reportCancel: "Отмена",
+      reportSuccess: "Жалоба отправлена. Спасибо.",
+      reportFailed: "Не удалось отправить жалобу."
     },
   },
 };
@@ -115,6 +160,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     isRefetching: isDiscoveryRefetching
   } = useDiscoveryFeed();
   const [processing, setProcessing] = useState(false);
+  const [isStartingDirect, setIsStartingDirect] = useState(false);
+  const [isReporting, setIsReporting] = useState(false);
   const [activeTab, setActiveTab] = useState<"forYou" | "recent">("forYou");
   const [queues, setQueues] = useState<{ forYou: Profile[]; recent: Profile[] }>({
     forYou: [],
@@ -256,6 +303,65 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     }
   };
 
+  const handleDirectChat = useCallback(async () => {
+    if (!session?.user?.id || !currentProfile?.userId || isStartingDirect) {
+      return;
+    }
+    setIsStartingDirect(true);
+    try {
+      const conversationId = await ensureDirectConversation(session.user.id, currentProfile.userId);
+      const parentNav: any = (navigation as any).getParent?.() ?? navigation;
+      const rootNav: any = parentNav?.getParent?.() ?? parentNav;
+      const navigateToChat = rootNav?.navigate ?? navigation?.navigate;
+      if (!conversationId || typeof navigateToChat !== "function") {
+        throw new Error("Navigation unavailable");
+      }
+      navigateToChat("DirectChat", { conversationId, otherUserId: currentProfile.userId });
+    } catch (error) {
+      console.warn("Failed to open direct chat from discovery", error);
+      Alert.alert(copy.actions.directChatFailed);
+    } finally {
+      setIsStartingDirect(false);
+    }
+  }, [copy.actions.directChatFailed, currentProfile?.userId, isStartingDirect, navigation, session?.user?.id]);
+
+  const handleReportProfile = useCallback(() => {
+    if (!session?.user?.id || !currentProfile?.userId || isReporting) {
+      return;
+    }
+    Alert.alert(copy.actions.reportTitle, copy.actions.reportBody, [
+      { text: copy.actions.reportCancel, style: "cancel" },
+      {
+        text: copy.actions.reportConfirm,
+        style: "destructive",
+        onPress: async () => {
+          setIsReporting(true);
+          try {
+            await reportUser(session.user.id, currentProfile.userId, "abuse");
+            Alert.alert(copy.actions.reportSuccess);
+            advanceQueue();
+          } catch (error) {
+            console.warn("Failed to report user from discovery", error);
+            Alert.alert(copy.actions.reportFailed);
+          } finally {
+            setIsReporting(false);
+          }
+        }
+      }
+    ]);
+  }, [
+    advanceQueue,
+    copy.actions.reportBody,
+    copy.actions.reportCancel,
+    copy.actions.reportConfirm,
+    copy.actions.reportFailed,
+    copy.actions.reportSuccess,
+    copy.actions.reportTitle,
+    currentProfile?.userId,
+    isReporting,
+    session?.user?.id
+  ]);
+
   const handleIncreaseRadius = useCallback(() => {
     if (isRecentTab) {
       refetchRecent();
@@ -274,10 +380,6 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     resetFilters();
     refetchDiscovery();
   }, [isRecentTab, refetchDiscovery, refetchRecent, resetFilters]);
-
-  const handleInviteFriends = useCallback(() => {
-    Alert.alert(copy.invite.title, copy.invite.body);
-  }, [copy.invite.body, copy.invite.title]);
 
   const openFilters = useCallback(() => {
     const parentNav: any = (navigation as any).getParent?.() ?? navigation;
@@ -301,76 +403,114 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     void Notifications.setBadgeCountAsync(0);
   }, [markNotificationsSeen, navigation]);
 
+  useEffect(() => {
+    if (activeTab === "recent") {
+      setActiveTab("forYou");
+    }
+  }, [activeTab]);
+
   // Sign-out Button (temporär) entfernt
 
-  if (isLoading && !visibleProfiles.length) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+    <LinearGradient
+      colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]}
+      locations={[0, 0.55, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={{ flex: 1 }}
     >
-      <View style={styles.headerContainer}>
-        <View style={styles.headerRow}>
-          <Text style={styles.logoText}>Нохчи Знакомства</Text>
-          <View style={styles.headerActions}>
-            <IconButton icon="options-outline" onPress={openFilters} />
-            <IconButton
-              icon="notifications-outline"
-              onPress={openNotifications}
-              showDot={hasUnseenNotifications}
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={PALETTE.gold}
+              colors={[PALETTE.gold]}
             />
+          }
+        >
+          <View style={styles.headerContainer}>
+            <View style={styles.headerRow}>
+              <Text style={styles.logoText}>Нохчи Знакомства</Text>
+              <View style={styles.headerActions}>
+                <IconButton icon="options-outline" onPress={openFilters} />
+                <IconButton
+                  icon="notifications-outline"
+                  onPress={openNotifications}
+                  showDot={hasUnseenNotifications}
+                />
+              </View>
+            </View>
+            <View style={styles.tabRow}>
+              {(["forYou"] as const).map((tabKey) => (
+                <Pressable
+                  key={tabKey}
+                  onPress={() => setActiveTab(tabKey)}
+                  style={({ pressed }) => [styles.tabButton, pressed && styles.tabButtonPressed]}
+                >
+                  <LinearGradient
+                    colors={[PALETTE.gold, "#8b6c2a"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.tabInner}
+                  >
+                    <Text style={styles.tabLabelPrimary}>
+                      {tabKey === "forYou" ? copy.tabs.forYou : copy.tabs.recent}
+                    </Text>
+                  </LinearGradient>
+                </Pressable>
+              ))}
+            </View>
           </View>
-        </View>
-        <View style={styles.tabRow}>
-          {(["forYou", "recent"] as const).map((tabKey) => (
-            <Pressable
-              key={tabKey}
-              onPress={() => setActiveTab(tabKey)}
-              style={[styles.tab, activeTab === tabKey && styles.tabActive]}
-            >
-              <Text style={[styles.tabLabel, activeTab === tabKey && styles.tabLabelActive]}>
-                {tabKey === "forYou" ? copy.tabs.forYou : copy.tabs.recent}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
 
-      {currentProfile ? (
-        <ProfileCard profile={currentProfile} onLike={handleLike} onSkip={handleSkip} showActions={canInteract} />
-      ) : (
-        <EmptyFeed
-          onIncreaseRadius={handleIncreaseRadius}
-          onResetFilters={handleResetFilters}
-          onRetry={refetch}
-          onInviteFriends={handleInviteFriends}
-          onOpenFilters={openFilters}
-          onOpenNotifications={openNotifications}
-          showChrome={false}
-        />
-      )}
-    </ScrollView>
+          {isLoading && !visibleProfiles.length ? (
+            <View style={[styles.center, styles.loader]}>
+              <ActivityIndicator size="large" color={PALETTE.gold} />
+            </View>
+          ) : currentProfile ? (
+            <ProfileCard
+              profile={currentProfile}
+              onLike={handleLike}
+              onSkip={handleSkip}
+              onDirectChat={handleDirectChat}
+              onReport={handleReportProfile}
+              directChatDisabled={isStartingDirect}
+              reportDisabled={isReporting}
+              showActions={canInteract}
+            />
+          ) : (
+            <EmptyFeed
+              onIncreaseRadius={handleIncreaseRadius}
+              onResetFilters={handleResetFilters}
+              onRetry={refetch}
+              onOpenFilters={openFilters}
+              onOpenNotifications={openNotifications}
+              showChrome={false}
+            />
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "transparent"
+  },
   scroll: {
-    backgroundColor: "#fff"
+    backgroundColor: "transparent"
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 48,
+    paddingHorizontal: 24,
+    paddingTop: 28,
     paddingBottom: 32,
     flexGrow: 1,
-    backgroundColor: "#fff"
+    backgroundColor: "transparent"
   },
   center: {
     flex: 1,
@@ -378,8 +518,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 24
   },
+  loader: {
+    minHeight: 320
+  },
   headerContainer: {
-    backgroundColor: "#fff",
+    backgroundColor: "transparent",
     paddingBottom: 12
   },
   headerRow: {
@@ -391,7 +534,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#050709",
+    color: PALETTE.sand,
     letterSpacing: 1
   },
   tabRow: {
@@ -399,31 +542,27 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 12
   },
-  tab: {
-    paddingVertical: 7,
+  tabButton: {
     borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 20,
     borderWidth: 1.2,
-    borderColor: BORDER_COLOR,
-    backgroundColor: "#f8f9fb"
+    borderColor: PALETTE.gold,
+    overflow: "hidden",
+    backgroundColor: "transparent",
+    alignSelf: "flex-start"
   },
-  tabActive: {
-    backgroundColor: ACCENT,
-    borderColor: ACCENT,
-    shadowColor: ACCENT,
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 8,
-    elevation: 3
+  tabButtonPressed: {
+    opacity: 0.9
   },
-  tabLabel: {
-    fontWeight: "600",
-    color: "#5e626a"
+  tabInner: {
+    paddingVertical: 7,
+    paddingHorizontal: 22,
+    alignItems: "center",
+    justifyContent: "center"
   },
-  tabLabelActive: {
-    color: "#fff"
+  tabLabelPrimary: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 15
   },
   headerActions: {
     flexDirection: "row",
@@ -442,7 +581,7 @@ const IconButton = ({
   showDot?: boolean;
 }) => (
   <Pressable onPress={onPress} style={({ pressed }) => [iconStyles.button, pressed && iconStyles.buttonPressed]}>
-    <Ionicons name={icon} size={24} color="#9aa0a9" />
+    <Ionicons name={icon} size={24} color={PALETTE.sand} />
     {showDot ? <View style={iconStyles.dot} /> : null}
   </Pressable>
 );
@@ -452,7 +591,8 @@ const iconStyles = StyleSheet.create({
     padding: 6,
     borderRadius: 999,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    borderWidth: 0
   },
   buttonPressed: {
     opacity: 0.55

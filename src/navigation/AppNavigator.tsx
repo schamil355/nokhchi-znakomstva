@@ -17,8 +17,10 @@ import ProfilePng from "../../assets/tab-icons/ICONS/profile.png";
 import SignInScreen from "../screens/SignInScreen";
 import DiscoveryScreen from "../screens/DiscoveryScreen";
 import MatchesScreen from "../screens/MatchesScreen";
+import LikesSimpleScreen from "../screens/LikesSimpleScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import ChatScreen from "../screens/ChatScreen";
+import DirectChatScreen from "../screens/DirectChatScreen";
 import LegalScreen from "../screens/LegalScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import WelcomeScreen from "../screens/WelcomeScreen";
@@ -35,6 +37,7 @@ import SelfieScanScreen from "../screens/SelfieScanScreen";
 import OnboardingNextScreen from "../screens/OnboardingNextScreen";
 import CreateAccountScreen from "../screens/CreateAccountScreen";
 import RegisterChoiceScreen from "../screens/RegisterChoiceScreen";
+import EmailPendingScreen from "../screens/EmailPendingScreen";
 
 type AppNavigatorProps = {
   isAuthenticated: boolean;
@@ -44,6 +47,7 @@ type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
   Chat: { matchId: string; participantId: string };
+  DirectChat: { conversationId: string; otherUserId: string };
   Notifications: undefined;
   Legal: { screen?: "terms" | "privacy" } | undefined;
 };
@@ -51,6 +55,7 @@ type RootStackParamList = {
 type TabParamList = {
   Discovery: undefined;
   Matches: undefined;
+  Likes: undefined;
   Settings: undefined;
   Profile: undefined;
 };
@@ -85,13 +90,15 @@ const AuthNavigator = () => {
       <AuthStack.Screen name="OnboardingVerifySuccess" component={OnboardingVerifySuccessScreen} />
       <AuthStack.Screen name="SelfieScan" component={SelfieScanScreen} />
       <AuthStack.Screen name="OnboardingNext" component={OnboardingNextScreen} />
+      <AuthStack.Screen name="EmailPending" component={EmailPendingScreen} />
     </AuthStack.Navigator>
   );
 };
 
-const TAB_ACCENT = "#0d6e4f";
+const TAB_ACCENT = "#ffffff";
 const TAB_INACTIVE = "#a8adb4";
 const TAB_ICON_SIZE = 33;
+const TAB_BACKGROUND = "#0b1f16";
 
 type TabConfig = {
   name: keyof TabParamList;
@@ -111,6 +118,11 @@ const tabsConfig: TabConfig[] = [
     name: "Matches",
     component: MatchesScreen,
     imageSource: MatchesPng
+  },
+  {
+    name: "Likes",
+    component: LikesSimpleScreen,
+    ioniconName: "lock-open-outline"
   },
   {
     name: "Settings",
@@ -158,6 +170,7 @@ const MainTabs = () => (
         );
       }
     })}
+    tabBarBackground={() => <View style={tabStyles.background} />}
   >
     {tabsConfig.map((tab) => (
       <Tab.Screen key={tab.name} name={tab.name} component={tab.component} />
@@ -181,6 +194,7 @@ const AppNavigator = ({ isAuthenticated }: AppNavigatorProps) => {
         <>
           <RootStack.Screen name="Main" component={MainTabs} />
           <RootStack.Screen name="Chat" component={ChatScreen} />
+          <RootStack.Screen name="DirectChat" component={DirectChatScreen} />
           <RootStack.Screen
             name="Filters"
             component={SettingsScreen}
@@ -208,11 +222,20 @@ const tabStyles = StyleSheet.create({
   bar: {
     height: 72,
     borderTopWidth: 0,
-    backgroundColor: "#fff",
+    backgroundColor: TAB_BACKGROUND,
+    borderTopColor: "transparent",
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     paddingHorizontal: 0,
     paddingBottom: 14,
     paddingTop: 10,
     elevation: 0
+  },
+  background: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: TAB_BACKGROUND
   },
   item: {
     paddingVertical: 4,

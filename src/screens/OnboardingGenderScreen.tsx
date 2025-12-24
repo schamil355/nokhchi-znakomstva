@@ -1,13 +1,20 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { Image, NativeSyntheticEvent, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useOnboardingStore } from "../state/onboardingStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { usePreferencesStore } from "../state/preferencesStore";
 
-const ACCENT_COLOR = "#0d6e4f";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  pine: "#1c5d44",
+  gold: "#d9c08f",
+  sand: "#f2e7d7"
+};
 
 type Props = NativeStackScreenProps<any>;
 
@@ -128,8 +135,9 @@ const OnboardingGenderScreen = ({ navigation }: Props) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-      <View style={styles.container}>
+    <LinearGradient colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]} locations={[0, 0.55, 1]} style={{ flex: 1 }}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <View style={styles.container}>
         <View style={styles.header}>
         <Pressable
           onPress={handleBack}
@@ -137,7 +145,7 @@ const OnboardingGenderScreen = ({ navigation }: Props) => {
           accessibilityLabel={copy.back}
           style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
         >
-          <Ionicons name="chevron-back" size={24} color="#1f1f1f" />
+          <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
         </Pressable>
         <View style={styles.progressTrack}>
             <View style={styles.progressFill} />
@@ -202,23 +210,29 @@ const OnboardingGenderScreen = ({ navigation }: Props) => {
             pressed && selectedGender && styles.primaryButtonPressed
           ]}
         >
-          <Text style={styles.primaryButtonText}>{copy.continue}</Text>
-          <Ionicons name="arrow-forward" size={18} color="#fff" />
+          <LinearGradient
+            colors={[PALETTE.gold, "#8b6c2a"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.primaryInner}
+          >
+            <Text style={styles.primaryButtonText}>{copy.continue}</Text>
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
+          </LinearGradient>
         </Pressable>
-
       </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent"
   },
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
     paddingHorizontal: 24,
     paddingBottom: 32
   },
@@ -233,10 +247,10 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: PALETTE.gold,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   backButtonPressed: {
     opacity: 0.7
@@ -244,13 +258,13 @@ const styles = StyleSheet.create({
   progressTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: "#f1f1f1",
+    backgroundColor: "rgba(255,255,255,0.18)",
     borderRadius: 999
   },
   progressFill: {
     width: "20%",
     height: "100%",
-    backgroundColor: ACCENT_COLOR,
+    backgroundColor: PALETTE.gold,
     borderRadius: 999
   },
   content: {
@@ -259,7 +273,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "600",
-    color: "#121212",
+    color: PALETTE.sand,
     marginBottom: 24,
     textAlign: "center"
   },
@@ -273,23 +287,23 @@ const styles = StyleSheet.create({
     minWidth: 140,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#e6e6e6",
+    borderColor: "rgba(217,192,143,0.5)",
     paddingVertical: 28,
     paddingHorizontal: 12,
     alignItems: "center",
-    backgroundColor: "#fafafa"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   cardSelected: {
-    borderColor: ACCENT_COLOR,
-    backgroundColor: "#ecf5f1",
-    shadowColor: ACCENT_COLOR,
+    borderColor: PALETTE.gold,
+    backgroundColor: "rgba(28,93,68,0.22)",
+    shadowColor: PALETTE.gold,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 4
   },
   cardFocused: {
-    borderColor: ACCENT_COLOR
+    borderColor: PALETTE.gold
   },
   cardPressed: {
     transform: [{ scale: 0.98 }]
@@ -306,22 +320,32 @@ const styles = StyleSheet.create({
   cardLabel: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#1f1f1f"
+    color: PALETTE.sand
   },
   primaryButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: ACCENT_COLOR,
+    borderRadius: 999,
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
+    overflow: "hidden",
+    backgroundColor: "transparent"
+  },
+  primaryInner: {
+    width: "100%",
     paddingVertical: 16,
-    borderRadius: 999
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8
   },
   primaryButtonPressed: {
-    opacity: 0.85
+    opacity: 0.9
   },
   primaryButtonDisabled: {
-    backgroundColor: "#c6dcd3"
+    opacity: 0.65
   },
   primaryButtonText: {
     color: "#ffffff",

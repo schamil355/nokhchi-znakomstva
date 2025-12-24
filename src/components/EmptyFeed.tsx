@@ -8,9 +8,16 @@ import { getSignedPhotoUrl } from "../services/photoService";
 import { getCachedPhotoUri, setCachedPhotoUri } from "../lib/photoCache";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { sleep } from "../lib/timing";
+import { LinearGradient } from "expo-linear-gradient";
 
-const ACCENT = "#0d6e4f";
-const ICON_COLOR = "#9ea4ab";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  gold: "#d9c08f",
+  sand: "#f2e7d7"
+};
+const ACCENT = PALETTE.gold;
+const ICON_COLOR = "rgba(242,231,215,0.8)";
 const RADAR_SIZE = 220;
 const RADAR_PULSE_COUNT = 3;
 
@@ -49,7 +56,6 @@ type EmptyFeedProps = {
   onIncreaseRadius: () => void;
   onResetFilters: () => void;
   onRetry: () => void;
-  onInviteFriends?: () => void;
   onOpenFilters?: () => void;
   onOpenNotifications?: () => void;
   showChrome?: boolean;
@@ -59,7 +65,6 @@ const EmptyFeed = ({
   onIncreaseRadius,
   onResetFilters,
   onRetry,
-  onInviteFriends,
   onOpenFilters,
   onOpenNotifications,
   showChrome = true
@@ -182,7 +187,7 @@ const EmptyFeed = ({
       const start = idx / RADAR_PULSE_COUNT;
       const end = start + 1 / RADAR_PULSE_COUNT;
       const scale = pulseAnim.interpolate({ inputRange: [start, end], outputRange: [0.3, 1.15], extrapolate: "clamp" });
-      const opacity = pulseAnim.interpolate({ inputRange: [start, end], outputRange: [0.4, 0], extrapolate: "clamp" });
+      const opacity = pulseAnim.interpolate({ inputRange: [start, end], outputRange: [0.35, 0], extrapolate: "clamp" });
       return (
         <Animated.View
           key={idx}
@@ -200,7 +205,7 @@ const EmptyFeed = ({
     const centerAvatar = avatarUri ? (
       <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
     ) : (
-      <Ionicons name="person-outline" size={32} color="#6c7179" />
+      <Ionicons name="person-outline" size={32} color={PALETTE.sand} />
     );
 
     return (
@@ -219,10 +224,6 @@ const EmptyFeed = ({
   const handleNotificationPress = () => {
     if (onOpenNotifications) {
       onOpenNotifications();
-      return;
-    }
-    if (onInviteFriends) {
-      onInviteFriends();
       return;
     }
     onRetry();
@@ -259,7 +260,14 @@ const EmptyFeed = ({
       </View>
 
       <Pressable style={styles.primaryCta} onPress={onOpenFilters ?? onResetFilters}>
-        <Text style={styles.primaryCtaText}>{copy.filters}</Text>
+        <LinearGradient
+          colors={[PALETTE.gold, "#8b6c2a"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.primaryCtaInner}
+        >
+          <Text style={styles.primaryCtaText}>{copy.filters}</Text>
+        </LinearGradient>
       </Pressable>
     </View>
   );
@@ -290,9 +298,9 @@ const IconButton = ({ icon, onPress }: { icon: keyof typeof Ionicons.glyphMap; o
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-    paddingTop: 20,
-    paddingHorizontal: 20,
+    backgroundColor: "transparent",
+    paddingTop: 8,
+    paddingHorizontal: 0,
     paddingBottom: 32
   },
   headerRow: {
@@ -300,7 +308,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 24
+    marginBottom: 16,
+    paddingHorizontal: 20
   },
   actionsRow: {
     flexDirection: "row",
@@ -316,45 +325,46 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 26,
     borderRadius: 999,
-    borderWidth: 1.4
+    borderWidth: 1.2
   },
   segmentActive: {
     backgroundColor: ACCENT,
     borderColor: ACCENT
   },
   segmentInactive: {
-    backgroundColor: "#fff",
-    borderColor: "#e4e6ea"
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(217,192,143,0.35)"
   },
   segmentLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#6c7077"
+    color: "rgba(242,231,215,0.78)"
   },
   segmentLabelActive: {
-    color: "#fff"
+    color: "#0b1f16"
   },
   segmentLabelInactive: {
-    color: "#50555e"
+    color: "rgba(242,231,215,0.65)"
   },
   iconButton: {
     width: 42,
     height: 42,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: "#dfe2e8",
+    borderColor: "rgba(217,192,143,0.35)",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   iconButtonPressed: {
     opacity: 0.6
   },
   radarContainer: {
-    marginTop: 24,
+    marginTop: 16,
     marginBottom: 12,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    paddingHorizontal: 20
   },
   radarWrapper: {
     width: RADAR_SIZE,
@@ -366,15 +376,15 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.06)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "rgba(13, 110, 79, 0.2)",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.08,
+    borderWidth: 2,
+    borderColor: "rgba(217,192,143,0.35)",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
     shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     elevation: 2
   },
   avatarImage: {
@@ -389,10 +399,10 @@ const styles = StyleSheet.create({
     height: RADAR_SIZE,
     borderRadius: RADAR_SIZE / 2,
     borderWidth: 2,
-    borderColor: "rgba(13, 110, 79, 0.35)"
+    borderColor: "rgba(217,192,143,0.25)"
   },
   copyBlock: {
-    marginTop: 24,
+    marginTop: 18,
     alignItems: "center",
     paddingHorizontal: 12,
     alignSelf: "center"
@@ -400,32 +410,40 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#232528"
+    color: PALETTE.sand
   },
   subtitle: {
     marginTop: 8,
-    fontSize: 16,
-    color: "#6c7179",
+    fontSize: 15,
+    color: "rgba(242,231,215,0.78)",
     textAlign: "center",
     lineHeight: 22
   },
   primaryCta: {
     marginTop: 20,
-    backgroundColor: ACCENT,
     borderRadius: 999,
-    paddingVertical: 18,
+    paddingVertical: 0,
     paddingHorizontal: 48,
-    width: "100%",
+    width: "88%",
     alignSelf: "center",
     alignItems: "center",
-    shadowColor: "#0d6e4f",
+    overflow: "hidden",
+    borderWidth: 0,
+    shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 4
   },
+  primaryCtaInner: {
+    width: "100%",
+    paddingVertical: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999
+  },
   primaryCtaText: {
-    color: "#fff",
+    color: "#ffffff",
     fontSize: 16,
     fontWeight: "700"
   }

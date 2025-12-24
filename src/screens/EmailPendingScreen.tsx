@@ -227,7 +227,7 @@ const EmailPendingScreen = ({ navigation, route }: Props) => {
 
           <Pressable style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]} onPress={openInbox}>
             <LinearGradient
-              colors={[PALETTE.pine, "#0b1a12"]}
+              colors={[PALETTE.gold, "#8b6c2a"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.primaryInner}
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     fontSize: 16
   },
   resendButton: {
-    borderColor: PALETTE.gold,
+    borderColor: "#4b503b",
     borderWidth: 1,
     borderRadius: 22,
     paddingVertical: 13,

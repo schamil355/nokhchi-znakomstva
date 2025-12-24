@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { LinearGradient } from "expo-linear-gradient";
 
 type AuthStackNavigation = NativeStackNavigationProp<any>;
 
@@ -60,7 +61,7 @@ const WelcomeScreen = () => {
   const navigation = useNavigation<AuthStackNavigation>();
   const copy = useLocalizedCopy(translations);
   const { height } = Dimensions.get("window");
-  const heroMaxHeight = Math.min(height * 0.6, 440);
+  const heroMaxHeight = Math.min(height * 0.55, 420);
   const handleOpenPrivacy = () => {
     navigation.navigate("Legal", { screen: "privacy" });
   };
@@ -69,69 +70,87 @@ const WelcomeScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={[styles.heroWrapper, { maxHeight: heroMaxHeight }]}>
-          <Image
-            source={require("../../assets/welcome-hero.png")}
-            style={[styles.hero, { maxHeight: heroMaxHeight }]}
-            resizeMode="contain"
-          />
-        </View>
-        <Text style={styles.title}>{copy.title}</Text>
-        <Text style={styles.subtitle}>{copy.subtitle}</Text>
+    <LinearGradient
+      colors={["#0b1f16", "#0f3b2c", "#0b1a12"]}
+      locations={[0, 0.55, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={styles.gradient}
+    >
+      <SafeAreaView style={styles.safeArea} edges={["top", "right", "left"]}>
+        <View style={styles.container}>
+          <View style={[styles.heroWrapper, { maxHeight: heroMaxHeight }]}>
+            <Image
+              source={require("../../assets/welcome-hero.png")}
+              style={[styles.hero, { maxHeight: heroMaxHeight }]}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.title}>{copy.title}</Text>
+          <Text style={styles.subtitle}>{copy.subtitle}</Text>
 
-        <View style={styles.actions}>
-          <Pressable
-            testID="cta-create-account"
-            onPress={() =>
-              navigation.navigate(PHONE_SIGNUP_ENABLED ? "RegisterChoice" : "CreateAccount", {
-                mode: "email"
-              })
-            }
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.primaryButtonPressed
-            ]}
-          >
-            <Text style={styles.primaryButtonText}>{copy.createAccount}</Text>
-          </Pressable>
-          <Pressable
-            testID="cta-sign-in"
-            onPress={() => navigation.navigate("SignIn")}
-            style={({ pressed }) => [
-              styles.secondaryButton,
-              pressed && styles.secondaryButtonPressed
-            ]}
-          >
-            <Text style={styles.secondaryButtonText}>{copy.signIn}</Text>
-          </Pressable>
-        </View>
-        <Text style={styles.consentText}>
-          {copy.consentPrefix}{" "}
-          <Text style={styles.consentLink} onPress={handleOpenTerms}>
-            {copy.terms}
-          </Text>{" "}
-          {copy.consentAnd}{" "}
-          <Text style={styles.consentLink} onPress={handleOpenPrivacy}>
-            {copy.privacy}
+          <View style={styles.actions}>
+            <Pressable
+              testID="cta-create-account"
+              onPress={() =>
+                navigation.navigate(PHONE_SIGNUP_ENABLED ? "RegisterChoice" : "CreateAccount", {
+                  mode: "email"
+                })
+              }
+              style={({ pressed }) => [
+                styles.primaryButton,
+                pressed && styles.primaryButtonPressed
+              ]}
+            >
+              <LinearGradient
+                colors={["#d9c08f", "#8b6c2a"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.primaryInner}
+              >
+                <Text style={styles.primaryButtonText}>{copy.createAccount}</Text>
+              </LinearGradient>
+            </Pressable>
+            <Pressable
+              testID="cta-sign-in"
+              onPress={() => navigation.navigate("SignIn")}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                pressed && styles.secondaryButtonPressed
+              ]}
+            >
+              <Text style={styles.secondaryButtonText}>{copy.signIn}</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.consentText}>
+            {copy.consentPrefix}{" "}
+            <Text style={styles.consentLink} onPress={handleOpenTerms}>
+              {copy.terms}
+            </Text>{" "}
+            {copy.consentAnd}{" "}
+            <Text style={styles.consentLink} onPress={handleOpenPrivacy}>
+              {copy.privacy}
+            </Text>
+            {copy.consentSuffix ? ` ${copy.consentSuffix}` : ""}
           </Text>
-          {copy.consentSuffix ? ` ${copy.consentSuffix}` : ""}
-        </Text>
-      </View>
-    </SafeAreaView>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#fff"
+    backgroundColor: "transparent"
+  },
+  gradient: {
+    flex: 1
   },
   container: {
     flex: 1,
-    paddingTop: 4,
-    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingHorizontal: 28,
     alignItems: "center",
     justifyContent: "flex-start"
   },
@@ -139,40 +158,44 @@ const styles = StyleSheet.create({
     width: "100%",
     justifyContent: "flex-start",
     alignItems: "center",
-    marginTop: 0,
-    marginBottom: 12
+    marginTop: 12,
+    marginBottom: 18
   },
   hero: {
     width: "100%",
-    height: "100%"
+    height: "100%",
+    aspectRatio: 0.65
   },
   title: {
-    fontSize: 32,
-    fontWeight: "600",
+    fontSize: 34,
+    fontWeight: "700",
     textAlign: "center",
     marginBottom: 12,
-    color: "#2f2f2f"
+    color: "#f3e9d0"
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 17,
     textAlign: "center",
-    color: "#4a4a4a",
-    marginBottom: 18,
-    paddingHorizontal: 16
+    color: "#d8c8a4",
+    marginBottom: 32,
+    paddingHorizontal: 18
   },
   actions: {
     width: "100%",
     gap: 14,
-    marginBottom: 8
+    marginBottom: 0
   },
   primaryButton: {
-    backgroundColor: "#0d6e4f",
-    paddingVertical: 16,
-    borderRadius: 28,
+    backgroundColor: "transparent",
+    paddingVertical: 0,
+    borderRadius: 32,
     alignItems: "center",
-    shadowColor: "#0d6e4f",
+    borderWidth: 1,
+    borderColor: "#d9c58d",
+    overflow: "hidden",
+    shadowColor: "rgba(13, 110, 79, 0.4)",
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 4
   },
@@ -180,34 +203,48 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     transform: [{ scale: Platform.select({ ios: 0.98, default: 0.99 }) }]
   },
+  primaryInner: {
+    width: "100%",
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center"
+  },
   primaryButtonText: {
-    color: "#fff",
-    fontSize: 16,
+    color: "#f7f1dd",
+    fontSize: 17,
     fontWeight: "600"
   },
   secondaryButton: {
-    backgroundColor: "#1f1f1f",
+    backgroundColor: "#0b1411",
     paddingVertical: 16,
-    borderRadius: 28,
-    alignItems: "center"
+    borderRadius: 32,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#4b503b",
+    shadowColor: "rgba(0,0,0,0.6)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 3
   },
   secondaryButtonPressed: {
     opacity: 0.85
   },
   secondaryButtonText: {
-    color: "#fff",
-    fontSize: 16,
+    color: "#f7f1dd",
+    fontSize: 17,
     fontWeight: "500"
   },
   consentText: {
-    marginTop: 16,
+    marginTop: 24,
     textAlign: "center",
-    color: "#4a4a4a",
-    lineHeight: 18,
+    color: "#bfbaab",
+    lineHeight: 19,
     paddingHorizontal: 12
   },
   consentLink: {
-    fontWeight: "700"
+    fontWeight: "700",
+    color: "#d8c18f"
   }
 });
 

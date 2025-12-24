@@ -44,6 +44,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import VerifiedBadgePng from "../../assets/icons/profile-tab-verified.png";
 
 const BRAND_GREEN = "#0d6e4f";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  gold: "#d9c08f",
+  sand: "#f2e7d7"
+};
 const PROFILE_AVATAR_SIZE = 120;
 const PROFILE_ADD_BUTTON_SIZE = 40;
 const PROFILE_ADD_BUTTON_RADIUS = PROFILE_ADD_BUTTON_SIZE / 2;
@@ -458,10 +464,8 @@ const ProfileScreen = () => {
   const [isFetchingProfile, setIsFetchingProfile] = useState(false);
   const [primaryPhotoPreview, setPrimaryPhotoPreview] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [isPhotoManagerVisible, setIsPhotoManagerVisible] = useState(false);
   const [hasPhotoOrderChanges, setHasPhotoOrderChanges] = useState(false);
-  const isEmailVerified = Boolean(session?.user?.email_confirmed_at);
 
   useEffect(() => {
     if (profile) {
@@ -731,10 +735,10 @@ const ProfileScreen = () => {
   };
 
   const handleSave = async () => {
-    const currentProfile = profile;
-    if (!session?.user?.id || !currentProfile) {
-      return;
-    }
+      const currentProfile = profile;
+      if (!session?.user?.id || !currentProfile) {
+        return;
+      }
     setIsSaving(true);
     try {
       const updated = await upsertProfile(session.user.id, {
@@ -802,7 +806,8 @@ const ProfileScreen = () => {
       if (!asset?.uri) {
         throw new Error(copy.alerts.uploadFailedMessage ?? "Ausgewähltes Foto hat keine gültige URI.");
       }
-      const storagePath = await uploadOriginalAsync(asset.uri, session.user.id);
+      const activeSession = await ensureSessionOrFail();
+      const storagePath = await uploadOriginalAsync(asset.uri, activeSession.user.id);
       const { photoId } = await registerPhoto(storagePath, visibilityMode);
       const newPhoto: Photo = {
         id: String(photoId),
@@ -985,27 +990,6 @@ const ProfileScreen = () => {
     }
   };
 
-  const handleResendVerification = async () => {
-    if (!session?.user?.email) {
-      return;
-    }
-    setIsSendingVerification(true);
-    try {
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email: session.user.email,
-      });
-      if (error) {
-        throw error;
-      }
-      Alert.alert(copy.alerts.emailSentTitle, copy.alerts.emailSentMessage);
-    } catch (error: any) {
-      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.emailErrorMessage);
-    } finally {
-      setIsSendingVerification(false);
-    }
-  };
-
   const performSignOut = async () => {
     setIsSigningOut(true);
     try {
@@ -1022,6 +1006,18 @@ const ProfileScreen = () => {
       { text: copy.alerts.cancel, style: "cancel" },
       { text: copy.alerts.confirmSignOut, style: "destructive", onPress: () => performSignOut() }
     ]);
+  };
+
+  const ensureSessionOrFail = async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (!error && data.session) {
+      return data.session;
+    }
+    const refresh = await supabase.auth.refreshSession();
+    if (refresh.data.session) {
+      return refresh.data.session;
+    }
+    throw new Error(copy.alerts.signOutErrorMessage);
   };
 
   const resolveAssetId = (photo: Photo): number | null => {
@@ -1144,7 +1140,7 @@ const ProfileScreen = () => {
       >
         <View style={styles.photoModalBackdrop}>
           <Pressable style={styles.photoModalBackdropTouchable} onPress={handlePhotoManagerDone} />
-          <View style={styles.photoModalCard}>
+        <View style={styles.photoModalCard}>
             <Text style={styles.photoModalTitle}>{copy.photoManager.title}</Text>
             <Text style={styles.photoModalInstructions}>{copy.photoManager.instructions}</Text>
             <View style={styles.photoGrid}>
@@ -1212,7 +1208,14 @@ const ProfileScreen = () => {
               })}
             </View>
             <Pressable style={styles.photoModalButton} onPress={handlePhotoManagerDone}>
-              <Text style={styles.photoModalButtonText}>{copy.photoManager.done}</Text>
+              <LinearGradient
+                colors={[PALETTE.gold, "#8b6c2a"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.photoModalButtonInner}
+              >
+                <Text style={styles.photoModalButtonText}>{copy.photoManager.done}</Text>
+              </LinearGradient>
             </Pressable>
           </View>
         </View>
@@ -1367,112 +1370,94 @@ const ProfileScreen = () => {
   }
 
   return (
-    <>
-      <ScrollView contentContainerStyle={styles.displayWrapper}>
-        <View style={styles.avatarWrapper}>
-          {isIncognito ? (
-            <LinearGradient
-              colors={["#b5b5b5", "#f2f2f2"]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={[styles.avatarImage, styles.lockGradientAvatar]}
-            >
-              <Ionicons name="lock-closed" size={26} color="#f7f7f7" style={styles.lockIconCenter} />
-            </LinearGradient>
-          ) : avatarUri ? (
-            <Image
-              source={{ uri: avatarUri }}
-              style={styles.avatarImage}
-              onError={() => setAvatarUri(null)}
-            />
-          ) : canUseHeroGuarded ? (
-            <GuardedPhoto photoId={guardAssetId as number} style={styles.avatarImage} />
-          ) : (
-            <View style={[styles.avatarImage, styles.avatarPlaceholder]}>
-              <Ionicons name="person" size={48} color="#98a2b3" />
-            </View>
-          )}
-        <Pressable
-          style={[styles.addButton, (isUploading || !profile) && styles.addButtonDisabled]}
-          onPress={openPhotoManager}
-          disabled={isUploading || !profile}
-        >
-          <Ionicons name="add" size={20} color="#fff" />
-        </Pressable>
-      </View>
-      <View style={styles.nameRow}>
-        <Text style={styles.nameText}>
-          {displayName}
-          {age ? `, ${age}` : ""}
-        </Text>
-        {isVerified ? (
-          <View style={styles.verifiedBadgeWrapper}>
-            <VerifiedBadge size={VERIFIED_BADGE_WRAPPER_SIZE} />
-          </View>
-        ) : null}
-      </View>
-      <View style={styles.locationRow}>
-        <Ionicons name="location-sharp" size={18} color="#6a6f7a" />
-        <Text style={styles.locationText}>{locationLabel}</Text>
-      </View>
-      <View style={styles.logoutSection}>
-        <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>{copy.labels.incognito}</Text>
-          <Switch
-            value={isIncognito}
-            onValueChange={handleToggleIncognitoDisplay}
-            disabled={isUpdatingIncognito || isSigningOut}
-            trackColor={{ true: BRAND_GREEN, false: "#d5d7dc" }}
-            thumbColor="#fff"
-          />
-        </View>
-        {!isEmailVerified && (
-          <View style={styles.verificationCard}>
-            <Text style={styles.verificationTitle}>{copy.verification.title}</Text>
-            <Text style={styles.verificationSubtitle}>{copy.verification.subtitle}</Text>
+    <LinearGradient
+      colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]}
+      locations={[0, 0.55, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right", "bottom"]}>
+        <View style={styles.heroContainer}>
+          <View style={styles.avatarWrapperHero}>
+            {isIncognito ? (
+              <LinearGradient
+                colors={["#b5b5b5", "#f2f2f2"]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={[styles.avatarImage, styles.lockGradientAvatar]}
+              >
+                <Ionicons name="lock-closed" size={26} color="#f7f7f7" style={styles.lockIconCenter} />
+              </LinearGradient>
+            ) : avatarUri ? (
+              <Image
+                source={{ uri: avatarUri }}
+                style={styles.avatarImage}
+                onError={() => setAvatarUri(null)}
+              />
+            ) : canUseHeroGuarded ? (
+              <GuardedPhoto photoId={guardAssetId as number} style={styles.avatarImage} />
+            ) : (
+              <View style={[styles.avatarImage, styles.avatarPlaceholder]}>
+                <Ionicons name="person" size={48} color={PALETTE.sand} />
+              </View>
+            )}
             <Pressable
-              style={[styles.verificationButton, isSendingVerification && styles.logoutButtonDisabled]}
-              onPress={handleResendVerification}
-              disabled={isSendingVerification}
+              style={[styles.addButtonHero, (isUploading || !profile) && styles.addButtonDisabled]}
+              onPress={openPhotoManager}
+              disabled={isUploading || !profile}
             >
-              <Text style={styles.verificationButtonText}>
-                {isSendingVerification ? copy.buttons.resendEmailLoading : copy.buttons.resendEmail}
-              </Text>
+              <Ionicons name="add" size={22} color={PALETTE.gold} />
             </Pressable>
           </View>
-        )}
-        <View style={styles.logoutRow}>
-          <Pressable
-            style={[styles.logoutButton, isSigningOut && styles.logoutButtonDisabled]}
-            onPress={confirmSignOut}
-            disabled={isSigningOut}
-          >
-            <Text style={styles.logoutButtonText}>
-              {isSigningOut ? copy.buttons.signOutLoading : copy.buttons.signOut}
+          <View style={styles.nameRowHero}>
+            <Text style={styles.nameHero}>
+              {displayName}
+              {age ? `, ${age}` : ""}
             </Text>
-          </Pressable>
+            {isVerified ? (
+              <View style={styles.verifiedBadgeWrapperHero}>
+                <VerifiedBadge size={VERIFIED_BADGE_WRAPPER_SIZE} />
+              </View>
+            ) : null}
+          </View>
+          <View style={styles.locationRowHero}>
+            <Ionicons name="location-outline" size={18} color={PALETTE.sand} />
+            <Text style={styles.locationTextHero}>{locationLabel}</Text>
+          </View>
+          <View style={styles.toggleRowHero}>
+            <Text style={styles.toggleLabelHero}>{copy.labels.incognito}</Text>
+            <Switch
+              value={isIncognito}
+              onValueChange={handleToggleIncognitoDisplay}
+              disabled={isUpdatingIncognito || isSigningOut}
+              trackColor={{ true: PALETTE.gold, false: "rgba(255,255,255,0.25)" }}
+              thumbColor="#ffffff"
+            />
+          </View>
         </View>
-      </View>
-      <Pressable
-        style={[
-          styles.infoButton,
-          styles.infoButtonOverlay,
-          { bottom: Math.max(20, insets.bottom + 12) }
-        ]}
-        onPress={() => navigation.navigate("Legal")}
-      >
-        <Ionicons name="information-circle-outline" size={22} color="#2b2d33" />
-      </Pressable>
-    </ScrollView>
-    {renderPhotoManagerModal()}
-  </>
+        <Pressable
+          style={[
+            styles.gearButton,
+            { bottom: Math.max(32, insets.bottom + 12) }
+          ]}
+          onPress={() => navigation.navigate("Settings" as never)}
+          accessibilityRole="button"
+        >
+          <View style={styles.gearInner}>
+            <Ionicons name="settings-outline" size={22} color={PALETTE.gold} />
+          </View>
+        </Pressable>
+        {renderPhotoManagerModal()}
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#fff"
+    backgroundColor: "transparent"
   },
   loadingContainer: {
     flex: 1,
@@ -1618,17 +1603,19 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject
   },
   photoModalCard: {
-    backgroundColor: "#fff",
+    backgroundColor: PALETTE.deep,
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     paddingHorizontal: 24,
     paddingTop: 28,
-    paddingBottom: 30
+    paddingBottom: 30,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.35)"
   },
   photoModalTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#1f2933",
+    color: PALETTE.sand,
     textAlign: "center"
   },
   photoModalSubtitle: {
@@ -1640,7 +1627,7 @@ const styles = StyleSheet.create({
   photoModalInstructions: {
     marginTop: 12,
     fontSize: 13,
-    color: "#475467",
+    color: "rgba(242,231,215,0.8)",
     textAlign: "center"
   },
   photoGrid: {
@@ -1655,7 +1642,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: "hidden",
     position: "relative",
-    backgroundColor: "#f2f4f7",
+    backgroundColor: "rgba(255,255,255,0.06)",
     marginBottom: 16
   },
   photoSlotPressable: {
@@ -1668,7 +1655,7 @@ const styles = StyleSheet.create({
   photoSlotPlaceholder: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f4f5f7"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   photoSlotRemove: {
     position: "absolute",
@@ -1677,7 +1664,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#e9e9e9",
+    backgroundColor: "rgba(0,0,0,0.55)",
     alignItems: "center",
     justifyContent: "center"
   },
@@ -1685,11 +1672,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#d5d9e2",
-    borderStyle: "dashed",
+    borderWidth: 1.2,
+    borderColor: "rgba(217,192,143,0.4)",
+    borderStyle: "solid",
     borderRadius: 18,
-    backgroundColor: "#f8f9fb"
+    backgroundColor: "rgba(255,255,255,0.05)"
   },
   photoSlotEmptyDisabled: {
     opacity: 0.5
@@ -1702,10 +1689,15 @@ const styles = StyleSheet.create({
   },
   photoModalButton: {
     marginTop: 28,
-    backgroundColor: BRAND_GREEN,
-    paddingVertical: 14,
     borderRadius: 999,
-    alignItems: "center"
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.45)"
+  },
+  photoModalButtonInner: {
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center"
   },
   photoModalButtonText: {
     color: "#fff",
@@ -1976,6 +1968,86 @@ const styles = StyleSheet.create({
   logoutRowButton: {
     paddingHorizontal: 20,
     alignSelf: "flex-end"
+  },
+  heroContainer: {
+    flex: 1,
+    alignItems: "center",
+    paddingTop: 40,
+    gap: 18
+  },
+  avatarWrapperHero: {
+    width: PROFILE_AVATAR_SIZE + 16,
+    height: PROFILE_AVATAR_SIZE + 16,
+    borderRadius: (PROFILE_AVATAR_SIZE + 16) / 2,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative"
+  },
+  addButtonHero: {
+    position: "absolute",
+    bottom: 6,
+    right: 6,
+    width: PROFILE_ADD_BUTTON_SIZE + 4,
+    height: PROFILE_ADD_BUTTON_SIZE + 4,
+    borderRadius: (PROFILE_ADD_BUTTON_SIZE + 4) / 2,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: PALETTE.gold
+  },
+  nameRowHero: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  nameHero: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: PALETTE.sand
+  },
+  verifiedBadgeWrapperHero: {
+    width: VERIFIED_BADGE_WRAPPER_SIZE,
+    height: VERIFIED_BADGE_WRAPPER_SIZE,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  locationRowHero: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6
+  },
+  locationTextHero: {
+    fontSize: 16,
+    color: PALETTE.sand
+  },
+  toggleRowHero: {
+    marginTop: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "80%"
+  },
+  toggleLabelHero: {
+    fontSize: 16,
+    color: PALETTE.sand,
+    fontWeight: "500"
+  },
+  gearButton: {
+    position: "absolute",
+    right: 20,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: PALETTE.gold,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    padding: 12
+  },
+  gearInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center"
   }
 });
 

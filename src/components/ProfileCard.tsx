@@ -17,6 +17,10 @@ type ProfileCardProps = {
   profile: Profile;
   onLike: () => void;
   onSkip: () => void;
+  onDirectChat?: () => void;
+  onReport?: () => void;
+  directChatDisabled?: boolean;
+  reportDisabled?: boolean;
   onView?: (profile: Profile) => void;
   showActions?: boolean;
 };
@@ -90,7 +94,17 @@ const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
 const verifiedBadgeIcon = require("../../assets/icons/icon.png");
 const chechenBadgeIcon = require("../../assets/icons/NOCHXII.png");
 
-const ProfileCard = ({ profile, onLike, onSkip, onView, showActions = true }: ProfileCardProps) => {
+const ProfileCard = ({
+  profile,
+  onLike,
+  onSkip,
+  onDirectChat,
+  onReport,
+  directChatDisabled,
+  reportDisabled,
+  onView,
+  showActions = true
+}: ProfileCardProps) => {
   const copy = useLocalizedCopy(translations);
   const photos = profile.photos?.filter(Boolean) ?? [];
   const mainPhoto = photos[0];
@@ -114,6 +128,8 @@ const ProfileCard = ({ profile, onLike, onSkip, onView, showActions = true }: Pr
     }
     return Date.now() - lastActiveMs <= ONLINE_THRESHOLD_MS;
   }, [profile.lastActiveAt]);
+  const canDirectChat = Boolean(onDirectChat) && !directChatDisabled;
+  const canReport = Boolean(onReport) && !reportDisabled;
   const pulseScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -393,11 +409,52 @@ const ProfileCard = ({ profile, onLike, onSkip, onView, showActions = true }: Pr
         </View>
         {showActions ? (
           <View style={styles.actionsRow}>
-            <Pressable style={[styles.actionCircle, styles.passButton]} onPress={onSkip}>
-              <Ionicons name="close" size={28} color="#fff" />
+            {onReport ? (
+              <Pressable
+                style={[styles.actionCircle, styles.outlineButton, !canReport && styles.actionDisabled]}
+                onPress={onReport}
+                disabled={!canReport}
+                accessibilityRole="button"
+                accessibilityLabel="Report user"
+              >
+                <Ionicons name="alert" size={24} color="#fff" />
+              </Pressable>
+            ) : null}
+            <Pressable style={[styles.actionCircle, styles.outlineButton, styles.smallAction]} onPress={onSkip}>
+              <Ionicons name="close" size={24} color="#fff" />
             </Pressable>
-            <Pressable style={[styles.actionCircle, styles.likeButton]} onPress={onLike}>
-              <Ionicons name="checkmark" size={28} color="#fff" />
+            {onDirectChat ? (
+              <Pressable
+                style={[
+                  styles.actionCircle,
+                  styles.filledButton,
+                  styles.smallAction,
+                  !canDirectChat && styles.actionDisabled
+                ]}
+                onPress={onDirectChat}
+                disabled={!canDirectChat}
+                accessibilityRole="button"
+                accessibilityLabel="Direct chat"
+              >
+                <LinearGradient
+                  colors={["#d9c08f", "#8b6c2a"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.filledCircle}
+                >
+                  <Ionicons name="paper-plane" size={22} color="#fff" />
+                </LinearGradient>
+              </Pressable>
+            ) : null}
+            <Pressable style={[styles.actionCircle, styles.filledButton]} onPress={onLike}>
+              <LinearGradient
+                colors={["#0f3b2c", "#0b1f16"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.filledCircle}
+              >
+                <Ionicons name="checkmark" size={26} color="#fff" />
+              </LinearGradient>
             </Pressable>
           </View>
         ) : null}
@@ -421,9 +478,11 @@ const calculateAge = (value: string | Date) => {
 const styles = StyleSheet.create({
   card: {
     borderRadius: 24,
-    paddingBottom: 24,
-    backgroundColor: "#fff",
+    paddingBottom: 0,
+    backgroundColor: "transparent",
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#4b503b",
     shadowColor: "#000",
     shadowOpacity: 0.12,
     shadowOffset: { width: 0, height: 8 },
@@ -543,16 +602,16 @@ const styles = StyleSheet.create({
     marginLeft: -4
   },
   verifiedIconBubble: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 10,
+    height: 18,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 4
   },
   verifiedIcon: {
-    width: 80,
-    height: 80,
+    width: 20,
+    height: 20,
     resizeMode: "contain"
   },
   verifiedText: {
@@ -585,9 +644,9 @@ const styles = StyleSheet.create({
     gap: 8
   },
   chechenBadgeIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 11
+    width: 18,
+    height: 18,
+    borderRadius: 9
   },
   chechenBadgeText: {
     color: "#fff",
@@ -599,16 +658,16 @@ const styles = StyleSheet.create({
     bottom: 12,
     left: 0,
     right: 0,
-    paddingHorizontal: 0,
+    paddingHorizontal: 20,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 32
+    gap: 18
   },
   actionCircle: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -617,13 +676,31 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 6
   },
-  passButton: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "#fff"
+  actionDisabled: {
+    opacity: 0.6
   },
-  likeButton: {
-    backgroundColor: "#0d6e4f"
+  outlineButton: {
+    backgroundColor: "rgba(0,0,0,0.25)",
+    borderWidth: 0,
+    borderColor: "transparent"
+  },
+  filledButton: {
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    borderColor: "transparent",
+    overflow: "hidden"
+  },
+  filledCircle: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 34,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  smallAction: {
+    width: 60,
+    height: 60,
+    borderRadius: 30
   }
 });
 

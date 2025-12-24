@@ -118,6 +118,24 @@ const inferExtension = (uri: string) => {
 
 export const uploadOriginalAsync = async (fileUri: string, userId: string): Promise<string> => {
   const supabase = getSupabaseClient();
+  // Stelle sicher, dass eine Session/Tokens vorhanden sind, sonst schlägt Storage mit 401 fehl.
+  const ensureToken = async (): Promise<string> => {
+    const { data, error } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    if (token) {
+      return token;
+    }
+    if (error) {
+      // Ignorieren und versuchen zu refreshen.
+    }
+    const refreshed = await supabase.auth.refreshSession();
+    const refreshedToken = refreshed.data.session?.access_token;
+    if (refreshedToken) {
+      return refreshedToken;
+    }
+    throw new Error(t("uploadFailed"));
+  };
+  const accessToken = await ensureToken();
   const info = await FileSystem.getInfoAsync(fileUri);
   if (!info.exists) {
     throw new Error(t("fileNotFound"));
@@ -139,7 +157,10 @@ export const uploadOriginalAsync = async (fileUri: string, userId: string): Prom
 
   const { error } = await supabase.storage.from(PROFILE_BUCKET).upload(fileName, buffer, {
     contentType,
-    upsert: true
+    upsert: true,
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
   });
   if (error) {
     throw new Error(error.message ?? t("uploadFailed"));
@@ -158,7 +179,13 @@ export const getSignedPhotoUrl = (photoId: number, variant?: "original" | "blur"
     variant
   });
 
-export const updatePrivacySettings = (payload: { is_incognito?: boolean; show_distance?: boolean; show_last_seen?: boolean }) =>
+export const updatePrivacySettings = (payload: {
+  is_incognito?: boolean;
+  show_distance?: boolean;
+  show_last_seen?: boolean;
+  hide_nearby?: boolean;
+  hide_nearby_radius?: number;
+}) =>
   jsonRequest<{ ok: boolean }>("/v1/settings/privacy", payload);
 
 export const changeVisibility = (photoId: number, visibility_mode: VisibilityMode) =>

@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   useOnboardingStore,
   LocationPermissionStatus,
@@ -24,7 +25,13 @@ import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { usePreferencesStore } from "../state/preferencesStore";
 import { resolveGeoRegion } from "../lib/geo";
 
-const ACCENT_COLOR = "#0d6e4f";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  pine: "#1c5d44",
+  gold: "#d9c08f",
+  sand: "#f2e7d7"
+};
 const HERO = require("../../assets/onboarding/step5/female_male_avatar_step_5.png");
 
 type Props = NativeStackScreenProps<any>;
@@ -371,102 +378,120 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Pressable
-            onPress={() => navigation.goBack()}
-            accessibilityRole="button"
-            accessibilityLabel={copy.back}
-            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-          >
-            <Ionicons name="chevron-back" size={24} color="#1f1f1f" />
-          </Pressable>
-          <View style={styles.progressTrack}>
-            <View style={styles.progressFill} />
+    <LinearGradient
+      colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]}
+      locations={[0, 0.55, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              accessibilityRole="button"
+              accessibilityLabel={copy.back}
+              style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+            >
+              <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
+            </Pressable>
+            <View style={styles.progressTrack}>
+              <View style={styles.progressFill} />
+            </View>
           </View>
-        </View>
 
-        <Image source={HERO} style={styles.hero} resizeMode="contain" />
+          <View style={styles.hero}>
+            <Image source={HERO} style={styles.heroImage} resizeMode="contain" />
+            <Text style={styles.heroTitleAccent}>{copy.titleAccent}</Text>
+            <Text style={styles.heroTitle}>{copy.title}</Text>
+          </View>
 
-        <View style={styles.titleBlock}>
-          <Text style={styles.titleAccent}>{copy.titleAccent}</Text>
-          <Text style={styles.title}>{copy.title}</Text>
-        </View>
-
-        {statusCopy && (
-          <Text style={styles.statusMessage} accessibilityLiveRegion="polite">
-            {statusCopy}
-          </Text>
-        )}
-
-        {message && (
-          <Text style={styles.statusMessage} accessibilityLiveRegion="polite">
-            {message}
-          </Text>
-        )}
-
-        {showSettingsCta && (
-          <Pressable
-            onPress={handleOpenSettings}
-            accessibilityRole="button"
-            accessibilityLabel={copy.settings}
-            style={({ pressed }) => [styles.settingsButton, pressed && styles.settingsButtonPressed]}
-          >
-            <Text style={styles.settingsButtonText}>{copy.settings}</Text>
-          </Pressable>
-        )}
-
-        {__DEV__ && (
-          <View style={styles.devBox}>
-            <Text style={styles.devTitle}>{copy.devTitle}</Text>
-            <Text>
-              {copy.devStatus}: {status}
+          {statusCopy && (
+            <Text style={styles.statusMessage} accessibilityLiveRegion="polite">
+              {statusCopy}
             </Text>
-            {coords && (
-              <Pressable
-                onPress={() =>
-                  Linking.openURL(`https://maps.google.com/?q=${coords.latitude},${coords.longitude}`)
-                }
-              >
-                <Text style={styles.devLink}>
-                  {coords.latitude.toFixed(5)}, {coords.longitude.toFixed(5)} ({copy.devOpenMap})
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        )}
-      </View>
+          )}
 
-      <View style={styles.footer}>
-        <Pressable
-          onPress={handleActivateLocation}
-          disabled={loading}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: loading }}
-          accessibilityHint={copy.permissionHint}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            loading && styles.primaryButtonDisabled,
-            pressed && !loading && styles.primaryButtonPressed
-          ]}
-        >
-          {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryButtonText}>{copy.activate}</Text>}
-        </Pressable>
-      </View>
-    </SafeAreaView>
+          {message && (
+            <Text style={styles.statusMessage} accessibilityLiveRegion="polite">
+              {message}
+            </Text>
+          )}
+
+          {showSettingsCta && (
+            <Pressable
+              onPress={handleOpenSettings}
+              accessibilityRole="button"
+              accessibilityLabel={copy.settings}
+              style={({ pressed }) => [styles.settingsButton, pressed && styles.settingsButtonPressed]}
+            >
+              <Text style={styles.settingsButtonText}>{copy.settings}</Text>
+            </Pressable>
+          )}
+
+          {__DEV__ && (
+            <View style={styles.devBox}>
+              <Text style={styles.devTitle}>{copy.devTitle}</Text>
+              <Text style={styles.devSubtitle}>
+                {copy.devStatus}: {status}
+              </Text>
+              {coords && (
+                <Pressable
+                  onPress={() =>
+                    Linking.openURL(`https://maps.google.com/?q=${coords.latitude},${coords.longitude}`)
+                  }
+                >
+                  <Text style={styles.devLink}>
+                    {coords.latitude.toFixed(5)}, {coords.longitude.toFixed(5)} ({copy.devOpenMap})
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.footer}>
+          <Pressable
+            onPress={handleActivateLocation}
+            disabled={loading}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: loading }}
+            accessibilityHint={copy.permissionHint}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              loading && styles.primaryButtonDisabled,
+              pressed && !loading && styles.primaryButtonPressed
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <LinearGradient
+                colors={[PALETTE.gold, "#8b6c2a"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.primaryInner}
+              >
+                <Text style={styles.primaryButtonText}>{copy.activate}</Text>
+              </LinearGradient>
+            )}
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent"
   },
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent"
   },
   header: {
     flexDirection: "row",
@@ -479,10 +504,10 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: PALETTE.gold,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff"
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   backButtonPressed: {
     opacity: 0.7
@@ -490,71 +515,78 @@ const styles = StyleSheet.create({
   progressTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: "#f1f1f1",
+    backgroundColor: "rgba(255,255,255,0.18)",
     borderRadius: 999
   },
   progressFill: {
-    width: "95%",
+    width: "80%",
     height: "100%",
-    backgroundColor: ACCENT_COLOR,
+    backgroundColor: PALETTE.gold,
     borderRadius: 999
   },
   hero: {
-    width: 220,
-    height: 220,
-    alignSelf: "center",
-    marginBottom: 16
-  },
-  titleBlock: {
+    marginTop: 32,
     alignItems: "center",
-    marginBottom: 16
+    justifyContent: "center",
+    paddingHorizontal: 16
   },
-  titleAccent: {
+  heroTitleAccent: {
     fontSize: 28,
     fontWeight: "700",
-    color: ACCENT_COLOR,
+    color: PALETTE.gold,
     textAlign: "center"
   },
-  title: {
-    fontSize: 26,
+  heroTitle: {
+    fontSize: 28,
     fontWeight: "600",
-    color: "#121212",
+    color: PALETTE.sand,
     textAlign: "center",
     marginTop: 4
   },
+  heroImage: {
+    width: 220,
+    height: 220,
+    marginTop: 8
+  },
   statusMessage: {
+    marginTop: 24,
     textAlign: "center",
-    color: "#4a4a4a",
-    marginBottom: 12
+    color: "rgba(242,231,215,0.8)"
   },
   settingsButton: {
     alignSelf: "center",
-    borderWidth: 1,
-    borderColor: ACCENT_COLOR,
+    marginTop: 16,
     borderRadius: 999,
-    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: PALETTE.gold,
     paddingHorizontal: 20,
-    marginBottom: 16
+    paddingVertical: 10
   },
   settingsButtonPressed: {
     opacity: 0.85
   },
   settingsButtonText: {
-    color: ACCENT_COLOR,
+    color: PALETTE.sand,
     fontWeight: "600"
   },
   footer: {
     paddingHorizontal: 24,
     paddingBottom: Platform.select({ ios: 32, default: 24 }),
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent"
   },
   primaryButton: {
-    backgroundColor: ACCENT_COLOR,
+    backgroundColor: "transparent",
     borderRadius: 999,
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
+    overflow: "hidden",
+    marginBottom: 12
+  },
+  primaryInner: {
     paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12
+    width: "100%"
   },
   primaryButtonPressed: {
     opacity: 0.85
@@ -569,24 +601,28 @@ const styles = StyleSheet.create({
   },
   skipText: {
     textAlign: "center",
-    color: "#4a4a4a",
+    color: "rgba(242,231,215,0.8)",
     fontWeight: "500"
   },
   devBox: {
     marginTop: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#d1e1da",
+    borderColor: "rgba(217,192,143,0.35)",
     padding: 12,
-    backgroundColor: "#f4f7f5",
+    backgroundColor: "rgba(255,255,255,0.06)",
     gap: 4
   },
   devTitle: {
     fontWeight: "700",
-    color: ACCENT_COLOR
+    color: PALETTE.sand
+  },
+  devSubtitle: {
+    fontSize: 13,
+    color: "rgba(242,231,215,0.85)"
   },
   devLink: {
-    color: ACCENT_COLOR,
+    color: PALETTE.gold,
     marginTop: 4
   }
 });

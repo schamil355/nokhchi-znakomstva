@@ -16,11 +16,21 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { GeoRegion, usePreferencesStore } from "../state/preferencesStore";
+import { useAuthStore } from "../state/authStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { LinearGradient } from "expo-linear-gradient";
+import { useQueryClient } from "@tanstack/react-query";
+import { updatePrivacySettings } from "../services/photoService";
+import * as Location from "expo-location";
 
-const BRAND_GREEN = "#0d6e4f";
-const CARD_BORDER = "#e9ebf1";
-const TRACK_BG = "#e5e6eb";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  gold: "#d9c08f",
+  sand: "#f2e7d7",
+  mist: "rgba(255,255,255,0.08)"
+};
+const TRACK_BG = "rgba(255,255,255,0.18)";
 const HANDLE_SIZE = 28;
 const MAX_DISTANCE_KM = 130;
 
@@ -32,7 +42,7 @@ type CopyShape = {
   headerTitle: string;
   sectionBasic: string;
   sectionAge: string;
-  sectionDistance: string;
+  sectionPrivacy: string;
   regionPickerTitle: string;
   cancel: string;
   regionOptions: RegionCopy;
@@ -40,8 +50,10 @@ type CopyShape = {
   distanceSummary: (min: number, max: number) => string;
   distanceBoundaryStart: (value: number) => string;
   distanceBoundaryEnd: (value: number) => string;
-  autoExtend: string;
   apply: string;
+  privacyTitle: string;
+  privacySubtitle: string;
+  radiusLabel: (value: number) => string;
 };
 
 const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
@@ -49,7 +61,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     headerTitle: "Filters",
     sectionBasic: "Region",
     sectionAge: "Age",
-    sectionDistance: "Distance",
+    sectionPrivacy: "Privacy",
     regionPickerTitle: "Choose region",
     cancel: "Cancel",
     regionOptions: {
@@ -62,14 +74,16 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     distanceSummary: (min, max) => `From ${min} km - Up to ${max} km`,
     distanceBoundaryStart: (value) => `From ${value} km`,
     distanceBoundaryEnd: (value) => `Up to ${value} km`,
-    autoExtend: "Extend your distance when no local profiles remain.",
     apply: "Update",
+    privacyTitle: "Invisible nearby",
+    privacySubtitle: "Protect your privacy in small towns—pick a radius so neighbors/friends don't see you.",
+    radiusLabel: (value) => `Radius: ${value} km`
   },
   de: {
     headerTitle: "Filter",
     sectionBasic: "Region",
     sectionAge: "Alter",
-    sectionDistance: "Entfernung",
+    sectionPrivacy: "Privatsphäre",
     regionPickerTitle: "Region wählen",
     cancel: "Abbrechen",
     regionOptions: {
@@ -82,14 +96,16 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     distanceSummary: (min, max) => `Ab ${min} km - Bis ${max} km`,
     distanceBoundaryStart: (value) => `Ab ${value} km`,
     distanceBoundaryEnd: (value) => `Bis ${value} km`,
-    autoExtend: "Erweitere deine Entfernung, wenn keine Profile in der Nähe mehr verfügbar sind.",
     apply: "Aktualisieren",
+    privacyTitle: "Unsichtbar in der Nähe",
+    privacySubtitle: "Schutz der Privatsphäre in kleinen Orten – wähle deinen Radius, damit Nachbarn/Freunde dich nicht sehen.",
+    radiusLabel: (value) => `Radius: ${value} km`
   },
   fr: {
     headerTitle: "Filtres",
     sectionBasic: "Région",
     sectionAge: "Âge",
-    sectionDistance: "Distance",
+    sectionPrivacy: "Confidentialité",
     regionPickerTitle: "Choisis la région",
     cancel: "Annuler",
     regionOptions: {
@@ -102,14 +118,16 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     distanceSummary: (min, max) => `De ${min} km - Jusqu'à ${max} km`,
     distanceBoundaryStart: (value) => `Dès ${value} km`,
     distanceBoundaryEnd: (value) => `Jusqu'à ${value} km`,
-    autoExtend: "Étends la distance quand il n'y a plus de profils proches.",
     apply: "Mettre à jour",
+    privacyTitle: "Invisible à proximité",
+    privacySubtitle: "Protège ta vie privée dans les petits lieux — choisis un rayon pour rester invisible aux voisins/amis.",
+    radiusLabel: (value) => `Rayon : ${value} km`
   },
   ru: {
     headerTitle: "Фильтры",
     sectionBasic: "Регион",
     sectionAge: "Возраст",
-    sectionDistance: "Дистанция",
+    sectionPrivacy: "Конфиденциальность",
     regionPickerTitle: "Выбери регион",
     cancel: "Отмена",
     regionOptions: {
@@ -122,8 +140,10 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     distanceSummary: (min, max) => `От ${min} км — До ${max} км`,
     distanceBoundaryStart: (value) => `От ${value} км`,
     distanceBoundaryEnd: (value) => `До ${value} км`,
-    autoExtend: "Расширять радиус, когда поблизости больше нет анкет.",
     apply: "Обновить",
+    privacyTitle: "Невидимка рядом",
+    privacySubtitle: "Защити приватность в маленьких городах — выбери радиус, чтобы соседи и друзья не видели тебя.",
+    radiusLabel: (value) => `Радиус: ${value} км`
   },
 };
 
@@ -132,6 +152,7 @@ const SettingsScreen = () => {
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
   const copy = useLocalizedCopy(translations);
+  const queryClient = useQueryClient();
   const regionOptions = React.useMemo(
     () =>
       REGION_BASE.map((value) => ({
@@ -141,6 +162,8 @@ const SettingsScreen = () => {
       })),
     [copy]
   );
+  const profile = useAuthStore((state) => state.profile);
+  const setProfile = useAuthStore((state) => state.setProfile);
   const filters = usePreferencesStore((state) => state.filters);
   const setFilters = usePreferencesStore((state) => state.setFilters);
 
@@ -149,16 +172,21 @@ const SettingsScreen = () => {
     filters.minDistanceKm,
     Math.min(filters.distanceKm, MAX_DISTANCE_KM)
   ]);
-  const [autoExtend, setAutoExtend] = React.useState(filters.autoExtendDistance);
+  const [hideNearby, setHideNearby] = React.useState(Boolean(profile?.hideNearby));
+  const [savingIncognito, setSavingIncognito] = React.useState(false);
+  const [locationError, setLocationError] = React.useState<string | null>(null);
   const [region, setRegion] = React.useState<GeoRegion>(filters.region);
   const [searchDisabled, setSearchDisabled] = React.useState(false);
 
   React.useEffect(() => {
     setAgeRange(filters.ageRange);
     setDistanceRange([filters.minDistanceKm, Math.min(filters.distanceKm, MAX_DISTANCE_KM)]);
-    setAutoExtend(filters.autoExtendDistance);
     setRegion(filters.region);
-  }, [filters.ageRange, filters.minDistanceKm, filters.distanceKm, filters.autoExtendDistance, filters.region]);
+  }, [filters.ageRange, filters.minDistanceKm, filters.distanceKm, filters.region]);
+
+  React.useEffect(() => {
+    setHideNearby(Boolean(profile?.hideNearby));
+  }, [profile?.hideNearby]);
 
   React.useEffect(() => {
     setSearchDisabled(region !== "chechnya");
@@ -166,26 +194,94 @@ const SettingsScreen = () => {
 
   const isModal = Boolean(route?.params?.isModal);
   const contentBottomSpacing = React.useMemo(
-    () => (isModal ? 80 + Math.max(insets.bottom, 0) : styles.content.paddingBottom),
+    () => (isModal ? 60 + Math.max(insets.bottom, 0) : 48),
     [insets.bottom, isModal]
   );
   const contentTopSpacing = React.useMemo(() => (isModal ? 64 : 12), [isModal]);
   const footerBottomSpacing = React.useMemo(
-    () => (isModal ? Math.max(insets.bottom, 12) : Math.max(insets.bottom - 28, 0)),
-    [insets.bottom, isModal]
+    () => Math.max(insets.bottom + 8, 20),
+    [insets.bottom]
   );
 
-  const handleApply = () => {
+  const acquireLocation = React.useCallback(async () => {
+    setLocationError(null);
+    const existing = await Location.getForegroundPermissionsAsync();
+    let status = existing.status;
+    if (status !== Location.PermissionStatus.GRANTED) {
+      const requested = await Location.requestForegroundPermissionsAsync();
+      status = requested.status;
+    }
+    if (status !== Location.PermissionStatus.GRANTED) {
+      setLocationError(
+        status === Location.PermissionStatus.DENIED
+          ? "Standortberechtigung benötigt. Bitte in den Systemeinstellungen erlauben."
+          : "Standortberechtigung blockiert. Bitte in den Systemeinstellungen aktivieren."
+      );
+      return null;
+    }
+    const position = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced
+    });
+    return {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude
+    };
+  }, []);
+
+  const handleApply = async () => {
+    if (hideNearby && profile?.userId) {
+      setSavingIncognito(true);
+      const coords = await acquireLocation();
+      if (!coords) {
+        setSavingIncognito(false);
+        setHideNearby(false);
+        return;
+      }
+      try {
+        const radiusToPersist = distanceRange[1];
+        await updatePrivacySettings({
+          hide_nearby: true,
+          hide_nearby_radius: radiusToPersist,
+          latitude: coords.latitude,
+          longitude: coords.longitude
+        });
+        setProfile({
+          ...profile,
+          hideNearby: true,
+          hideNearbyRadius: radiusToPersist,
+          latitude: coords.latitude,
+          longitude: coords.longitude
+        });
+      } catch (error: any) {
+        setSavingIncognito(false);
+        Alert.alert(copy.cancel, error?.message ?? "Konnte Privatsphäre nicht speichern.");
+        setHideNearby(false);
+        return;
+      }
+      setSavingIncognito(false);
+    }
     const upperDistance = Math.min(distanceRange[1], MAX_DISTANCE_KM);
     setFilters({
       ageRange,
       minDistanceKm: distanceRange[0],
       distanceKm: upperDistance,
-      autoExtendDistance: autoExtend,
       region
     });
+    queryClient.invalidateQueries({ queryKey: ["discovery"] });
+    queryClient.invalidateQueries({ queryKey: ["recent-profiles"] });
+    const parentNav: any = (navigation as any).getParent?.() ?? navigation;
+    const rootNav: any = parentNav?.getParent?.() ?? parentNav;
     if (isModal && navigation.canGoBack()) {
       navigation.goBack();
+      // Falls wir aus dem Stack-Modalscreen kommen, zur Tab-Navigation springen.
+      rootNav?.navigate?.("Main", { screen: "Discovery" });
+      return;
+    }
+    // Im Tab-Kontext direkt auf Discovery wechseln
+    if (navigation.navigate) {
+      navigation.navigate("Discovery" as never);
+    } else {
+      rootNav?.navigate?.("Main", { screen: "Discovery" });
     }
   };
 
@@ -219,66 +315,119 @@ const SettingsScreen = () => {
   const activeRegion = regionOptions.find((option) => option.value === region) ?? regionOptions[0];
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: contentBottomSpacing, paddingTop: contentTopSpacing }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.sectionLabel}>{copy.sectionBasic}</Text>
-        <Pressable style={styles.card} onPress={showRegionPicker}>
-          <View style={styles.cardRow}>
-            <View style={styles.iconBubble}>
-              <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
+    <LinearGradient colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]} locations={[0, 0.55, 1]} style={{ flex: 1 }}>
+      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.content, { paddingBottom: contentBottomSpacing, paddingTop: contentTopSpacing }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.sectionLabel}>{copy.sectionBasic}</Text>
+          <Pressable style={styles.card} onPress={showRegionPicker}>
+            <View style={styles.cardRow}>
+              <View style={styles.iconBubble}>
+                <Ionicons name="location-outline" size={20} color={PALETTE.gold} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>{activeRegion.label}</Text>
+                <Text style={styles.cardSubtitle}>{activeRegion.subtitle}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="rgba(242,231,215,0.6)" />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>{activeRegion.label}</Text>
-              <Text style={styles.cardSubtitle}>{activeRegion.subtitle}</Text>
+          </Pressable>
+
+          <Text style={styles.sectionLabel}>{copy.sectionAge}</Text>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{copy.ageRangeLabel(ageRange[0], ageRange[1])}</Text>
+            <View style={styles.sliderWrapper}>
+              <RangeSlider min={18} max={80} values={ageRange} onChange={setAgeRange} />
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#a1a7b1" />
           </View>
-        </Pressable>
 
-        <Text style={styles.sectionLabel}>{copy.sectionAge}</Text>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{copy.ageRangeLabel(ageRange[0], ageRange[1])}</Text>
-          <View style={styles.sliderWrapper}>
-            <RangeSlider min={18} max={80} values={ageRange} onChange={setAgeRange} />
-          </View>
-        </View>
-
-        <Text style={styles.sectionLabel}>{copy.sectionDistance}</Text>
+        <Text style={styles.sectionLabel}>{copy.sectionPrivacy}</Text>
         <View style={[styles.card, searchDisabled && styles.cardDisabled]}>
-          <Text style={styles.cardTitle}>{copy.distanceSummary(distanceRange[0], distanceRange[1])}</Text>
-          <View style={[styles.sliderWrapper, searchDisabled && styles.disabledOverlay]} pointerEvents={searchDisabled ? "none" : "auto"}>
-            <RangeSlider min={0} max={MAX_DISTANCE_KM} step={5} values={distanceRange} onChange={setDistanceRange} />
-            <View style={styles.rangeLabels}>
-              <Text style={styles.rangeLabel}>{copy.distanceBoundaryStart(distanceRange[0])}</Text>
-              <Text style={styles.rangeLabel}>{copy.distanceBoundaryEnd(distanceRange[1])}</Text>
-            </View>
-          </View>
-          <View style={styles.cardDivider} />
-          <View style={styles.toggleRow}>
-            <Text style={styles.toggleText}>{copy.autoExtend}</Text>
+            <View style={styles.privacyHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>{copy.privacyTitle}</Text>
+                <Text style={styles.cardSubtitle}>{copy.privacySubtitle}</Text>
+              </View>
             <Switch
-              value={autoExtend}
-              onValueChange={setAutoExtend}
-              trackColor={{ true: BRAND_GREEN, false: "#d5d7dc" }}
-              thumbColor="#fff"
+              value={hideNearby}
+              onValueChange={async (next) => {
+                if (!profile?.userId) {
+                  return;
+                }
+                const prev = hideNearby;
+                setHideNearby(next);
+                setSavingIncognito(true);
+                try {
+                  const coords = await acquireLocation();
+                  if (!coords) {
+                    setHideNearby(false);
+                    setSavingIncognito(false);
+                    return;
+                  }
+                  const radiusToPersist = distanceRange[1];
+                  await updatePrivacySettings({
+                    hide_nearby: next,
+                    hide_nearby_radius: radiusToPersist,
+                    latitude: coords.latitude,
+                    longitude: coords.longitude
+                  });
+                  setProfile(
+                    profile
+                      ? {
+                          ...profile,
+                          hideNearby: next,
+                          hideNearbyRadius: radiusToPersist,
+                          latitude: coords.latitude,
+                          longitude: coords.longitude
+                        }
+                      : profile
+                  );
+                } catch (error: any) {
+                  setHideNearby(prev);
+                  Alert.alert(copy.cancel, error?.message ?? "Konnte Privatsphäre nicht speichern.");
+                } finally {
+                  setSavingIncognito(false);
+                }
+              }}
+              disabled={savingIncognito}
+              trackColor={{ true: PALETTE.gold, false: "rgba(255,255,255,0.25)" }}
+              thumbColor="#ffffff"
+            />
+          </View>
+          {locationError ? <Text style={styles.locationHint}>{locationError}</Text> : null}
+          <Text style={styles.radiusLabel}>{copy.radiusLabel(distanceRange[1])}</Text>
+          <View style={[styles.sliderWrapper, searchDisabled && styles.disabledOverlay]} pointerEvents={searchDisabled ? "none" : "auto"}>
+            <RangeSlider
+              min={0}
+              max={MAX_DISTANCE_KM}
+              step={1}
+              values={distanceRange}
+              onChange={(next) => setDistanceRange(([min]) => [min, next[1]])}
+              hideMinHandle
             />
           </View>
         </View>
-
-      </ScrollView>
-      <SafeAreaView
-        edges={["left", "right"]}
+        </ScrollView>
+        <SafeAreaView
+        edges={["left", "right", "bottom"]}
         style={[styles.footerSafe, { paddingBottom: footerBottomSpacing }]}
       >
         <Pressable style={styles.applyButton} onPress={handleApply}>
-          <Text style={styles.applyButtonText}>{copy.apply}</Text>
-        </Pressable>
+          <LinearGradient
+            colors={[PALETTE.gold, "#8b6c2a"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.applyButtonInner}
+            >
+              <Text style={styles.applyButtonText}>{copy.apply}</Text>
+            </LinearGradient>
+          </Pressable>
+        </SafeAreaView>
       </SafeAreaView>
-    </SafeAreaView>
+    </LinearGradient>
   );
 };
 
@@ -287,21 +436,68 @@ const RangeSlider = ({
   max,
   values,
   onChange,
-  step = 1
+  step = 1,
+  hideMinHandle = false,
+  hideRangeLabels = false
 }: {
   min: number;
   max: number;
   values: [number, number];
   onChange: (next: [number, number]) => void;
   step?: number;
+  hideMinHandle?: boolean;
+  hideRangeLabels?: boolean;
 }) => {
   const [width, setWidth] = React.useState(0);
   const valuesRef = React.useRef(values);
   const startRef = React.useRef<[number, number]>(values);
+  const onChangeRef = React.useRef(onChange);
+  const queuedChangeRef = React.useRef<[number, number] | null>(null);
+  const frameRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     valuesRef.current = values;
   }, [values]);
+
+  React.useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  React.useEffect(
+    () => () => {
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+      }
+    },
+    []
+  );
+
+  const scheduleChange = React.useCallback((next: [number, number]) => {
+    valuesRef.current = next;
+    queuedChangeRef.current = next;
+    if (frameRef.current === null) {
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null;
+        if (queuedChangeRef.current) {
+          const latest = queuedChangeRef.current;
+          queuedChangeRef.current = null;
+          onChangeRef.current(latest);
+        }
+      });
+    }
+  }, []);
+
+  const flushPendingChange = React.useCallback(() => {
+    if (frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+    if (queuedChangeRef.current) {
+      const latest = queuedChangeRef.current;
+      queuedChangeRef.current = null;
+      onChangeRef.current(latest);
+    }
+  }, []);
 
   const valueToPosition = (value: number) => {
     if (!width) {
@@ -315,7 +511,9 @@ const RangeSlider = ({
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onPanResponderGrant: () => {
-          startRef.current = valuesRef.current;
+          const current = valuesRef.current;
+          const baseMin = hideMinHandle ? min : current[0];
+          startRef.current = [baseMin, current[1]];
         },
         onPanResponderMove: (_, gestureState) => {
           if (!width) {
@@ -330,36 +528,39 @@ const RangeSlider = ({
             next = Math.min(Math.max(next, min), limit);
             if (next !== valuesRef.current[0]) {
               const nextValues: [number, number] = [next, valuesRef.current[1]];
-              valuesRef.current = nextValues;
-              onChange(nextValues);
+              scheduleChange(nextValues);
             }
           } else {
+            const baseMin = hideMinHandle ? min : valuesRef.current[0];
             let next = startMax + deltaValue;
             next = Math.round(next / step) * step;
-            const limit = valuesRef.current[0] + step;
+            const limit = hideMinHandle ? baseMin : baseMin + step;
             next = Math.max(Math.min(next, max), limit);
             if (next !== valuesRef.current[1]) {
-              const nextValues: [number, number] = [valuesRef.current[0], next];
-              valuesRef.current = nextValues;
-              onChange(nextValues);
+              const nextValues: [number, number] = [baseMin, next];
+              scheduleChange(nextValues);
             }
           }
-        }
+        },
+        onPanResponderRelease: flushPendingChange,
+        onPanResponderTerminate: flushPendingChange
       }),
-    [max, min, onChange, step, width]
+    [flushPendingChange, hideMinHandle, max, min, scheduleChange, step, width]
   );
 
   const minResponder = React.useMemo(() => createPanResponder("min"), [createPanResponder]);
   const maxResponder = React.useMemo(() => createPanResponder("max"), [createPanResponder]);
 
-  const minX = valueToPosition(values[0]);
+  const minX = hideMinHandle ? 0 : valueToPosition(values[0]);
   const maxX = valueToPosition(values[1]);
 
   return (
     <View style={styles.sliderTrack} onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}>
       <View style={styles.sliderBase} />
       <View style={[styles.sliderActive, { left: minX, width: Math.max(0, maxX - minX) }]} />
-      <View style={[styles.sliderHandle, { left: Math.max(0, minX - HANDLE_SIZE / 2) }]} {...minResponder.panHandlers} />
+      {!hideMinHandle && (
+        <View style={[styles.sliderHandle, { left: Math.max(0, minX - HANDLE_SIZE / 2) }]} {...minResponder.panHandlers} />
+      )}
       <View style={[styles.sliderHandle, { left: Math.max(0, maxX - HANDLE_SIZE / 2) }]} {...maxResponder.panHandlers} />
     </View>
   );
@@ -368,7 +569,7 @@ const RangeSlider = ({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#fff"
+    backgroundColor: "transparent"
   },
   header: {
     flexDirection: "row",
@@ -400,37 +601,48 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#4a4f58"
+    fontWeight: "700",
+    color: PALETTE.sand,
+    marginBottom: 6
   },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 28,
+    backgroundColor: "rgba(0,0,0,0.18)",
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: CARD_BORDER,
-    padding: 20,
-    gap: 16
+    borderColor: "rgba(217,192,143,0.35)",
+    padding: 16,
+    gap: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3
   },
   cardRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14
   },
+  privacyHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12
+  },
   cardTitle: {
     fontSize: 17,
-    fontWeight: "600",
-    color: "#2b2d35"
+    fontWeight: "700",
+    color: PALETTE.sand
   },
   cardSubtitle: {
     fontSize: 14,
-    color: "#8a909c",
+    color: "rgba(242,231,215,0.65)",
     marginTop: 4
   },
   iconBubble: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#eef4f1",
+    backgroundColor: "rgba(255,255,255,0.08)",
     alignItems: "center",
     justifyContent: "center"
   },
@@ -450,8 +662,20 @@ const styles = StyleSheet.create({
   },
   rangeLabel: {
     fontSize: 13,
-    color: "#7b808c",
+    color: "rgba(242,231,215,0.65)",
     fontWeight: "500"
+  },
+  radiusLabel: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: PALETTE.sand,
+    marginTop: 8
+  },
+  locationHint: {
+    marginTop: 8,
+    color: "rgba(242,231,215,0.8)",
+    fontSize: 13,
+    lineHeight: 18
   },
   sliderTrack: {
     height: 36,
@@ -466,25 +690,25 @@ const styles = StyleSheet.create({
     position: "absolute",
     height: 6,
     borderRadius: 999,
-    backgroundColor: BRAND_GREEN
+    backgroundColor: PALETTE.gold
   },
   sliderHandle: {
     position: "absolute",
     width: HANDLE_SIZE,
     height: HANDLE_SIZE,
     borderRadius: HANDLE_SIZE / 2,
-    backgroundColor: BRAND_GREEN,
-    borderWidth: 3,
-    borderColor: "#fff",
-    elevation: 3,
-    shadowColor: "#0f172a",
+    backgroundColor: PALETTE.gold,
+    borderWidth: 2,
+    borderColor: PALETTE.deep,
+    elevation: 4,
+    shadowColor: "#000",
     shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 }
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 }
   },
   cardDivider: {
     height: 1,
-    backgroundColor: CARD_BORDER
+    backgroundColor: "rgba(217,192,143,0.25)"
   },
   toggleRow: {
     flexDirection: "row",
@@ -495,23 +719,28 @@ const styles = StyleSheet.create({
   toggleText: {
     flex: 1,
     fontSize: 14,
-    color: "#5b5f6b",
+    color: "rgba(242,231,215,0.8)",
     lineHeight: 20
   },
   footerSafe: {
     paddingHorizontal: 24,
     paddingBottom: 0,
-    backgroundColor: "#fff"
+    backgroundColor: "transparent"
   },
   applyButton: {
-    backgroundColor: BRAND_GREEN,
     borderRadius: 999,
-    paddingVertical: 18,
-    alignItems: "center"
+    overflow: "hidden",
+    borderWidth: 1.2,
+    borderColor: "rgba(217,192,143,0.5)"
+  },
+  applyButtonInner: {
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center"
   },
   applyButtonText: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#fff"
   }
 });

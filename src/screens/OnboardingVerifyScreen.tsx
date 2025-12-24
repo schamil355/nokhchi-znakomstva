@@ -3,15 +3,19 @@ import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "rea
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { LinearGradient } from "expo-linear-gradient";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { ensureFreshSession, getSupabaseClient } from "../lib/supabaseClient";
 import { getPhotoUrl } from "../lib/storage";
 import { useAuthStore } from "../state/authStore";
 
-const BACKGROUND_COLOR = "#ffffff";
-const TEXT_PRIMARY = "#050709";
-const TEXT_SECONDARY = "#4d515a";
-const CTA_COLOR = "#0d6e4f";
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  gold: "#d9c08f",
+  sand: "#f2e7d7"
+};
+const LINK_COLOR = "#d8c18f";
 const GUIDELINE_ICONS: (keyof typeof Ionicons.glyphMap)[] = [
   "scan-outline",
   "sunny-outline",
@@ -179,120 +183,157 @@ const OnboardingVerifyScreen = ({ navigation, route }: Props) => {
   }, [copy.error, initSession, navigation, photoUrl, primaryPhotoPath]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Pressable
-            onPress={() => navigation.goBack()}
-            accessibilityRole="button"
-            accessibilityLabel={copy.back}
-            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-          >
-            <Ionicons name="chevron-back" size={28} color={TEXT_PRIMARY} />
-          </Pressable>
-        </View>
-
-        <View style={styles.heroWrapper}>
-          <View style={styles.heroInner}>
-            <View style={styles.photoRing}>
-              {loading ? (
-                <ActivityIndicator color={CTA_COLOR} />
-              ) : photoUrl ? (
-                <Image source={{ uri: photoUrl }} style={styles.photo} accessibilityLabel={copy.heroAlt} />
-              ) : (
-                <View style={styles.photoPlaceholder}>
-                  <Ionicons name="person" size={48} color="#9aa1ab" />
-                </View>
-              )}
+    <LinearGradient
+      colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]}
+      locations={[0, 0.55, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              accessibilityRole="button"
+              accessibilityLabel={copy.back}
+              style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+            >
+              <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
+            </Pressable>
+            <View style={styles.progressTrack}>
+              <View style={styles.progressFill} />
             </View>
-            <Image source={verifyBadge} style={styles.badgeImage} accessibilityLabel={copy.badgeAlt} />
+          </View>
+
+          <View style={styles.heroWrapper}>
+            <View style={styles.heroInner}>
+              <View style={styles.photoRing}>
+                {loading ? (
+                  <ActivityIndicator color={PALETTE.gold} />
+                ) : photoUrl ? (
+                  <Image source={{ uri: photoUrl }} style={styles.photo} accessibilityLabel={copy.heroAlt} />
+                ) : (
+                  <View style={styles.photoPlaceholder}>
+                    <Ionicons name="person" size={48} color="rgba(242,231,215,0.72)" />
+                  </View>
+                )}
+              </View>
+              <Image source={verifyBadge} style={styles.badgeImage} accessibilityLabel={copy.badgeAlt} />
+            </View>
+          </View>
+
+          <Text style={styles.title}>{copy.title}</Text>
+          <Text style={styles.subtitle}>{copy.subtitle}</Text>
+
+          {error && (
+            <Text style={styles.errorText} accessibilityLiveRegion="polite">
+              {error}
+            </Text>
+          )}
+
+          <View style={styles.guidelinesBox}>
+            {copy.guidelines.map((text, idx) => (
+              <View key={text} style={styles.guidelineRow}>
+                <View style={styles.guidelineIconWrap}>
+                  <Ionicons
+                    name={GUIDELINE_ICONS[idx] ?? "information-circle-outline"}
+                    size={16}
+                    color={PALETTE.gold}
+                  />
+                </View>
+                <Text style={styles.guidelineText}>{text}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
-        <Text style={styles.title}>{copy.title}</Text>
-        <Text style={styles.subtitle}>{copy.subtitle}</Text>
-
-        {error && (
-          <Text style={styles.errorText} accessibilityLiveRegion="polite">
-            {error}
-          </Text>
-        )}
-
-        <View style={styles.guidelinesBox}>
-          {copy.guidelines.map((text, idx) => (
-            <View key={text} style={styles.guidelineRow}>
-              <View style={styles.guidelineIconWrap}>
-                <Ionicons
-                  name={GUIDELINE_ICONS[idx] ?? "information-circle-outline"}
-                  size={16}
-                  color={TEXT_PRIMARY}
-                />
-              </View>
-              <Text style={styles.guidelineText}>{text}</Text>
-            </View>
-          ))}
+        <View style={styles.footer}>
+          <Pressable
+            onPress={() => navigation.navigate("SelfieScan", { profilePath: primaryPhotoPath })}
+            disabled={!photoUrl || !primaryPhotoPath || loading}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !photoUrl || !primaryPhotoPath || loading }}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              (!photoUrl || !primaryPhotoPath || loading) && styles.primaryButtonDisabled,
+              pressed && photoUrl && primaryPhotoPath && styles.primaryButtonPressed
+            ]}
+          >
+            <LinearGradient
+              colors={[PALETTE.gold, "#8b6c2a"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.primaryInner}
+            >
+              <Text style={styles.primaryButtonText}>{copy.verify}</Text>
+            </LinearGradient>
+          </Pressable>
+          <Pressable onPress={() => navigation.replace("OnboardingPhotos")}>
+            <Text style={styles.changePhotoText}>{copy.changePhoto}</Text>
+          </Pressable>
         </View>
-      </View>
-
-      <View style={styles.footer}>
-        <Pressable
-          onPress={() => navigation.navigate("SelfieScan", { profilePath: primaryPhotoPath })}
-          disabled={!photoUrl || !primaryPhotoPath || loading}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !photoUrl || !primaryPhotoPath || loading }}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            (!photoUrl || !primaryPhotoPath || loading) && styles.primaryButtonDisabled,
-            pressed && photoUrl && primaryPhotoPath && styles.primaryButtonPressed
-          ]}
-        >
-          <Text style={styles.primaryButtonText}>{copy.verify}</Text>
-        </Pressable>
-        <Pressable onPress={() => navigation.replace("OnboardingPhotos")}>
-          <Text style={styles.changePhotoText}>{copy.changePhoto}</Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: BACKGROUND_COLOR
+    backgroundColor: "transparent"
   },
   container: {
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 4,
-    backgroundColor: BACKGROUND_COLOR
+    backgroundColor: "transparent"
   },
   header: {
-    alignItems: "flex-start",
-    marginBottom: 12
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 16
   },
   backButton: {
-    padding: 6,
-    marginLeft: -12,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: PALETTE.gold,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   backButtonPressed: {
     opacity: 0.7
   },
+  progressTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderRadius: 999
+  },
+  progressFill: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: PALETTE.gold,
+    borderRadius: 999
+  },
   heroWrapper: {
     alignItems: "flex-start",
-    justifyContent: "flex-start",
+    justifyContent: "center",
     marginTop: 8,
     width: "100%",
     paddingBottom: 12
   },
   heroInner: {
-    width: 120,
-    height: 140,
-    alignItems: "flex-start",
-    justifyContent: "flex-start",
-    position: "relative"
+    width: 140,
+    height: 160,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    alignSelf: "flex-start"
   },
   photoRing: {
     width: 120,
@@ -300,7 +341,10 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     overflow: "hidden",
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    borderWidth: 1.4,
+    borderColor: "rgba(217,192,143,0.6)",
+    backgroundColor: "rgba(255,255,255,0.06)"
   },
   photo: {
     width: "100%",
@@ -312,14 +356,14 @@ const styles = StyleSheet.create({
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f1f2f6"
+    backgroundColor: "rgba(0,0,0,0.08)"
   },
   badgeImage: {
     position: "absolute",
-    width: 130,
-    height: 130,
-    bottom: -28,
-    right: -48,
+    width: 39,
+    height: 39,
+    bottom: 16,
+    right: 12,
     resizeMode: "contain"
   },
   title: {
@@ -327,23 +371,28 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginTop: 2,
     textAlign: "left",
-    color: TEXT_PRIMARY
+    color: PALETTE.sand
   },
   subtitle: {
     fontSize: 15,
-    color: TEXT_SECONDARY,
+    color: "rgba(242,231,215,0.82)",
     textAlign: "left",
     marginTop: 6
   },
   errorText: {
     textAlign: "center",
-    color: "#d64550",
+    color: "#f8d7da",
     marginTop: 12
   },
   guidelinesBox: {
-    marginTop: 18,
+    marginTop: 22,
     paddingHorizontal: 4,
-    gap: 14
+    gap: 14,
+    borderRadius: 16,
+    borderWidth: 0,
+    borderColor: "transparent",
+    paddingVertical: 14,
+    backgroundColor: "transparent"
   },
   guidelineRow: {
     flexDirection: "row",
@@ -354,39 +403,43 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#f4f5f8",
+    backgroundColor: "rgba(217,192,143,0.12)",
     borderWidth: 1,
-    borderColor: "#e4e6eb",
+    borderColor: "rgba(217,192,143,0.5)",
     alignItems: "center",
     justifyContent: "center"
   },
   guidelineText: {
     fontSize: 12,
-    color: TEXT_PRIMARY
+    color: "rgba(242,231,215,0.9)"
   },
   footer: {
     paddingHorizontal: 24,
     paddingBottom: 32,
-    backgroundColor: BACKGROUND_COLOR
+    backgroundColor: "transparent"
   },
   primaryButton: {
-    backgroundColor: CTA_COLOR,
-    borderRadius: 32,
-    paddingVertical: 20,
+    backgroundColor: "transparent",
+    borderRadius: 999,
+    paddingVertical: 0,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
-    shadowColor: CTA_COLOR,
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 }
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
+    overflow: "hidden"
   },
   primaryButtonDisabled: {
-    backgroundColor: "rgba(13,110,79,0.35)",
-    shadowOpacity: 0
+    opacity: 0.65
   },
   primaryButtonPressed: {
-    opacity: 0.85
+    opacity: 0.9
+  },
+  primaryInner: {
+    width: "100%",
+    paddingVertical: 18,
+    alignItems: "center",
+    justifyContent: "center"
   },
   primaryButtonText: {
     color: "#ffffff",
@@ -395,7 +448,7 @@ const styles = StyleSheet.create({
   },
   changePhotoText: {
     textAlign: "center",
-    color: TEXT_PRIMARY,
+    color: LINK_COLOR,
     fontWeight: "600",
     textDecorationLine: "underline"
   }
