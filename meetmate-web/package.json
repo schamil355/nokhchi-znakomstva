@@ -13,7 +13,7 @@
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/supabase-js": "^2.45.0",
-    "i18next": "^23.11.5",
+    "i18next": "^25.7.3",
     "next": "^14.2.13",
     "react": "18.3.1",
     "react-dom": "18.3.1",
