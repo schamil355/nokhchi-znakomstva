@@ -20,11 +20,12 @@
       "bundleIdentifier": "com.zelimkhan.meetmate-clean",
       "buildNumber": "18",
       "infoPlist": {
-        "NSCameraUsageDescription": "Wir benötigen die Kamera für Profilfotos.",
-        "NSPhotoLibraryUsageDescription": "Wir benötigen Zugriff auf deine Fotos für dein Profil.",
-        "NSLocationWhenInUseUsageDescription": "Wir benötigen deinen Standort, um passende Profile in deiner Nähe zu zeigen.",
-        "NSLocationAlwaysUsageDescription": "Wir verwenden den Standort nur, um dir relevante Matches in deiner Nähe vorzuschlagen.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Wir nutzen deinen Standort nur bei der aktiven Nutzung der App, um relevante Profile in deiner Nähe vorzuschlagen."
+        "NSCameraUsageDescription": "Доступ к камере нужен, чтобы сделать или обновить твои профильные фото.",
+        "NSPhotoLibraryUsageDescription": "Доступ к фотогалерее нужен, чтобы загружать и выбирать твои фото для профиля.",
+        "NSPhotoLibraryAddUsageDescription": "Разреши сохранять фото, чтобы мы могли сохранять твои профильные снимки в галерее.",
+        "NSLocationWhenInUseUsageDescription": "Доступ к геолокации нужен, чтобы показывать профили поблизости и работать «Невидимка рядом».",
+        "NSLocationAlwaysUsageDescription": "Геолокация используется только для подбора анкет поблизости и функции «Невидимка рядом».",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Мы используем местоположение только во время активной работы приложения для поиска анкет поблизости."
       },
       "runtimeVersion": "1.0.0"
     },

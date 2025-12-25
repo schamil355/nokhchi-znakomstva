@@ -10,7 +10,13 @@ export default ({ config }) => ({
     bundleIdentifier: process.env.EXPO_PUBLIC_IOS_BUNDLE_ID ?? "com.zelimkhan.meetmate-clean",
     infoPlist: {
       ...(config.ios?.infoPlist ?? {}),
-      CFBundleDisplayName: "Нохчи Знакомства"
+      CFBundleDisplayName: "Нохчи Знакомства",
+      NSCameraUsageDescription: "Доступ к камере нужен, чтобы сделать или обновить твои профильные фото.",
+      NSPhotoLibraryUsageDescription: "Доступ к фотогалерее нужен, чтобы загружать и выбирать твои фото для профиля.",
+      NSPhotoLibraryAddUsageDescription: "Разреши сохранять фото, чтобы мы могли сохранять твои профильные снимки в галерее.",
+      NSLocationWhenInUseUsageDescription: "Доступ к геолокации нужен, чтобы показывать профили поблизости и работать \"Невидимка рядом\".",
+      NSLocationAlwaysUsageDescription: "Геолокация используется только для подбора анкет поблизости и функции \"Невидимка рядом\".",
+      NSLocationAlwaysAndWhenInUseUsageDescription: "Мы используем местоположение только во время активной работы приложения для поиска анкет поблизости."
     }
   },
   android: {

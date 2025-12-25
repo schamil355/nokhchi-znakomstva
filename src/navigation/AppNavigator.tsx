@@ -22,6 +22,8 @@ import ProfileScreen from "../screens/ProfileScreen";
 import ChatScreen from "../screens/ChatScreen";
 import DirectChatScreen from "../screens/DirectChatScreen";
 import LegalScreen from "../screens/LegalScreen";
+import PremiumUpsellScreen from "../screens/PremiumUpsellScreen";
+import FiltersScreen from "../screens/FiltersScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import WelcomeScreen from "../screens/WelcomeScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
@@ -50,13 +52,16 @@ type RootStackParamList = {
   DirectChat: { conversationId: string; otherUserId: string };
   Notifications: undefined;
   Legal: { screen?: "terms" | "privacy" } | undefined;
+  Settings: undefined;
+  Filters: { isModal?: boolean } | undefined;
+  PremiumUpsell: undefined;
 };
 
 type TabParamList = {
   Discovery: undefined;
   Matches: undefined;
   Likes: undefined;
-  Settings: undefined;
+  Filters: undefined;
   Profile: undefined;
 };
 
@@ -125,8 +130,8 @@ const tabsConfig: TabConfig[] = [
     ioniconName: "lock-open-outline"
   },
   {
-    name: "Settings",
-    component: SettingsScreen,
+    name: "Filters",
+    component: FiltersScreen,
     imageSource: SettingsPng
   },
   {
@@ -197,7 +202,17 @@ const AppNavigator = ({ isAuthenticated }: AppNavigatorProps) => {
           <RootStack.Screen name="DirectChat" component={DirectChatScreen} />
           <RootStack.Screen
             name="Filters"
+            component={FiltersScreen}
+            options={{ presentation: "fullScreenModal", animation: "slide_from_right" }}
+          />
+          <RootStack.Screen
+            name="Settings"
             component={SettingsScreen}
+            options={{ presentation: "fullScreenModal", animation: "slide_from_right" }}
+          />
+          <RootStack.Screen
+            name="PremiumUpsell"
+            component={PremiumUpsellScreen}
             options={{ presentation: "fullScreenModal", animation: "slide_from_right" }}
           />
         </>

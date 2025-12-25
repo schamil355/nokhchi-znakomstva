@@ -51,7 +51,7 @@ const PALETTE = {
   sand: "#f2e7d7"
 };
 const PROFILE_AVATAR_SIZE = 120;
-const PROFILE_ADD_BUTTON_SIZE = 40;
+const PROFILE_ADD_BUTTON_SIZE = 32;
 const PROFILE_ADD_BUTTON_RADIUS = PROFILE_ADD_BUTTON_SIZE / 2;
 const PROFILE_ADD_BUTTON_BOTTOM = 0;
 const PROFILE_ADD_BUTTON_RIGHT = -2;
@@ -438,6 +438,7 @@ const translations: Record<string, CopyShape> = {
 const ProfileScreen = () => {
   const navigation = useNavigation<any>();
   const session = useAuthStore((state) => state.session);
+  const isPremium = useAuthStore((state) => state.profile?.isPremium ?? false);
   const copy = useLocalizedCopy(translations);
   const profile = useAuthStore((state) => state.profile);
   const setProfile = useAuthStore((state) => state.setProfile);
@@ -734,6 +735,16 @@ const ProfileScreen = () => {
     setIsPhotoManagerVisible(true);
   };
 
+  const openSettings = useCallback(() => {
+    const parentNav: any = (navigation as any).getParent?.() ?? navigation;
+    const rootNav: any = parentNav?.getParent?.() ?? parentNav;
+    if (rootNav?.navigate) {
+      rootNav.navigate("Settings" as never);
+    } else {
+      navigation.navigate("Settings" as never);
+    }
+  }, [navigation]);
+
   const handleSave = async () => {
       const currentProfile = profile;
       if (!session?.user?.id || !currentProfile) {
@@ -850,6 +861,16 @@ const ProfileScreen = () => {
 
   const handleToggleIncognitoDisplay = async (nextValue: boolean) => {
     if (!session?.user?.id || !profile) {
+      return;
+    }
+    if (nextValue && !isPremium) {
+      setIsIncognito(false);
+      const parentNav: any = (navigation as any).getParent?.() ?? navigation;
+      const rootNav: any = parentNav?.getParent?.() ?? parentNav;
+      const navigateToUpsell = rootNav?.navigate ?? navigation?.navigate;
+      if (typeof navigateToUpsell === "function") {
+        navigateToUpsell("PremiumUpsell");
+      }
       return;
     }
     setIsUpdatingIncognito(true);
@@ -1407,7 +1428,14 @@ const ProfileScreen = () => {
               onPress={openPhotoManager}
               disabled={isUploading || !profile}
             >
-              <Ionicons name="add" size={22} color={PALETTE.gold} />
+              <LinearGradient
+                colors={[PALETTE.gold, "#8b6c2a"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.addButtonInner}
+              >
+                <Ionicons name="add" size={18} color={PALETTE.sand} />
+              </LinearGradient>
             </Pressable>
           </View>
           <View style={styles.nameRowHero}>
@@ -1439,14 +1467,19 @@ const ProfileScreen = () => {
         <Pressable
           style={[
             styles.gearButton,
-            { bottom: Math.max(32, insets.bottom + 12) }
+            { bottom: Math.max(88, insets.bottom + 28) }
           ]}
-          onPress={() => navigation.navigate("Settings" as never)}
+          onPress={openSettings}
           accessibilityRole="button"
         >
-          <View style={styles.gearInner}>
-            <Ionicons name="settings-outline" size={22} color={PALETTE.gold} />
-          </View>
+          <LinearGradient
+            colors={[PALETTE.gold, "#8b6c2a"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.gearInner}
+          >
+            <Ionicons name="settings-outline" size={20} color={PALETTE.sand} />
+          </LinearGradient>
         </Pressable>
         {renderPhotoManagerModal()}
       </SafeAreaView>
@@ -1987,19 +2020,24 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 6,
     right: 6,
-    width: PROFILE_ADD_BUTTON_SIZE + 4,
-    height: PROFILE_ADD_BUTTON_SIZE + 4,
-    borderRadius: (PROFILE_ADD_BUTTON_SIZE + 4) / 2,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    width: PROFILE_ADD_BUTTON_SIZE + 6,
+    height: PROFILE_ADD_BUTTON_SIZE + 6,
+    borderRadius: (PROFILE_ADD_BUTTON_SIZE + 6) / 2,
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
+    overflow: "hidden",
+    backgroundColor: "transparent"
+  },
+  addButtonInner: {
+    flex: 1,
+    borderRadius: (PROFILE_ADD_BUTTON_SIZE + 6) / 2,
     alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: PALETTE.gold
+    justifyContent: "center"
   },
   nameRowHero: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10
+    gap: 0
   },
   nameHero: {
     fontSize: 28,
@@ -2037,17 +2075,19 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 20,
     borderRadius: 28,
-    borderWidth: 1,
+    borderWidth: 1.2,
     borderColor: PALETTE.gold,
-    backgroundColor: "rgba(0,0,0,0.25)",
-    padding: 12
+    overflow: "hidden",
+    backgroundColor: "transparent"
   },
   gearInner: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 24,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    minWidth: 44,
+    minHeight: 44
   }
 });
 

@@ -19,11 +19,13 @@ type OriginPoint = {
 export const fetchDiscoveryFeed = async (userId: string, filters: DiscoveryFilters, origin: OriginPoint) =>
   fetchLimiter(async () => {
     const supabase = getSupabaseClient();
+    const genders = filters.genders?.length ? filters.genders : null;
+    const intentions = filters.intentions?.length ? filters.intentions : null;
     const { data, error } = await supabase.rpc("get_discovery_profiles", {
       p_limit: DISCOVERY_LIMIT,
       p_offset: 0,
-      p_genders: filters.genders,
-      p_intentions: filters.intentions,
+      p_genders: genders,
+      p_intentions: intentions,
       p_min_age: filters.ageRange[0],
       p_max_age: filters.ageRange[1],
       p_min_distance_km: filters.minDistanceKm,
@@ -40,11 +42,10 @@ export const fetchDiscoveryFeed = async (userId: string, filters: DiscoveryFilte
 
     return profiles
       .filter((profile) => profile.userId !== userId)
-      .filter((profile) => filters.intentions.includes(profile.intention))
       .filter((profile) =>
         isProfileEligible(profile, {
-          genders: filters.genders,
-          ageRange: filters.ageRange,
+          genders: genders ?? ["female", "male", "nonbinary"],
+          ageRange: filters.ageRange, // already enforced server-side, keep for safety
           region: filters.region,
           distanceRange: [filters.minDistanceKm, filters.distanceKm],
           origin: origin ?? undefined
@@ -54,11 +55,13 @@ export const fetchDiscoveryFeed = async (userId: string, filters: DiscoveryFilte
 export const fetchRecentProfiles = async (userId: string, filters: DiscoveryFilters, origin: OriginPoint) =>
   fetchLimiter(async () => {
     const supabase = getSupabaseClient();
+    const genders = filters.genders?.length ? filters.genders : null;
+    const intentions = filters.intentions?.length ? filters.intentions : null;
     const { data, error } = await supabase.rpc("get_recent_profiles", {
       p_limit: RECENT_LIMIT,
       p_offset: 0,
-      p_genders: filters.genders,
-      p_intentions: filters.intentions,
+      p_genders: genders,
+      p_intentions: intentions,
       p_min_age: filters.ageRange[0],
       p_max_age: filters.ageRange[1],
       p_min_distance_km: filters.minDistanceKm,
@@ -75,11 +78,10 @@ export const fetchRecentProfiles = async (userId: string, filters: DiscoveryFilt
 
     return profiles
       .filter((profile) => profile.userId !== userId)
-      .filter((profile) => filters.intentions.includes(profile.intention))
       .filter((profile) =>
         isProfileEligible(profile, {
-          genders: filters.genders,
-          ageRange: filters.ageRange,
+          genders: genders ?? ["female", "male", "nonbinary"],
+          ageRange: filters.ageRange, // already enforced server-side, keep for safety
           region: filters.region,
           distanceRange: [filters.minDistanceKm, filters.distanceKm],
           origin: origin ?? undefined

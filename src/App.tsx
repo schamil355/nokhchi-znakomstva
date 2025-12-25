@@ -20,6 +20,7 @@ import { registerPushNotifications } from "./services/pushService";
 import { track, flushEvents } from "./lib/analytics";
 import { LocalizationProvider, determineLocaleFromDevice } from "./localization/LocalizationProvider";
 import { getSupabaseClient } from "./lib/supabaseClient";
+import { configureRevenueCat } from "./lib/revenuecat";
 
 type NotificationCopy = {
   defaultTitle: string;
@@ -290,6 +291,11 @@ const App = (): JSX.Element => {
       void AsyncStorage.setItem(LAST_ONBOARDING_KEY, name).catch(() => undefined);
     }
   }, []);
+
+  // RevenueCat initialisieren, sobald eine Session verfügbar ist.
+  useEffect(() => {
+    void configureRevenueCat(session?.user?.id);
+  }, [session?.user?.id]);
 
   // Navigate back to the last onboarding screen when applicable.
   useEffect(() => {

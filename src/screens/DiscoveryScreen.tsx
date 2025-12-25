@@ -175,6 +175,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     isRefetching: isRecentRefetching
   } = useRecentProfiles(activeTab === "recent");
   const session = useAuthStore((state) => state.session);
+  const isPremium = useAuthStore((state) => state.profile?.isPremium ?? false);
   const filters = usePreferencesStore((state) => state.filters);
   const setFilters = usePreferencesStore((state) => state.setFilters);
   const resetFilters = usePreferencesStore((state) => state.resetFilters);
@@ -307,6 +308,15 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     if (!session?.user?.id || !currentProfile?.userId || isStartingDirect) {
       return;
     }
+    if (!isPremium) {
+      const parentNav: any = (navigation as any).getParent?.() ?? navigation;
+      const rootNav: any = parentNav?.getParent?.() ?? parentNav;
+      const navigateToUpsell = rootNav?.navigate ?? navigation?.navigate;
+      if (typeof navigateToUpsell === "function") {
+        navigateToUpsell("PremiumUpsell");
+      }
+      return;
+    }
     setIsStartingDirect(true);
     try {
       const conversationId = await ensureDirectConversation(session.user.id, currentProfile.userId);
@@ -323,7 +333,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     } finally {
       setIsStartingDirect(false);
     }
-  }, [copy.actions.directChatFailed, currentProfile?.userId, isStartingDirect, navigation, session?.user?.id]);
+  }, [copy.actions.directChatFailed, currentProfile?.userId, isPremium, isStartingDirect, navigation, session?.user?.id]);
 
   const handleReportProfile = useCallback(() => {
     if (!session?.user?.id || !currentProfile?.userId || isReporting) {
@@ -387,7 +397,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     if (rootNav?.navigate) {
       rootNav.navigate("Filters", { isModal: true });
     } else {
-      navigation.navigate("Settings" as never);
+      navigation.navigate("Filters" as never);
     }
   }, [navigation]);
 

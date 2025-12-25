@@ -801,7 +801,7 @@ const MatchesScreen = () => {
                   <Text style={styles.emptyTitle}>{copy.emptyTitle}</Text>
                   <Text style={styles.emptySubtitle}>{copy.emptySubtitle}</Text>
                 </View>
-                <Pressable style={styles.ctaButton} onPress={() => navigation.navigate("Settings")}>
+                <Pressable style={styles.ctaButton} onPress={() => navigation.navigate("Filters" as never)}>
                   <LinearGradient
                     colors={[PALETTE.gold, "#8b6c2a"]}
                     start={{ x: 0, y: 0 }}

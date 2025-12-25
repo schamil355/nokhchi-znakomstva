@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, NativeModules, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
@@ -29,7 +29,8 @@ const translations = {
     cta: "Premium holen",
     ctaHint: "Upgrade folgt hier. Bald verfügbar.",
     later: "Später",
-    badge: "Premium"
+    badge: "Premium",
+    soon: "Bald verfügbar"
   },
   fr: {
     title: "Débloque Premium",
@@ -45,7 +46,8 @@ const translations = {
     cta: "Obtenir Premium",
     ctaHint: "Le flux d'achat arrive bientôt.",
     later: "Plus tard",
-    badge: "Premium"
+    badge: "Premium",
+    soon: "Bientôt"
   },
   en: {
     title: "Unlock Premium",
@@ -61,7 +63,8 @@ const translations = {
     cta: "Get Premium",
     ctaHint: "Upgrade flow coming soon.",
     later: "Later",
-    badge: "Premium"
+    badge: "Premium",
+    soon: "Coming soon"
   },
   ru: {
     title: "Открыть Premium",
@@ -77,7 +80,8 @@ const translations = {
     cta: "Получить Premium",
     ctaHint: "Оплата появится скоро.",
     later: "Позже",
-    badge: "Premium"
+    badge: "Premium",
+    soon: "Скоро"
   }
 };
 
@@ -92,18 +96,26 @@ const PremiumUpsellScreen = () => {
     { title: copy.benefitAnon, desc: copy.benefitAnonDesc }
   ];
 
-  const handleUpgrade = () => {
-    // Öffnet die RevenueCat-Paywall. presentPaywallIfNeeded schützt Premium-User davor,
-    // unnötig den Kaufdialog zu sehen.
-    import("react-native-purchases-ui")
-      .then(({ default: RevenueCatUI }) =>
-        RevenueCatUI.presentPaywallIfNeeded({
-          requiredEntitlementIdentifier: RC_ENTITLEMENT_ID
-        })
-      )
-      .catch((err) => {
-        console.warn("[Paywall] failed to present", err);
-      });
+  const handleUpgrade = async () => {
+    if (!NativeModules?.RNPurchasesUI) {
+      console.warn("[Paywall] RNPurchasesUI native module not available (likely Expo Go / missing rebuild)");
+      Alert.alert(copy.title, copy.ctaHint);
+      return;
+    }
+    try {
+      // react-native-purchases-ui liefert keine Default-Exports – nutze Namespace-Import.
+      const RevenueCatUI = await import("react-native-purchases-ui");
+      const present =
+        RevenueCatUI.presentPaywallIfNeeded ?? RevenueCatUI.presentPaywall ?? (RevenueCatUI as any)?.default;
+      if (typeof present === "function") {
+        await present({ requiredEntitlementIdentifier: RC_ENTITLEMENT_ID });
+      } else {
+        throw new Error("presentPaywallIfNeeded not available");
+      }
+    } catch (err) {
+      console.warn("[Paywall] failed to present", err);
+      Alert.alert(copy.title, copy.ctaHint);
+    }
   };
 
   return (
@@ -111,7 +123,14 @@ const PremiumUpsellScreen = () => {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>{copy.badge}</Text>
+            <LinearGradient
+              colors={[PALETTE.gold, "#8b6c2a"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.badgeInner}
+            >
+              <Text style={styles.badgeText}>{copy.badge}</Text>
+            </LinearGradient>
           </View>
           <Text style={styles.title}>{copy.title}</Text>
           <Text style={styles.subtitle}>{copy.subtitle}</Text>
@@ -121,7 +140,19 @@ const PremiumUpsellScreen = () => {
               <View key={benefit.title} style={[styles.row, index !== benefits.length - 1 && styles.rowDivider]}>
                 <View style={styles.bullet} />
                 <View style={styles.rowText}>
-                  <Text style={styles.rowTitle}>{benefit.title}</Text>
+                  <View style={styles.rowTitleWrapper}>
+                    <Text style={styles.rowTitle}>{benefit.title}</Text>
+                    {benefit.title === copy.benefitHideNearby ? (
+                      <LinearGradient
+                        colors={[PALETTE.gold, "#8b6c2a"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.inlineBadge}
+                      >
+                        <Text style={styles.inlineBadgeText}>{copy.soon}</Text>
+                      </LinearGradient>
+                    ) : null}
+                  </View>
                   <Text style={styles.rowDesc}>{benefit.desc}</Text>
                 </View>
               </View>
@@ -132,7 +163,7 @@ const PremiumUpsellScreen = () => {
         <View style={styles.footer}>
           <Pressable style={styles.primary} onPress={handleUpgrade}>
             <LinearGradient
-              colors={[PALETTE.pine, "#0b1a12"]}
+              colors={[PALETTE.gold, "#8b6c2a"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.primaryInner}
@@ -153,7 +184,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "transparent",
-    paddingTop: 16
+    paddingTop: 40
   },
   content: {
     paddingHorizontal: 20,
@@ -162,16 +193,21 @@ const styles = StyleSheet.create({
   },
   badge: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(217,192,143,0.14)",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 999,
+    overflow: "hidden",
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
     marginBottom: 10,
-    borderWidth: 1,
-    borderColor: PALETTE.gold
+    backgroundColor: "transparent"
+  },
+  badgeInner: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center"
   },
   badgeText: {
-    color: PALETTE.gold,
+    color: PALETTE.sand,
     fontWeight: "700"
   },
   title: {
@@ -204,6 +240,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     alignItems: "flex-start"
   },
+  rowTitleWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
   rowDivider: {
     borderBottomWidth: 1,
     borderColor: "rgba(217,192,143,0.18)"
@@ -217,6 +258,18 @@ const styles = StyleSheet.create({
   },
   rowText: {
     flex: 1
+  },
+  inlineBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: PALETTE.gold,
+    paddingHorizontal: 8,
+    paddingVertical: 3
+  },
+  inlineBadgeText: {
+    color: PALETTE.sand,
+    fontWeight: "700",
+    fontSize: 11
   },
   rowTitle: {
     fontSize: 16,
