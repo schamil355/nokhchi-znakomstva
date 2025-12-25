@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { Image, NativeSyntheticEvent, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";

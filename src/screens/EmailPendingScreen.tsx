@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { getSupabaseClient } from "../lib/supabaseClient";
@@ -9,6 +9,7 @@ import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import type { Session } from "@supabase/supabase-js";
 import { getEmailRedirectUrl } from "../services/authService";
 import { LinearGradient } from "expo-linear-gradient";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
 type Props = NativeStackScreenProps<any>;
 
@@ -93,6 +94,7 @@ const translations = {
 
 const EmailPendingScreen = ({ navigation, route }: Props) => {
   const copy = useLocalizedCopy(translations);
+  const errorCopy = useErrorCopy();
   const email = route?.params?.email as string | undefined;
   const supabase = getSupabaseClient();
   const setSession = useAuthStore((state) => state.setSession);
@@ -208,7 +210,8 @@ const EmailPendingScreen = ({ navigation, route }: Props) => {
       }
       Alert.alert(copy.resendEmailSentTitle, copy.resendEmailSentBody);
     } catch (err: any) {
-      Alert.alert(copy.resendEmailErrorTitle, err?.message ?? copy.resendEmailErrorBody);
+      logError(err, "resend-email");
+      Alert.alert(copy.resendEmailErrorTitle, getErrorMessage(err, errorCopy, copy.resendEmailErrorBody));
     } finally {
       setResending(false);
     }

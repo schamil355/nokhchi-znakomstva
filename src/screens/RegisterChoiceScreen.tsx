@@ -1,5 +1,5 @@
 import React from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { StyleSheet, Text, View, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";

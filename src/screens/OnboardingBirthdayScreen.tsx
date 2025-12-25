@@ -8,7 +8,7 @@ import {
   View
 } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";

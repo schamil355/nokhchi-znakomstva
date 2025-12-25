@@ -10,7 +10,7 @@ import {
   Text,
   View
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";

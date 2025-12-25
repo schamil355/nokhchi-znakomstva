@@ -115,6 +115,7 @@ export const registerPushNotifications = async () => {
           user_id: auth.session.user.id,
           token: token.data,
           platform,
+          provider: "expo",
           updated_at: new Date().toISOString(),
           project_id: projectId ?? null
         },

@@ -17,7 +17,7 @@ import ProfilePng from "../../assets/tab-icons/ICONS/profile.png";
 import SignInScreen from "../screens/SignInScreen";
 import DiscoveryScreen from "../screens/DiscoveryScreen";
 import MatchesScreen from "../screens/MatchesScreen";
-import LikesSimpleScreen from "../screens/LikesSimpleScreen";
+import LikesYouScreen from "../screens/LikesYouScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import ChatScreen from "../screens/ChatScreen";
 import DirectChatScreen from "../screens/DirectChatScreen";
@@ -126,7 +126,7 @@ const tabsConfig: TabConfig[] = [
   },
   {
     name: "Likes",
-    component: LikesSimpleScreen,
+    component: LikesYouScreen,
     ioniconName: "lock-open-outline"
   },
   {
@@ -142,46 +142,48 @@ const tabsConfig: TabConfig[] = [
 ];
 
 
-const MainTabs = () => (
-  <Tab.Navigator
-    screenOptions={({ route }: { route: { name: keyof TabParamList } }): BottomTabNavigationOptions => ({
-      headerShown: false,
-      tabBarShowLabel: false,
-      tabBarStyle: tabStyles.bar,
-      tabBarItemStyle: tabStyles.item,
-      tabBarHideOnKeyboard: true,
-      tabBarIcon: ({ focused }: { focused: boolean }) => {
-        const tab = tabsConfig.find((config) => config.name === route.name);
-        const iconColor = focused ? TAB_ACCENT : TAB_INACTIVE;
-        if (tab?.imageSource) {
+const MainTabs = () => {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }: { route: { name: keyof TabParamList } }): BottomTabNavigationOptions => ({
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarStyle: tabStyles.bar,
+        tabBarItemStyle: tabStyles.item,
+        tabBarHideOnKeyboard: true,
+        tabBarIcon: ({ focused }: { focused: boolean }) => {
+          const tab = tabsConfig.find((config) => config.name === route.name);
+          const iconColor = focused ? TAB_ACCENT : TAB_INACTIVE;
+          if (tab?.imageSource) {
+            return (
+              <View style={tabStyles.iconWrapper}>
+                <Image
+                  source={tab.imageSource}
+                  style={[tabStyles.image, { tintColor: iconColor }, !focused && tabStyles.imageInactive]}
+                  resizeMode="contain"
+                />
+              </View>
+            );
+          }
+          const IconComponent = tab?.icon;
           return (
-            <View style={tabStyles.iconWrapper}>
-              <Image
-                source={tab.imageSource}
-                style={[tabStyles.image, { tintColor: iconColor }, !focused && tabStyles.imageInactive]}
-                resizeMode="contain"
-              />
-            </View>
+            <TabIcon
+              IconComponent={IconComponent}
+              ioniconName={tab?.ioniconName}
+              active={focused}
+              color={iconColor}
+            />
           );
         }
-        const IconComponent = tab?.icon;
-        return (
-          <TabIcon
-            IconComponent={IconComponent}
-            ioniconName={tab?.ioniconName}
-            active={focused}
-            color={iconColor}
-          />
-        );
-      }
-    })}
-    tabBarBackground={() => <View style={tabStyles.background} />}
-  >
-    {tabsConfig.map((tab) => (
-      <Tab.Screen key={tab.name} name={tab.name} component={tab.component} />
-    ))}
-  </Tab.Navigator>
-);
+      })}
+      tabBarBackground={() => <View style={tabStyles.background} />}
+    >
+      {tabsConfig.map((tab) => {
+        return <Tab.Screen key={tab.name} name={tab.name} component={tab.component} />;
+      })}
+    </Tab.Navigator>
+  );
+};
 
 const AppNavigator = ({ isAuthenticated }: AppNavigatorProps) => {
   const profile = useAuthStore((state) => state.profile);

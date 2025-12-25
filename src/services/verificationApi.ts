@@ -11,10 +11,12 @@ const ensureApiBase = () => {
   return API_BASE;
 };
 
+const withCode = (code: string, message?: string) => Object.assign(new Error(message ?? code), { code });
+
 const getAccessToken = () => {
   const token = useAuthStore.getState().session?.access_token;
   if (!token) {
-    throw new Error("Not authenticated.");
+    throw withCode("AUTH_REQUIRED", "Not authenticated.");
   }
   return token;
 };

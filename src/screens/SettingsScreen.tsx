@@ -2,9 +2,11 @@ import React, { useCallback, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { signOut } from "../services/authService";
 import { deleteAccount } from "../services/accountService";
 
@@ -117,6 +119,7 @@ const SettingsScreen = () => {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const copy = useLocalizedCopy(translations);
+  const errorCopy = useErrorCopy();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -142,11 +145,12 @@ const SettingsScreen = () => {
       await signOut();
       navigation.navigate("Welcome" as never);
     } catch (error: any) {
-      Alert.alert(copy.signOutErrorTitle, error?.message ?? copy.signOutError);
+      logError(error, "sign-out");
+      Alert.alert(copy.signOutErrorTitle, getErrorMessage(error, errorCopy, copy.signOutError));
     } finally {
       setIsSigningOut(false);
     }
-  }, [copy.signOutError, copy.signOutErrorTitle, isDeleting, isSigningOut, navigation]);
+  }, [copy.signOutError, copy.signOutErrorTitle, errorCopy, isDeleting, isSigningOut, navigation]);
 
   const confirmDelete = useCallback(() => {
     if (isSigningOut || isDeleting) return;
@@ -171,12 +175,13 @@ const SettingsScreen = () => {
       await signOut();
       navigation.navigate("Welcome" as never);
     } catch (error: any) {
-      Alert.alert(copy.deleteErrorTitle, error?.message ?? copy.deleteError);
+      logError(error, "delete-account");
+      Alert.alert(copy.deleteErrorTitle, getErrorMessage(error, errorCopy, copy.deleteError));
     } finally {
       setIsDeleting(false);
       setIsSigningOut(false);
     }
-  }, [copy.deleteError, copy.deleteErrorTitle, navigation]);
+  }, [copy.deleteError, copy.deleteErrorTitle, errorCopy, navigation]);
 
   const linkRows = [
     { label: copy.privacy, onPress: () => openLegal("privacy") },
@@ -189,7 +194,7 @@ const SettingsScreen = () => {
       locations={[0, 0.55, 1]}
       style={styles.gradient}
     >
-      <SafeAreaView style={[styles.safe, { paddingTop: Math.max(insets.top, 16) }]} edges={["top", "left", "right"]}>
+      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
         <View style={styles.header}>
           <Pressable
             style={styles.headerButton}

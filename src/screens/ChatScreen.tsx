@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   View,
@@ -6,7 +6,6 @@ import {
   Pressable,
   Text,
   StyleSheet,
-  SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   Image
@@ -15,6 +14,7 @@ import { GiftedChat, IMessage, Bubble, InputToolbar, Send, Composer } from "reac
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMessages } from "../hooks/useMessages";
 import { useMatches, useSendMessage } from "../hooks/useMatches";
@@ -22,16 +22,33 @@ import { useAuthStore } from "../state/authStore";
 import { useChatStore } from "../state/chatStore";
 import { markMessagesAsRead } from "../services/matchService";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { fetchProfile } from "../services/profileService";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { getPhotoUrl } from "../lib/storage";
 import { useNotificationsStore } from "../state/notificationsStore";
+import { blockUser } from "../services/moderationService";
 
 type Props = NativeStackScreenProps<any>;
+
+const PALETTE = {
+  deep: "#0b1f16",
+  forest: "#0f3b2c",
+  pine: "#1c5d44",
+  gold: "#d9c08f",
+  sand: "#f2e7d7",
+  clay: "#b23c3a",
+  mist: "rgba(255,255,255,0.08)"
+};
 
 const ChatScreen = ({ route, navigation }: Props) => {
   const copy = useLocalizedCopy({
     en: {
+      blockTitle: "Block & end chat?",
+      blockBody: "We will block this contact and end the chat.",
+      blockConfirm: "Block",
+      blockSuccess: "Contact blocked.",
+      blockFailed: "Blocking failed.",
       reportTitle: "Report & end chat",
       reportBody: "We will block this contact and delete the chat.",
       cancel: "Cancel",
@@ -41,10 +58,18 @@ const ChatScreen = ({ route, navigation }: Props) => {
       errorTitle: "Error",
       reportFailed: "Report failed.",
       reportLabel: "Report",
+      typing: "typing…",
+      online: "Online",
+      lastSeen: (time: string) => `last active ${time}`,
       placeholder: "Type a message...",
       sendFailed: "Message could not be sent."
     },
     de: {
+      blockTitle: "Blockieren & Chat beenden?",
+      blockBody: "Der Kontakt wird blockiert und der Chat beendet.",
+      blockConfirm: "Blockieren",
+      blockSuccess: "Kontakt wurde blockiert.",
+      blockFailed: "Blockieren fehlgeschlagen.",
       reportTitle: "Melden & Chat beenden",
       reportBody: "Der Kontakt wird blockiert und der Chat gelöscht.",
       cancel: "Abbrechen",
@@ -54,10 +79,18 @@ const ChatScreen = ({ route, navigation }: Props) => {
       errorTitle: "Fehler",
       reportFailed: "Meldung fehlgeschlagen.",
       reportLabel: "Melden",
+      typing: "schreibt…",
+      online: "Online",
+      lastSeen: (time: string) => `zuletzt aktiv ${time}`,
       placeholder: "Nachricht schreiben...",
       sendFailed: "Nachricht konnte nicht gesendet werden."
     },
     fr: {
+      blockTitle: "Bloquer et fermer le chat ?",
+      blockBody: "Nous allons bloquer ce contact et fermer le chat.",
+      blockConfirm: "Bloquer",
+      blockSuccess: "Contact bloqué.",
+      blockFailed: "Échec du blocage.",
       reportTitle: "Signaler et quitter",
       reportBody: "Le contact sera bloqué et la conversation supprimée.",
       cancel: "Annuler",
@@ -67,10 +100,18 @@ const ChatScreen = ({ route, navigation }: Props) => {
       errorTitle: "Erreur",
       reportFailed: "Échec du signalement.",
       reportLabel: "Signaler",
+      typing: "écrit…",
+      online: "En ligne",
+      lastSeen: (time: string) => `dernière activité ${time}`,
       placeholder: "Écrire un message...",
       sendFailed: "Impossible d'envoyer le message."
     },
-  ru: {
+    ru: {
+      blockTitle: "Заблокировать и закрыть чат?",
+      blockBody: "Мы заблокируем контакт и закроем чат.",
+      blockConfirm: "Заблокировать",
+      blockSuccess: "Контакт заблокирован.",
+      blockFailed: "Не удалось заблокировать.",
       reportTitle: "Пожаловаться и удалить чат",
       reportBody: "Мы заблокируем контакт и удалим чат.",
       cancel: "Отмена",
@@ -80,10 +121,14 @@ const ChatScreen = ({ route, navigation }: Props) => {
       errorTitle: "Ошибка",
       reportFailed: "Не удалось отправить жалобу.",
       reportLabel: "Пожаловаться",
+      typing: "пишет…",
+      online: "Онлайн",
+      lastSeen: (time: string) => `был(а) в сети ${time}`,
       placeholder: "Напишите сообщение...",
       sendFailed: "Не удалось отправить сообщение."
     }
   });
+  const errorCopy = useErrorCopy();
   const { placeholder } = copy;
   const { matchId, participantId } = route.params ?? {};
   const session = useAuthStore((state) => state.session);
@@ -100,6 +145,7 @@ const ChatScreen = ({ route, navigation }: Props) => {
   });
   const notifications = useNotificationsStore((state) => state.items);
   const [inputText, setInputText] = useState("");
+  const [isBlocking, setIsBlocking] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -132,10 +178,11 @@ const ChatScreen = ({ route, navigation }: Props) => {
         await sendMessageMutation.mutateAsync(content);
         setInputText("");
       } catch (error: any) {
-        Alert.alert(copy.errorTitle, error?.message ?? copy.sendFailed);
+        logError(error, "send-message");
+        Alert.alert(copy.errorTitle, getErrorMessage(error, errorCopy, copy.sendFailed));
       }
     },
-    [copy.errorTitle, copy.sendFailed, sendMessageMutation]
+    [copy.errorTitle, copy.sendFailed, errorCopy, sendMessageMutation]
   );
 
   const renderComposer = useCallback(
@@ -191,7 +238,14 @@ const ChatScreen = ({ route, navigation }: Props) => {
           disabled={disabled}
           containerStyle={[styles.sendButtonRound, disabled && styles.sendButtonDisabled]}
         >
-          <Ionicons name="send" size={18} color="#fff" />
+          <LinearGradient
+            colors={[PALETTE.gold, "#8b6c2a"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.sendButtonInner}
+          >
+            <Ionicons name="paper-plane" size={22} color="#fff" />
+          </LinearGradient>
         </Send>
       );
     },
@@ -205,7 +259,7 @@ const ChatScreen = ({ route, navigation }: Props) => {
         return null;
       }
       const read = Boolean(message.readAt);
-      const color = read ? "#0d6e4f" : "#9ca3af";
+      const color = read ? PALETTE.deep : "rgba(11,31,22,0.5)";
       return <Ionicons name="checkmark-done" size={16} color={color} />;
     },
     [session?.user?.id]
@@ -343,11 +397,73 @@ const ChatScreen = ({ route, navigation }: Props) => {
     };
   }, []);
 
+  const otherUserId = useMemo(() => {
+    if (participantId) return participantId;
+    if (!matchId) return null;
+    const match = matches.find((item) => item.id === matchId);
+    return match?.participants?.find((participant) => participant && participant !== session?.user?.id) ?? null;
+  }, [matchId, matches, participantId, session?.user?.id]);
+
+  const handleBlock = useCallback(() => {
+    if (isBlocking) {
+      return;
+    }
+    const viewerId = session?.user?.id;
+    if (!viewerId || !otherUserId) {
+      Alert.alert(copy.errorTitle, copy.blockFailed);
+      return;
+    }
+    Alert.alert(copy.blockTitle, copy.blockBody, [
+      { text: copy.cancel, style: "cancel" },
+      {
+        text: copy.blockConfirm,
+        style: "destructive",
+        onPress: () => {
+          const run = async () => {
+            setIsBlocking(true);
+            try {
+              await blockUser(viewerId, otherUserId);
+              Alert.alert(copy.blockSuccess);
+              navigation.goBack();
+            } catch (error: any) {
+              logError(error, "block-user");
+              Alert.alert(copy.errorTitle, getErrorMessage(error, errorCopy, copy.blockFailed));
+            } finally {
+              setIsBlocking(false);
+            }
+          };
+          void run();
+        }
+      }
+    ]);
+  }, [
+    copy.blockBody,
+    copy.blockConfirm,
+    copy.blockFailed,
+    copy.blockSuccess,
+    copy.blockTitle,
+    copy.cancel,
+    copy.errorTitle,
+    errorCopy,
+    isBlocking,
+    navigation,
+    otherUserId,
+    session?.user?.id
+  ]);
+
   if (!session || isLoading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" />
-      </View>
+      <LinearGradient
+        colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]}
+        locations={[0, 0.55, 1]}
+        style={styles.gradient}
+      >
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={PALETTE.sand} />
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
@@ -375,211 +491,251 @@ const ChatScreen = ({ route, navigation }: Props) => {
     ? Date.now() - new Date(currentMatch.lastMessageAt).getTime() < 5 * 60 * 1000
     : false;
   const statusText = isTyping
-    ? "schreibt..."
+    ? copy.typing
     : online
-    ? "Online"
+    ? copy.online
     : currentMatch?.lastMessageAt
-    ? `zuletzt aktiv ${new Date(currentMatch.lastMessageAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+    ? copy.lastSeen(new Date(currentMatch.lastMessageAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
     : "";
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.topBar}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.topBarButton}>
-          <Ionicons name="chevron-back" size={24} color="#94a3b8" />
-        </Pressable>
-        <View style={styles.topBarCenter}>
-          {matchIsIncognito ? (
-            <LinearGradient
-              colors={["#b5b5b5", "#f2f2f2"]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={styles.incognitoAvatar}
-            >
-              <Ionicons name="lock-closed" size={22} color="#f7f7f7" style={styles.lockIcon} />
-            </LinearGradient>
-          ) : matchPhoto ? (
-            <Image source={{ uri: matchPhoto }} style={styles.avatarImage} />
-          ) : (
-            <View style={styles.avatarPlaceholder} />
-          )}
-          <View>
-            <Text style={styles.topBarTitle} numberOfLines={1}>
-              {matchName}
-            </Text>
-            {statusText ? (
-              <Text style={styles.topBarSubtitle} numberOfLines={1}>
-                {statusText}
+    <LinearGradient
+      colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]}
+      locations={[0, 0.55, 1]}
+      style={styles.gradient}
+    >
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.topBar}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.topBarButton}>
+            <Ionicons name="chevron-back" size={24} color={PALETTE.sand} />
+          </Pressable>
+          <View style={styles.topBarCenter}>
+            {matchIsIncognito ? (
+              <LinearGradient
+                colors={["#b5b5b5", "#f2f2f2"]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={styles.incognitoAvatar}
+              >
+                <Ionicons name="lock-closed" size={22} color="#f7f7f7" style={styles.lockIcon} />
+              </LinearGradient>
+            ) : matchPhoto ? (
+              <Image source={{ uri: matchPhoto }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatarPlaceholder} />
+            )}
+            <View>
+              <Text style={styles.topBarTitle} numberOfLines={1}>
+                {matchName}
               </Text>
-            ) : null}
+              {statusText ? (
+                <Text style={styles.topBarSubtitle} numberOfLines={1}>
+                  {statusText}
+                </Text>
+              ) : null}
+            </View>
           </View>
+          <Pressable
+            onPress={handleBlock}
+            style={styles.topBarButton}
+            disabled={isBlocking || !otherUserId}
+            accessibilityRole="button"
+            accessibilityLabel={copy.blockConfirm}
+          >
+            <Ionicons name="ban-outline" size={22} color={PALETTE.sand} />
+          </Pressable>
         </View>
-        <View style={styles.topBarButtonRight} />
-      </View>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom : 0}
-      >
-        <GiftedChat
-          style={styles.chatBody}
-          messages={giftedMessages}
-          onSend={onSend}
-          user={{
-            _id: session.user.id
-          }}
-          placeholder={placeholder}
-          isLoadingEarlier={isLoading || sendMessageMutation.isPending}
-          showUserAvatar={false}
-          alwaysShowSend
-          keyboardShouldPersistTaps="handled"
-          renderTicks={renderTicks}
-          renderAvatar={renderAvatar}
-          bottomOffset={insets.bottom}
-          minComposerHeight={44}
-          minInputToolbarHeight={48}
-          text={inputText}
-          onInputTextChanged={setInputText}
-          messagesContainerStyle={styles.messagesContainer}
-          renderInputToolbar={renderInputToolbar}
-          renderBubble={(bubbleProps) => (
-            <Bubble
-              {...bubbleProps}
-              wrapperStyle={{
-                left: { backgroundColor: "#f1f5f9" },
-                right: { backgroundColor: "#0d6e4f" }
-              }}
-              textStyle={{
-                left: { color: "#1f2937" },
-                right: { color: "#fff" }
-              }}
-            />
-          )}
-        />
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoider}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom : 0}
+        >
+          <GiftedChat
+            style={styles.chatBody}
+            messages={giftedMessages}
+            onSend={onSend}
+            user={{
+              _id: session.user.id
+            }}
+            placeholder={placeholder}
+            isLoadingEarlier={isLoading || sendMessageMutation.isPending}
+            showUserAvatar={false}
+            alwaysShowSend
+            keyboardShouldPersistTaps="handled"
+            renderTicks={renderTicks}
+            renderAvatar={renderAvatar}
+            bottomOffset={insets.bottom}
+            minComposerHeight={44}
+            minInputToolbarHeight={56}
+            text={inputText}
+            onInputTextChanged={setInputText}
+            messagesContainerStyle={styles.messagesContainer}
+            renderInputToolbar={renderInputToolbar}
+            renderBubble={(bubbleProps) => (
+              <Bubble
+                {...bubbleProps}
+                wrapperStyle={{
+                  left: {
+                    backgroundColor: "rgba(255,255,255,0.08)",
+                    borderWidth: 1,
+                    borderColor: "rgba(217,192,143,0.15)"
+                  },
+                  right: { backgroundColor: PALETTE.gold }
+                }}
+                textStyle={{
+                  left: { color: PALETTE.sand },
+                  right: { color: PALETTE.deep }
+                }}
+                timeTextStyle={{
+                  left: { color: PALETTE.sand },
+                  right: { color: PALETTE.deep }
+                }}
+              />
+            )}
+          />
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 export default ChatScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8fafc"
-  },
+  gradient: { flex: 1 },
+  safeArea: { flex: 1, backgroundColor: "transparent" },
+  keyboardAvoider: { flex: 1 },
   center: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center"
   },
   messagesContainer: {
-    paddingBottom: 6
+    paddingBottom: 6,
+    backgroundColor: "transparent"
   },
   chatBody: {
     flex: 1
   },
   inputToolbar: {
     borderTopWidth: 0,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingTop: 0,
     paddingBottom: 0,
-    backgroundColor: "#f8fafc"
+    backgroundColor: "transparent",
+    borderRadius: 18,
+    marginHorizontal: 10,
+    borderWidth: 0,
+    borderColor: "transparent"
   },
   inputPrimary: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 0
+    paddingVertical: 0,
+    gap: 8
   },
   textBubble: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 22,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "rgba(217,192,143,0.2)",
     paddingHorizontal: 14,
-    marginRight: 10,
-    minHeight: 42,
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1
+    marginRight: 6,
+    minHeight: 46,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2
   },
   composerInput: {
     flex: 1,
-    color: "#0f172a",
+    color: PALETTE.sand,
     fontSize: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 0
   },
   sendButtonRound: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#0d6e4f",
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "transparent",
+    borderWidth: 1.2,
+    borderColor: PALETTE.gold,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 4,
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.16,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6
   },
   sendButtonDisabled: {
     opacity: 0.45
   },
+  sendButtonInner: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center"
+  },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingLeft: 0,
-    paddingRight: 16,
-    paddingVertical: 16,
-    minHeight: 86,
-    backgroundColor: "#f8fafc"
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderColor: "rgba(217,192,143,0.18)",
+    backgroundColor: "rgba(0,0,0,0.12)"
   },
   topBarButton: {
-    padding: 8
-  },
-  topBarButtonRight: {
-    padding: 10
+    padding: 6
   },
   topBarTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#2b2e31",
+    color: PALETTE.sand,
     maxWidth: 190
   },
   topBarSubtitle: {
     fontSize: 12,
-    color: "#6b7280",
+    color: "rgba(242,231,215,0.7)",
     marginTop: 2,
     maxWidth: 190
   },
   topBarCenter: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12
+    gap: 10,
+    flex: 1
   },
   avatarImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#e2e8f0"
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1.1,
+    borderColor: "rgba(217,192,143,0.4)"
   },
   avatarPlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#e2e8f0"
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1.1,
+    borderColor: "rgba(217,192,143,0.4)"
   },
   bubbleAvatar: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "rgba(255,255,255,0.12)",
     marginRight: 6
   },
   incognitoAvatar: {

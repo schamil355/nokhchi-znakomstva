@@ -12,7 +12,7 @@ import {
   View,
   ScrollView
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -24,6 +24,7 @@ import { useOnboardingStore } from "../state/onboardingStore";
 import { useAuthStore } from "../state/authStore";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { registerPhoto, deletePhoto as deletePhotoRemote } from "../services/photoService";
 import { mapProfile } from "../services/profileService";
 import { PROFILE_BUCKET } from "../lib/storage";
@@ -157,6 +158,7 @@ const useSupabase = () => {
 
 const OnboardingPhotosScreen = ({ navigation }: Props) => {
   const copy = useLocalizedCopy(translations);
+  const errorCopy = useErrorCopy();
   const supabase = useSupabase();
   const authSession = useAuthStore((state) => state.session);
   const currentProfile = useAuthStore((state) => state.profile);
@@ -439,13 +441,14 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
             };
             return next;
           });
-          Alert.alert(copy.uploadError, error?.message);
+          logError(error, "photo-upload");
+          Alert.alert(copy.uploadError, getErrorMessage(error, errorCopy, copy.uploadError));
         }
       };
 
       runUpload();
     },
-    [copy.sessionExpiredMessage, copy.uploadError, convertUriToArrayBuffer, ensureUserId, navigation, supabase]
+    [copy.sessionExpiredMessage, copy.uploadError, convertUriToArrayBuffer, ensureUserId, errorCopy, navigation, supabase]
   );
 
   const pickImage = async (index: number, source: "camera" | "library") => {
@@ -638,7 +641,8 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
         navigation.replace("SignIn");
         return;
       }
-      Alert.alert(copy.uploadError, error?.message);
+      logError(error, "finalize-upload");
+      Alert.alert(copy.uploadError, getErrorMessage(error, errorCopy, copy.uploadError));
     } finally {
       setLoading(false);
     }

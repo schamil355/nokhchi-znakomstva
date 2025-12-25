@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { useMatches } from "../hooks/useMatches";
+import { useDirectChats } from "../hooks/useDirectChats";
 import { useAuthStore } from "../state/authStore";
-import { Match } from "../types";
+import { DirectConversation, Match } from "../types";
 import { useChatStore } from "../state/chatStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -59,7 +60,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     ctaFilters: "Adjust filters",
     messagesEmpty: "No conversations yet.",
     directChatLabel: "Direct chat",
-    directChatHint: "Direct chat is coming soon.",
+    directChatHint: "No direct chats yet.",
     likesTitle: "",
     statusRead: "read",
     statusNew: "new",
@@ -79,7 +80,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     ctaFilters: "Filtereinstellungen",
     messagesEmpty: "Noch keine Nachrichten vorhanden.",
     directChatLabel: "DirektChat",
-    directChatHint: "Direktchat kommt bald.",
+    directChatHint: "Noch keine Direktchats.",
     likesTitle: "",
     statusRead: "gelesen",
     statusNew: "neu",
@@ -98,7 +99,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     ctaFilters: "Filtres",
     messagesEmpty: "Aucune conversation pour le moment.",
     directChatLabel: "Direct chat",
-    directChatHint: "Le direct chat arrive bientôt.",
+    directChatHint: "Aucun direct chat pour le moment.",
     likesTitle: "",
     statusRead: "lu",
     statusNew: "nouveau",
@@ -117,7 +118,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     ctaFilters: "Настроить фильтры",
     messagesEmpty: "Пока нет переписок.",
     directChatLabel: "Direct chat",
-    directChatHint: "Direct chat скоро будет доступен.",
+    directChatHint: "Пока нет прямых чатов.",
     likesTitle: "",
     statusRead: "прочитано",
     statusNew: "новое",
@@ -128,6 +129,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
 
 const MatchesScreen = () => {
   const { data: matches = [], isLoading, refetch: refetchMatches } = useMatches();
+  const { data: directChats = [], isLoading: isDirectLoading, refetch: refetchDirectChats } = useDirectChats();
   const session = useAuthStore((state) => state.session);
   const navigation = useNavigation<any>();
   const unread = useChatStore((state) => state.unreadCounts);
@@ -197,7 +199,8 @@ const MatchesScreen = () => {
   useFocusEffect(
     useCallback(() => {
       refetchMatches();
-    }, [refetchMatches])
+      refetchDirectChats();
+    }, [refetchDirectChats, refetchMatches])
   );
 
   const formatLastActive = (timestamp: string | null | undefined) => {
@@ -399,8 +402,72 @@ const MatchesScreen = () => {
     );
   };
 
+  const renderDirectChatRow = (item: DirectConversation) => {
+    const avatarUri = item.otherProfilePhoto ?? item.otherProfile?.photos?.[0]?.url ?? null;
+    const title = item.otherProfile?.displayName ?? "Direktchat";
+    const lastMessage = item.lastMessage ?? null;
+    const snippet = lastMessage?.content?.trim() || copy.messagesEmpty;
+    const isUnread =
+      Boolean(lastMessage && lastMessage.senderId !== session?.user?.id && !lastMessage.readAt);
+    const isOwnLast = lastMessage?.senderId === session?.user?.id;
+    const isRead = Boolean(lastMessage?.readAt);
+    const statusText = (() => {
+      if (isUnread) return copy.statusNew ?? "new";
+      if (isOwnLast && isRead) return copy.statusRead ?? "read";
+      if (isOwnLast && !isRead) return copy.statusSent ?? "sent";
+      return "";
+    })();
+    const lastActiveRaw = item.lastMessageAt ?? lastMessage?.createdAt ?? null;
+    const lastActive = lastActiveRaw ? new Date(lastActiveRaw).getTime() : 0;
+    const online = lastActive && Date.now() - lastActive < 5 * 60 * 1000;
+
+    return (
+      <Pressable
+        key={`direct-${item.id}`}
+        style={styles.messageCard}
+        onPress={() => {
+          if (!item.otherUserId) {
+            return;
+          }
+          navigation.navigate("DirectChat", { conversationId: item.id, otherUserId: item.otherUserId });
+        }}
+      >
+        <View style={styles.messageAvatarWrapper}>
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.messageAvatar} />
+          ) : (
+            <View style={styles.messageAvatarPlaceholder} />
+          )}
+          <View
+            style={[styles.statusDot, online ? styles.statusDotActive : styles.statusDotOffline]}
+          />
+        </View>
+        <View style={styles.messageContent}>
+          <Text style={[styles.messageName, isUnread && styles.messageNameUnread]} numberOfLines={1}>
+            {title}
+          </Text>
+          <Text style={[styles.messagePreview, isUnread && styles.messagePreviewUnread]} numberOfLines={1}>
+            {snippet}
+          </Text>
+        </View>
+        <View style={styles.messageMeta}>
+          {isUnread ? (
+            <View style={styles.unreadPill}>
+              <Text style={styles.unreadPillText}>1</Text>
+            </View>
+          ) : statusText ? (
+            <Text style={[styles.messageStatus, isUnread && styles.messageStatusUnread]} numberOfLines={1}>
+              {statusText}
+            </Text>
+          ) : null}
+        </View>
+      </Pressable>
+    );
+  };
+
   const hasMatches = matches.length > 0;
   const messageThreads = matches.filter((match) => Boolean(match.lastMessageAt));
+  const directThreads = directChats;
 
   useEffect(() => {
     // Seed cache with existing previewPhotoUrl
@@ -735,7 +802,7 @@ const MatchesScreen = () => {
           <View style={styles.segmentWrapper}>
             {(["matches", "directChat"] as const).map((tab) => {
               const active = activeTab === tab;
-              const label = tab === "matches" ? copy.tabLabel : copy.directChatLabel ?? "DirektChat";
+              const label = tab === "matches" ? copy.tabLabel : copy.directChatLabel ?? copy.tabLabel;
               return (
                 <Pressable
                   key={tab}
@@ -816,9 +883,13 @@ const MatchesScreen = () => {
           </>
         ) : (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{copy.directChatLabel ?? "DirektChat"}</Text>
-            {messageThreads.length ? (
-              messageThreads.map((match) => renderMessageRow(match))
+            <Text style={styles.sectionTitle}>{copy.directChatLabel ?? copy.tabLabel}</Text>
+            {isDirectLoading ? (
+              <View style={styles.sectionLoading}>
+                <ActivityIndicator size="small" color={PALETTE.gold} />
+              </View>
+            ) : directThreads.length ? (
+              directThreads.map((thread) => renderDirectChatRow(thread))
             ) : (
               <Text style={styles.messagesEmpty}>{copy.directChatHint ?? copy.messagesEmpty}</Text>
             )}
@@ -958,6 +1029,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: PALETTE.sand,
     marginBottom: 12
+  },
+  sectionLoading: {
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center"
   },
   messagesEmpty: {
     fontSize: 15,

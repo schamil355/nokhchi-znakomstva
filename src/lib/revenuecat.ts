@@ -10,6 +10,8 @@ const isRevenueCatAvailable = (): boolean => {
   return Boolean(NativeModules?.RNPurchases);
 };
 
+let didLogStoreKitProducts = false;
+
 /**
  * Configure RevenueCat with the public API key and optional app user id.
  * Call this once during app startup, after you know the authenticated user id.
@@ -30,5 +32,15 @@ export const configureRevenueCat = async (appUserId?: string | null) => {
   });
 
   // Production: nur Warnungen loggen (kein Debug-Overlay für Nutzer).
-  Purchases.setLogLevel(LOG_LEVEL.WARN);
+  Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.WARN);
+
+  if (__DEV__ && !didLogStoreKitProducts) {
+    didLogStoreKitProducts = true;
+    try {
+      const products = await Purchases.getProducts(["aktuellXXX"]);
+      console.log("[RevenueCat] StoreKit products:", products.map((p) => p.identifier));
+    } catch (err) {
+      console.warn("[RevenueCat] getProducts failed", err);
+    }
+  }
 };

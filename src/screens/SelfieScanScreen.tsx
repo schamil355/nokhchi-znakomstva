@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as FaceDetector from "expo-face-detector";
 import { Ionicons } from "@expo/vector-icons";

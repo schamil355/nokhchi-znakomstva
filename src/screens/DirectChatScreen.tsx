@@ -1,16 +1,19 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { GiftedChat, IMessage, Bubble, InputToolbar, Send, Composer } from "react-native-gifted-chat";
 import { Ionicons } from "@expo/vector-icons";
 import { useDirectMessages } from "../hooks/useDirectMessages";
 import { useAuthStore } from "../state/authStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { fetchProfile } from "../services/profileService";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { getPhotoUrl } from "../lib/storage";
 import { LinearGradient } from "expo-linear-gradient";
+import { blockUser } from "../services/moderationService";
+import SafeAreaView from "../components/SafeAreaView";
 
 type Props = NativeStackScreenProps<any>;
 
@@ -30,22 +33,60 @@ const DirectChatScreen = ({ route, navigation }: Props) => {
     de: {
       placeholder: "Nachricht schreiben...",
       sendFailed: "Nachricht konnte nicht gesendet werden.",
+      blockTitle: "Blockieren & Chat beenden?",
+      blockBody: "Der Kontakt wird blockiert und der Chat beendet.",
+      blockConfirm: "Blockieren",
+      blockSuccess: "Kontakt wurde blockiert.",
+      blockFailed: "Blockieren fehlgeschlagen.",
+      cancel: "Abbrechen",
       back: "Zurück",
       missing: "Chat konnte nicht geöffnet werden."
     },
     en: {
       placeholder: "Type a message...",
       sendFailed: "Message could not be sent.",
+      blockTitle: "Block & end chat?",
+      blockBody: "We will block this contact and end the chat.",
+      blockConfirm: "Block",
+      blockSuccess: "Contact blocked.",
+      blockFailed: "Blocking failed.",
+      cancel: "Cancel",
       back: "Back",
       missing: "Unable to open chat."
+    },
+    fr: {
+      placeholder: "Écrire un message...",
+      sendFailed: "Impossible d'envoyer le message.",
+      blockTitle: "Bloquer et fermer le chat ?",
+      blockBody: "Nous allons bloquer ce contact et fermer le chat.",
+      blockConfirm: "Bloquer",
+      blockSuccess: "Contact bloqué.",
+      blockFailed: "Échec du blocage.",
+      cancel: "Annuler",
+      back: "Retour",
+      missing: "Impossible d'ouvrir le chat."
+    },
+    ru: {
+      placeholder: "Напишите сообщение...",
+      sendFailed: "Не удалось отправить сообщение.",
+      blockTitle: "Заблокировать и закрыть чат?",
+      blockBody: "Мы заблокируем контакт и закроем чат.",
+      blockConfirm: "Заблокировать",
+      blockSuccess: "Контакт заблокирован.",
+      blockFailed: "Не удалось заблокировать.",
+      cancel: "Отмена",
+      back: "Назад",
+      missing: "Не удалось открыть чат."
     }
   });
+  const errorCopy = useErrorCopy();
   const session = useAuthStore((state) => state.session);
   const viewerProfile = useAuthStore((state) => state.profile);
   const { messages, isLoading, sendMessage } = useDirectMessages(conversationId ?? "");
   const [otherProfile, setOtherProfile] = useState<any>(null);
   const [otherAvatarUri, setOtherAvatarUri] = useState<string | null>(null);
   const [inputText, setInputText] = useState("");
+  const [isBlocking, setIsBlocking] = useState(false);
   const insets = useSafeAreaInsets();
   const supabase = useMemo(() => getSupabaseClient(), []);
 
@@ -124,10 +165,11 @@ const DirectChatScreen = ({ route, navigation }: Props) => {
         await sendMessage(content);
         setInputText("");
       } catch (error: any) {
-        Alert.alert(copy.sendFailed, error?.message ?? copy.sendFailed);
+        logError(error, "direct-send");
+        Alert.alert(copy.sendFailed, getErrorMessage(error, errorCopy, copy.sendFailed));
       }
     },
-    [copy.sendFailed, sendMessage]
+    [copy.sendFailed, errorCopy, sendMessage]
   );
 
   const headerName = otherProfile?.displayName ?? "";
@@ -177,12 +219,12 @@ const DirectChatScreen = ({ route, navigation }: Props) => {
           containerStyle={[styles.sendButtonRound, disabled && styles.sendButtonDisabled]}
         >
           <LinearGradient
-            colors={[PALETTE.clay, PALETTE.pine]}
+            colors={[PALETTE.gold, "#8b6c2a"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.sendButtonInner}
           >
-            <Ionicons name="send" size={18} color="#fff" />
+            <Ionicons name="paper-plane" size={22} color="#fff" />
           </LinearGradient>
         </Send>
       );
@@ -203,30 +245,85 @@ const DirectChatScreen = ({ route, navigation }: Props) => {
     [renderComposer, renderSend]
   );
 
+  const handleBlock = useCallback(() => {
+    if (isBlocking) {
+      return;
+    }
+    const viewerId = session?.user?.id;
+    if (!viewerId || !otherUserId) {
+      Alert.alert(copy.blockFailed);
+      return;
+    }
+    Alert.alert(copy.blockTitle, copy.blockBody, [
+      { text: copy.cancel, style: "cancel" },
+      {
+        text: copy.blockConfirm,
+        style: "destructive",
+        onPress: () => {
+          const run = async () => {
+            setIsBlocking(true);
+            try {
+              await blockUser(viewerId, otherUserId);
+              Alert.alert(copy.blockSuccess);
+              navigation.goBack();
+            } catch (error: any) {
+              logError(error, "direct-block");
+              Alert.alert(getErrorMessage(error, errorCopy, copy.blockFailed));
+            } finally {
+              setIsBlocking(false);
+            }
+          };
+          void run();
+        }
+      }
+    ]);
+  }, [
+    copy.blockBody,
+    copy.blockConfirm,
+    copy.blockFailed,
+    copy.blockSuccess,
+    copy.blockTitle,
+    copy.cancel,
+    errorCopy,
+    isBlocking,
+    navigation,
+    otherUserId,
+    session?.user?.id
+  ]);
+
   return (
     <LinearGradient colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]} locations={[0, 0.55, 1]} style={styles.gradient}>
       <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <Pressable hitSlop={12} onPress={() => navigation.goBack()} style={styles.headerButton}>
+            <Ionicons name="chevron-back" size={24} color={PALETTE.sand} />
+          </Pressable>
+          <View style={styles.headerMeta}>
+            {headerPhoto ? (
+              <Image source={{ uri: headerPhoto }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatar} />
+            )}
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {headerName}
+            </Text>
+          </View>
+          <Pressable
+            hitSlop={12}
+            onPress={handleBlock}
+            style={styles.headerButton}
+            disabled={isBlocking || !otherUserId}
+            accessibilityRole="button"
+            accessibilityLabel={copy.blockConfirm}
+          >
+            <Ionicons name="ban-outline" size={22} color={PALETTE.sand} />
+          </Pressable>
+        </View>
         <KeyboardAvoidingView
           style={styles.keyboardAvoider}
-          behavior={Platform.OS === "ios" ? undefined : "height"}
-          keyboardVerticalOffset={insets.top + 6}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom : 0}
         >
-          <View style={styles.header}>
-            <Pressable hitSlop={12} onPress={() => navigation.goBack()} style={styles.headerButton}>
-              <Ionicons name="chevron-back" size={24} color={PALETTE.sand} />
-            </Pressable>
-            <View style={styles.headerMeta}>
-              {headerPhoto ? (
-                <Image source={{ uri: headerPhoto }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatar} />
-              )}
-              <Text style={styles.headerTitle} numberOfLines={1}>
-                {headerName}
-              </Text>
-            </View>
-            <View style={{ width: 30 }} />
-          </View>
           <GiftedChat
             messages={giftedMessages}
             onSend={onSend}
@@ -239,7 +336,7 @@ const DirectChatScreen = ({ route, navigation }: Props) => {
             text={inputText}
             onInputTextChanged={setInputText}
             minComposerHeight={44}
-            minInputToolbarHeight={54}
+            minInputToolbarHeight={56}
             renderInputToolbar={renderInputToolbar}
             renderAvatar={(props) => {
               const isOwn = props.currentMessage?.user?._id === session?.user?.id;
@@ -352,30 +449,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0
   },
   sendButtonRound: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: "transparent",
-    borderWidth: 1.4,
+    borderWidth: 1.2,
     borderColor: PALETTE.gold,
     overflow: "hidden",
-    padding: 2,
+    padding: 0,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 4,
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.16,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6
   },
   sendButtonDisabled: {
     opacity: 0.45
   },
   sendButtonInner: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center"
   },

@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { useAuthStore } from "../state/authStore";
 import { upsertProfile } from "../services/profileService";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
 type Props = NativeStackScreenProps<any>;
 
@@ -57,6 +58,7 @@ const PhoneOtpScreen = ({ navigation, route }: Props) => {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const setSession = useAuthStore((state) => state.setSession);
+  const errorCopy = useErrorCopy();
 
   const normalizedPhone = useMemo(() => phoneParam?.trim().replace(/\s+/g, "") ?? "", [phoneParam]);
 
@@ -112,7 +114,8 @@ const PhoneOtpScreen = ({ navigation, route }: Props) => {
         routes: [{ name: "OnboardingGender" }]
       });
     } catch (verifyError: any) {
-      Alert.alert(copy.invalidTitle, verifyError?.message ?? copy.invalidBody);
+      logError(verifyError, "verify-otp");
+      Alert.alert(copy.invalidTitle, getErrorMessage(verifyError, errorCopy, copy.invalidBody));
     } finally {
       setLoading(false);
     }

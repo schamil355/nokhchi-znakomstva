@@ -1,10 +1,13 @@
-import React from "react";
-import { Alert, NativeModules, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import SafeAreaView from "../components/SafeAreaView";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
-import { RC_ENTITLEMENT_ID } from "../lib/revenuecat";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRevenueCat } from "../hooks/useRevenueCat";
+import type { PurchasesPackage } from "react-native-purchases";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
+import { PRIVACY_URL, TERMS_URL } from "../lib/legalLinks";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -26,8 +29,48 @@ const translations = {
     benefitHideNearbyDesc: "Wähle deinen Schutzradius, damit Nachbarn/Freunde dich nicht sehen.",
     benefitAnon: "Anonym stöbern & liken",
     benefitAnonDesc: "Bleib unsichtbar und sende trotzdem Likes, die beim Gegenüber ankommen.",
+    choosePlan: "Wähle deinen Plan",
+    planMonthly: "Monatlich",
+    planAnnual: "Jährlich",
+    planWeekly: "Wöchentlich",
+    planTwoMonth: "2 Monate",
+    planThreeMonth: "3 Monate",
+    planSixMonth: "6 Monate",
+    planLifetime: "Lebenslang",
+    perWeek: "pro Woche",
+    perMonth: "pro Monat",
+    perTwoMonths: "alle 2 Monate",
+    perThreeMonths: "alle 3 Monate",
+    perSixMonths: "alle 6 Monate",
+    perYear: "pro Jahr",
+    oneTime: "einmalig",
+    loadingOffers: "Angebote werden geladen…",
+    noOffers: "Aktuell keine Angebote verfügbar.",
+    retry: "Erneut laden",
+    restore: "Käufe wiederherstellen",
+    purchaseFailed: "Kauf fehlgeschlagen. Bitte versuche es erneut.",
+    legalPrefix: "Mit dem Fortfahren stimmst du unseren",
+    legalSuffix: " zu.",
+    terms: "Bedingungen",
+    privacy: "Datenschutz",
+    and: "und",
+    subscriptionInfoTitle: "Abo-Infos",
+    subInfoPlan: "Plan",
+    subInfoDuration: "Laufzeit",
+    subInfoPrice: "Preis",
+    subInfoAutoRenew:
+      "Automatisch verlängerndes Abo. Kündigung jederzeit in den App-Store-Einstellungen (mind. 24 Std. vor Ablauf).",
+    subInfoOneTime: "Einmaliger Kauf, keine automatische Verlängerung.",
+    durationWeek: "1 Woche",
+    durationMonth: "1 Monat",
+    durationTwoMonths: "2 Monate",
+    durationThreeMonths: "3 Monate",
+    durationSixMonths: "6 Monate",
+    durationYear: "1 Jahr",
+    durationLifetime: "einmalig",
+    alreadyPremium: "Du hast bereits Premium.",
     cta: "Premium holen",
-    ctaHint: "Upgrade folgt hier. Bald verfügbar.",
+    ctaHint: "Bitte wähle ein Paket aus.",
     later: "Später",
     badge: "Premium",
     soon: "Bald verfügbar"
@@ -43,8 +86,48 @@ const translations = {
     benefitHideNearbyDesc: "Choisis ton rayon pour rester introuvable par les voisins/amis.",
     benefitAnon: "Parcourir et liker en anonyme",
     benefitAnonDesc: "Reste invisible mais tes likes apparaissent chez l'autre.",
+    choosePlan: "Choisis ton plan",
+    planMonthly: "Mensuel",
+    planAnnual: "Annuel",
+    planWeekly: "Hebdomadaire",
+    planTwoMonth: "2 mois",
+    planThreeMonth: "3 mois",
+    planSixMonth: "6 mois",
+    planLifetime: "À vie",
+    perWeek: "par semaine",
+    perMonth: "par mois",
+    perTwoMonths: "tous les 2 mois",
+    perThreeMonths: "tous les 3 mois",
+    perSixMonths: "tous les 6 mois",
+    perYear: "par an",
+    oneTime: "paiement unique",
+    loadingOffers: "Chargement des offres…",
+    noOffers: "Aucune offre disponible pour le moment.",
+    retry: "Réessayer",
+    restore: "Restaurer les achats",
+    purchaseFailed: "L'achat a échoué. Réessaie.",
+    legalPrefix: "En continuant, tu acceptes nos",
+    legalSuffix: ".",
+    terms: "Conditions",
+    privacy: "Politique de confidentialité",
+    and: "et",
+    subscriptionInfoTitle: "Infos abonnement",
+    subInfoPlan: "Plan",
+    subInfoDuration: "Durée",
+    subInfoPrice: "Prix",
+    subInfoAutoRenew:
+      "Abonnement à renouvellement automatique. Annule à tout moment dans les réglages App Store (au moins 24 h avant la fin).",
+    subInfoOneTime: "Achat unique, pas de renouvellement automatique.",
+    durationWeek: "1 semaine",
+    durationMonth: "1 mois",
+    durationTwoMonths: "2 mois",
+    durationThreeMonths: "3 mois",
+    durationSixMonths: "6 mois",
+    durationYear: "1 an",
+    durationLifetime: "achat unique",
+    alreadyPremium: "Tu as déjà Premium.",
     cta: "Obtenir Premium",
-    ctaHint: "Le flux d'achat arrive bientôt.",
+    ctaHint: "Choisis d'abord un plan.",
     later: "Plus tard",
     badge: "Premium",
     soon: "Bientôt"
@@ -60,8 +143,48 @@ const translations = {
     benefitHideNearbyDesc: "Pick your safety radius so neighbors/friends won't see you.",
     benefitAnon: "Browse & like anonymously",
     benefitAnonDesc: "Stay invisible but your likes still show up for others.",
+    choosePlan: "Choose your plan",
+    planMonthly: "Monthly",
+    planAnnual: "Annual",
+    planWeekly: "Weekly",
+    planTwoMonth: "2 months",
+    planThreeMonth: "3 months",
+    planSixMonth: "6 months",
+    planLifetime: "Lifetime",
+    perWeek: "per week",
+    perMonth: "per month",
+    perTwoMonths: "every 2 months",
+    perThreeMonths: "every 3 months",
+    perSixMonths: "every 6 months",
+    perYear: "per year",
+    oneTime: "one-time",
+    loadingOffers: "Loading offers…",
+    noOffers: "No offers available right now.",
+    retry: "Try again",
+    restore: "Restore purchases",
+    purchaseFailed: "Purchase failed. Please try again.",
+    legalPrefix: "By continuing you agree to our",
+    legalSuffix: ".",
+    terms: "Terms",
+    privacy: "Privacy Policy",
+    and: "and",
+    subscriptionInfoTitle: "Subscription info",
+    subInfoPlan: "Plan",
+    subInfoDuration: "Duration",
+    subInfoPrice: "Price",
+    subInfoAutoRenew:
+      "Auto-renewable subscription. Cancel anytime in App Store settings at least 24 hours before the end of the period.",
+    subInfoOneTime: "One-time purchase, no auto-renewal.",
+    durationWeek: "1 week",
+    durationMonth: "1 month",
+    durationTwoMonths: "2 months",
+    durationThreeMonths: "3 months",
+    durationSixMonths: "6 months",
+    durationYear: "1 year",
+    durationLifetime: "one-time",
+    alreadyPremium: "You already have Premium.",
     cta: "Get Premium",
-    ctaHint: "Upgrade flow coming soon.",
+    ctaHint: "Please select a plan first.",
     later: "Later",
     badge: "Premium",
     soon: "Coming soon"
@@ -77,8 +200,48 @@ const translations = {
     benefitHideNearbyDesc: "Выбери радиус защиты, чтобы соседи и знакомые не видели тебя.",
     benefitAnon: "Браузить и лайкать анонимно",
     benefitAnonDesc: "Оставайся невидимым, но твои лайки видны другим.",
+    choosePlan: "Выбери план",
+    planMonthly: "Ежемесячно",
+    planAnnual: "Ежегодно",
+    planWeekly: "Еженедельно",
+    planTwoMonth: "2 месяца",
+    planThreeMonth: "3 месяца",
+    planSixMonth: "6 месяцев",
+    planLifetime: "Навсегда",
+    perWeek: "в неделю",
+    perMonth: "в месяц",
+    perTwoMonths: "раз в 2 месяца",
+    perThreeMonths: "раз в 3 месяца",
+    perSixMonths: "раз в 6 месяцев",
+    perYear: "в год",
+    oneTime: "единовременно",
+    loadingOffers: "Загрузка предложений…",
+    noOffers: "Предложения сейчас недоступны.",
+    retry: "Повторить",
+    restore: "Восстановить покупки",
+    purchaseFailed: "Покупка не удалась. Попробуй еще раз.",
+    legalPrefix: "Продолжая, вы соглашаетесь с нашими",
+    legalSuffix: ".",
+    terms: "Условиями",
+    privacy: "Политикой конфиденциальности",
+    and: "и",
+    subscriptionInfoTitle: "Информация о подписке",
+    subInfoPlan: "План",
+    subInfoDuration: "Срок",
+    subInfoPrice: "Цена",
+    subInfoAutoRenew:
+      "Подписка с автопродлением. Отменить можно в настройках App Store (минимум за 24 часа до конца периода).",
+    subInfoOneTime: "Разовая покупка, без автопродления.",
+    durationWeek: "1 неделя",
+    durationMonth: "1 месяц",
+    durationTwoMonths: "2 месяца",
+    durationThreeMonths: "3 месяца",
+    durationSixMonths: "6 месяцев",
+    durationYear: "1 год",
+    durationLifetime: "разовая",
+    alreadyPremium: "У тебя уже есть Premium.",
     cta: "Получить Premium",
-    ctaHint: "Оплата появится скоро.",
+    ctaHint: "Сначала выбери план.",
     later: "Позже",
     badge: "Premium",
     soon: "Скоро"
@@ -87,7 +250,12 @@ const translations = {
 
 const PremiumUpsellScreen = () => {
   const copy = useLocalizedCopy(translations);
+  const errorCopy = useErrorCopy();
   const navigation = useNavigation<any>();
+  const { currentOffering, status, error, isPro, purchasePackage, restore, refresh } = useRevenueCat();
+  const packages = useMemo(() => currentOffering?.availablePackages ?? [], [currentOffering]);
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+  const didAutoCloseRef = useRef(false);
 
   const benefits = [
     { title: copy.benefitSeeLikes, desc: copy.benefitSeeLikesDesc },
@@ -96,25 +264,99 @@ const PremiumUpsellScreen = () => {
     { title: copy.benefitAnon, desc: copy.benefitAnonDesc }
   ];
 
+  useEffect(() => {
+    if (!packages.length) return;
+    setSelectedPackageId((prev) => (packages.some((pkg) => pkg.identifier === prev) ? prev : packages[0].identifier));
+  }, [packages]);
+
+  useEffect(() => {
+    if (!isPro || didAutoCloseRef.current) return;
+    didAutoCloseRef.current = true;
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
+    } else if (typeof navigation?.navigate === "function") {
+      navigation.navigate("Main");
+    }
+  }, [isPro, navigation]);
+
+  const selectedPackage = packages.find((pkg) => pkg.identifier === selectedPackageId) ?? packages[0] ?? null;
+  const isLoading = status === "loading";
+
+  const getPlanLabel = (pkg: PurchasesPackage) => {
+    switch (pkg.packageType) {
+      case "WEEKLY":
+        return copy.planWeekly;
+      case "MONTHLY":
+        return copy.planMonthly;
+      case "TWO_MONTH":
+        return copy.planTwoMonth;
+      case "THREE_MONTH":
+        return copy.planThreeMonth;
+      case "SIX_MONTH":
+        return copy.planSixMonth;
+      case "ANNUAL":
+        return copy.planAnnual;
+      case "LIFETIME":
+        return copy.planLifetime;
+      default:
+        return pkg.product?.title ?? copy.planMonthly;
+    }
+  };
+
+  const getPeriodLabel = (pkg: PurchasesPackage) => {
+    switch (pkg.packageType) {
+      case "WEEKLY":
+        return copy.perWeek;
+      case "MONTHLY":
+        return copy.perMonth;
+      case "TWO_MONTH":
+        return copy.perTwoMonths;
+      case "THREE_MONTH":
+        return copy.perThreeMonths;
+      case "SIX_MONTH":
+        return copy.perSixMonths;
+      case "ANNUAL":
+        return copy.perYear;
+      case "LIFETIME":
+        return copy.oneTime;
+      default:
+        return "";
+    }
+  };
+
+  const getDurationLabel = (pkg: PurchasesPackage) => {
+    switch (pkg.packageType) {
+      case "WEEKLY":
+        return copy.durationWeek;
+      case "MONTHLY":
+        return copy.durationMonth;
+      case "TWO_MONTH":
+        return copy.durationTwoMonths;
+      case "THREE_MONTH":
+        return copy.durationThreeMonths;
+      case "SIX_MONTH":
+        return copy.durationSixMonths;
+      case "ANNUAL":
+        return copy.durationYear;
+      case "LIFETIME":
+        return copy.durationLifetime;
+      default:
+        return "";
+    }
+  };
+
+  const formatTotalPrice = (pkg: PurchasesPackage) => pkg.product?.priceString ?? "";
+
   const handleUpgrade = async () => {
-    if (!NativeModules?.RNPurchasesUI) {
-      console.warn("[Paywall] RNPurchasesUI native module not available (likely Expo Go / missing rebuild)");
+    if (!selectedPackage) {
       Alert.alert(copy.title, copy.ctaHint);
       return;
     }
-    try {
-      // react-native-purchases-ui liefert keine Default-Exports – nutze Namespace-Import.
-      const RevenueCatUI = await import("react-native-purchases-ui");
-      const present =
-        RevenueCatUI.presentPaywallIfNeeded ?? RevenueCatUI.presentPaywall ?? (RevenueCatUI as any)?.default;
-      if (typeof present === "function") {
-        await present({ requiredEntitlementIdentifier: RC_ENTITLEMENT_ID });
-      } else {
-        throw new Error("presentPaywallIfNeeded not available");
-      }
-    } catch (err) {
-      console.warn("[Paywall] failed to present", err);
-      Alert.alert(copy.title, copy.ctaHint);
+    const result = await purchasePackage(selectedPackage);
+    if (!result.ok && !result.cancelled) {
+      const purchaseError = (result as { error?: unknown })?.error ?? error;
+      logError(purchaseError, "purchase");
+      Alert.alert(copy.title, getErrorMessage(purchaseError, errorCopy, copy.purchaseFailed));
     }
   };
 
@@ -158,22 +400,109 @@ const PremiumUpsellScreen = () => {
               </View>
             ))}
           </View>
+
+          <View style={styles.planSection}>
+            <Text style={styles.sectionTitle}>{copy.choosePlan}</Text>
+            {isPro ? <Text style={styles.planHint}>{copy.alreadyPremium}</Text> : null}
+            {isLoading && !packages.length ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator color={PALETTE.gold} />
+                <Text style={styles.loadingText}>{copy.loadingOffers}</Text>
+              </View>
+            ) : null}
+            {!packages.length && !isLoading ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>{copy.noOffers}</Text>
+                <Pressable style={styles.retryButton} onPress={refresh}>
+                  <Text style={styles.retryText}>{copy.retry}</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {packages.length ? (
+              <View style={styles.planList}>
+                {packages.map((pkg) => {
+                  const isSelected = pkg.identifier === selectedPackage?.identifier;
+                  return (
+                    <Pressable
+                      key={pkg.identifier}
+                      style={[styles.planCard, isSelected && styles.planCardActive]}
+                      onPress={() => setSelectedPackageId(pkg.identifier)}
+                    >
+                      <View style={styles.planHeader}>
+                        <Text style={styles.planTitle}>{getPlanLabel(pkg)}</Text>
+                        <View style={[styles.planCheck, isSelected && styles.planCheckActive]}>
+                          {isSelected ? <View style={styles.planCheckDot} /> : null}
+                        </View>
+                      </View>
+                      <Text style={styles.planPrice}>{formatTotalPrice(pkg)}</Text>
+                      {getPeriodLabel(pkg) ? (
+                        <Text style={styles.planPeriod}>{getPeriodLabel(pkg)}</Text>
+                      ) : null}
+                      {pkg.product?.description ? (
+                        <Text style={styles.planSub} numberOfLines={2}>
+                          {pkg.product.description}
+                        </Text>
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {selectedPackage ? (
+              <View style={styles.subInfoCard}>
+                <Text style={styles.subInfoTitle}>{copy.subscriptionInfoTitle}</Text>
+                <View style={styles.subInfoRow}>
+                  <Text style={styles.subInfoLabel}>{copy.subInfoPlan}</Text>
+                  <Text style={styles.subInfoValue}>{getPlanLabel(selectedPackage)}</Text>
+                </View>
+                <View style={styles.subInfoRow}>
+                  <Text style={styles.subInfoLabel}>{copy.subInfoDuration}</Text>
+                  <Text style={styles.subInfoValue}>{getDurationLabel(selectedPackage)}</Text>
+                </View>
+                <View style={styles.subInfoRow}>
+                  <Text style={styles.subInfoLabel}>{copy.subInfoPrice}</Text>
+                  <Text style={styles.subInfoValue}>{formatTotalPrice(selectedPackage)}</Text>
+                </View>
+                <Text style={styles.subInfoNote}>
+                  {selectedPackage.packageType === "LIFETIME" ? copy.subInfoOneTime : copy.subInfoAutoRenew}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </ScrollView>
 
         <View style={styles.footer}>
-          <Pressable style={styles.primary} onPress={handleUpgrade}>
+          <Pressable style={[styles.primary, (isLoading || !selectedPackage || isPro) && styles.primaryDisabled]} onPress={handleUpgrade} disabled={isLoading || !selectedPackage || isPro}>
             <LinearGradient
               colors={[PALETTE.gold, "#8b6c2a"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.primaryInner}
+              style={[styles.primaryInner, (isLoading || !selectedPackage || isPro) && styles.primaryInnerDisabled]}
             >
-              <Text style={styles.primaryText}>{copy.cta}</Text>
+              {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>{copy.cta}</Text>}
             </LinearGradient>
           </Pressable>
-          <Pressable style={styles.secondary} onPress={() => navigation.goBack()}>
-            <Text style={styles.secondaryText}>{copy.later}</Text>
-          </Pressable>
+          <View style={styles.footerLinks}>
+            <Pressable style={styles.linkButton} onPress={restore} disabled={isLoading}>
+              <Text style={styles.linkText}>{copy.restore}</Text>
+            </Pressable>
+            <Text style={styles.linkDivider}>•</Text>
+            <Pressable style={styles.linkButton} onPress={() => navigation.goBack()}>
+              <Text style={styles.linkText}>{copy.later}</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.legalText}>
+            {copy.legalPrefix}{" "}
+            <Text style={styles.legalLink} onPress={() => Linking.openURL(TERMS_URL)}>
+              {copy.terms}
+            </Text>{" "}
+            {copy.and}{" "}
+            <Text style={styles.legalLink} onPress={() => Linking.openURL(PRIVACY_URL)}>
+              {copy.privacy}
+            </Text>
+            {copy.legalSuffix}
+          </Text>
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -188,8 +517,149 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingBottom: 140,
+    paddingBottom: 220,
     gap: 12
+  },
+  planSection: {
+    marginTop: 18,
+    gap: 10
+  },
+  sectionTitle: {
+    color: PALETTE.sand,
+    fontSize: 18,
+    fontWeight: "700"
+  },
+  planHint: {
+    color: "rgba(242,231,215,0.72)",
+    fontSize: 13
+  },
+  planList: {
+    gap: 10
+  },
+  planCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.3)",
+    padding: 14,
+    backgroundColor: "rgba(0,0,0,0.22)"
+  },
+  planCardActive: {
+    borderColor: PALETTE.gold,
+    backgroundColor: "rgba(217,192,143,0.12)"
+  },
+  planHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  planTitle: {
+    color: "rgba(242,231,215,0.78)",
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  planPrice: {
+    marginTop: 8,
+    color: PALETTE.gold,
+    fontSize: 20,
+    fontWeight: "800"
+  },
+  planPeriod: {
+    marginTop: 2,
+    color: "rgba(242,231,215,0.65)",
+    fontSize: 12,
+    fontWeight: "600"
+  },
+  planSub: {
+    marginTop: 4,
+    color: "rgba(242,231,215,0.7)",
+    fontSize: 12
+  },
+  planCheck: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.5)",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  planCheckActive: {
+    borderColor: PALETTE.gold
+  },
+  planCheckDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: PALETTE.gold
+  },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  loadingText: {
+    color: "rgba(242,231,215,0.72)",
+    fontSize: 13
+  },
+  emptyState: {
+    alignItems: "flex-start",
+    gap: 10
+  },
+  emptyText: {
+    color: "rgba(242,231,215,0.7)",
+    fontSize: 13
+  },
+  retryButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.4)"
+  },
+  retryText: {
+    color: PALETTE.sand,
+    fontWeight: "600",
+    fontSize: 13
+  },
+  errorText: {
+    color: "#ffb4a2",
+    fontSize: 12
+  },
+  subInfoCard: {
+    marginTop: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.3)",
+    backgroundColor: "rgba(0,0,0,0.2)",
+    padding: 12,
+    gap: 6
+  },
+  subInfoTitle: {
+    color: PALETTE.sand,
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 4
+  },
+  subInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10
+  },
+  subInfoLabel: {
+    color: "rgba(242,231,215,0.7)",
+    fontSize: 12
+  },
+  subInfoValue: {
+    color: PALETTE.sand,
+    fontSize: 12,
+    fontWeight: "600"
+  },
+  subInfoNote: {
+    color: "rgba(242,231,215,0.7)",
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 4
   },
   badge: {
     alignSelf: "flex-start",
@@ -297,27 +767,50 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.gold,
     overflow: "hidden"
   },
+  primaryDisabled: {
+    borderColor: "rgba(217,192,143,0.35)"
+  },
   primaryInner: {
     paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center"
+  },
+  primaryInnerDisabled: {
+    opacity: 0.7
   },
   primaryText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "700"
   },
-  secondary: {
-    marginTop: 10,
-    paddingVertical: 14,
-    borderRadius: 12,
+  footerLinks: {
+    marginTop: 12,
+    flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(217,192,143,0.32)"
+    justifyContent: "center",
+    gap: 10
   },
-  secondaryText: {
+  linkButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 8
+  },
+  linkText: {
     color: PALETTE.sand,
-    fontSize: 15,
+    fontSize: 14,
+    fontWeight: "600"
+  },
+  linkDivider: {
+    color: "rgba(242,231,215,0.5)"
+  },
+  legalText: {
+    marginTop: 10,
+    color: "rgba(242,231,215,0.6)",
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 16
+  },
+  legalLink: {
+    color: PALETTE.gold,
     fontWeight: "600"
   }
 });

@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Image, Pressable, RefreshControl, StyleSheet, Text, View, Dimensions } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { fetchLikesForUser } from "../services/likesService";
 import { useAuthStore } from "../state/authStore";
 import { Profile } from "../types";
-import VerifiedBadgePng from "../../assets/icons/profile-tab-verified.png";
+import VerifiedBadgePng from "../../assets/icons/icon.png";
 import { ensureDirectConversation } from "../services/directChatService";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRevenueCat } from "../hooks/useRevenueCat";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -60,6 +61,8 @@ const LikesYouScreen = () => {
   const navigation = useNavigation<any>();
   const session = useAuthStore((state) => state.session);
   const isPremium = useAuthStore((state) => state.profile?.isPremium ?? false);
+  const { isPro } = useRevenueCat({ loadOfferings: false });
+  const hasPremiumAccess = isPremium || isPro;
   const userId = session?.user?.id ?? null;
   const [items, setItems] = useState<Profile[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -92,13 +95,13 @@ const LikesYouScreen = () => {
   }, [loadLikes]);
 
   const handleUpgrade = () => {
-    if (isPremium) return;
+    if (hasPremiumAccess) return;
     navigation.navigate("PremiumUpsell");
   };
 
   const handleOpenChat = async (target: Profile) => {
     if (!session?.user?.id || !target?.userId || isStartingDirect) return;
-    if (!isPremium) {
+    if (!hasPremiumAccess) {
       handleUpgrade();
       return;
     }
@@ -135,13 +138,13 @@ const LikesYouScreen = () => {
   const data = useMemo(() => items, [items]);
 
   const total = items.length;
-  const locked = !isPremium;
+  const locked = !hasPremiumAccess;
 
   useEffect(() => {
-    if (isPremium) {
+    if (hasPremiumAccess) {
       void loadLikes();
     }
-  }, [isPremium, loadLikes]);
+  }, [hasPremiumAccess, loadLikes]);
 
   return (
     <LinearGradient colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]} locations={[0, 0.55, 1]} style={styles.gradient}>
@@ -198,7 +201,7 @@ const LikesYouScreen = () => {
 
         {locked ? (
           <Pressable style={[styles.cta, isStartingDirect && styles.ctaDisabled]} onPress={handleUpgrade} disabled={isStartingDirect}>
-            <LinearGradient colors={[PALETTE.pine, PALETTE.deep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ctaInner}>
+            <LinearGradient colors={[PALETTE.gold, "#8b6c2a"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ctaInner}>
               <Text style={styles.ctaText}>{copy.lockedCta}</Text>
             </LinearGradient>
           </Pressable>
@@ -333,14 +336,13 @@ const styles = StyleSheet.create({
   },
   verifiedIcon: {
     width: 24,
-    height: 24,
-    tintColor: PALETTE.gold
+    height: 24
   },
   cta: {
     position: "absolute",
     left: 16,
     right: 16,
-    bottom: 24,
+    bottom: 96,
     borderRadius: 999,
     overflow: "hidden",
     shadowColor: ACCENT,
@@ -349,16 +351,16 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
     backgroundColor: "transparent",
-    borderWidth: 1.4,
+    borderWidth: 1.2,
     borderColor: PALETTE.gold,
-    padding: 2
+    padding: 0
   },
   ctaInner: {
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 999,
-    backgroundColor: PALETTE.pine
+    backgroundColor: "transparent"
   },
   ctaText: {
     color: "#fff",

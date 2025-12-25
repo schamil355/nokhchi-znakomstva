@@ -1,6 +1,6 @@
 import React from "react";
 import { Image, StyleSheet, Text, View, Pressable, Platform, Dimensions } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";

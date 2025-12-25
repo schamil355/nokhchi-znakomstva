@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";

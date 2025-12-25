@@ -51,6 +51,8 @@ const tAuth = (key: keyof typeof authCopy.en) => {
   return authCopy[locale]?.[key] ?? authCopy.en[key];
 };
 
+const withCode = (code: string, message?: string) => Object.assign(new Error(message ?? code), { code });
+
 export const getEmailRedirectUrl = (): string => {
   const fromEnv = process.env.EXPO_PUBLIC_EMAIL_REDIRECT_URL;
   const fromConfig = (Constants.expoConfig as any)?.extra?.emailRedirectUrl;
@@ -74,7 +76,7 @@ export const signInWithPassword = async (email: string, password: string): Promi
       // Require confirmed email (if Supabase confirm-email is enabled, session may still appear briefly)
       if (!data.session.user.email_confirmed_at) {
         await supabase.auth.signOut();
-        throw new Error(tAuth("confirmEmail"));
+        throw withCode("EMAIL_NOT_CONFIRMED", tAuth("confirmEmail"));
       }
 
       useAuthStore.getState().setSession(data.session);
@@ -105,7 +107,7 @@ export const signInWithPassword = async (email: string, password: string): Promi
       return data.session;
     } catch (error: any) {
       if (isAbortError(error) || (typeof error?.message === "string" && error.message.toLowerCase().includes("network request failed"))) {
-        throw new Error(tAuth("networkSlow"));
+        throw withCode("NETWORK", tAuth("networkSlow"));
       }
       throw error;
     }
@@ -139,7 +141,7 @@ export const signUpWithPassword = async (
         if (!data.session.user.email_confirmed_at) {
           // Wenn Bestätigung nötig ist, sofort wieder abmelden und Hinweis geben
           await supabase.auth.signOut();
-          throw new Error(tAuth("confirmEmail"));
+          throw withCode("EMAIL_NOT_CONFIRMED", tAuth("confirmEmail"));
         }
         useAuthStore.getState().setSession(data.session);
         usePreferencesStore.getState().setActiveUser(data.session.user.id);
@@ -148,11 +150,11 @@ export const signUpWithPassword = async (
       }
 
       // Kein Session-Token => Supabase wartet auf E-Mail-Bestätigung
-      throw new Error(tAuth("confirmEmail"));
+      throw withCode("EMAIL_NOT_CONFIRMED", tAuth("confirmEmail"));
     } catch (error: any) {
       console.error("signUpWithPassword error", error);
       if (isAbortError(error) || (typeof error?.message === "string" && error.message.toLowerCase().includes("network request failed"))) {
-        throw new Error(tAuth("networkSlow"));
+        throw withCode("NETWORK", tAuth("networkSlow"));
       }
       throw error;
     }

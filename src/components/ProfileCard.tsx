@@ -680,9 +680,9 @@ const styles = StyleSheet.create({
     opacity: 0.6
   },
   outlineButton: {
-    backgroundColor: "rgba(0,0,0,0.25)",
-    borderWidth: 0,
-    borderColor: "transparent"
+    backgroundColor: "transparent",
+    borderWidth: 1.2,
+    borderColor: "#ffffff"
   },
   filledButton: {
     backgroundColor: "transparent",

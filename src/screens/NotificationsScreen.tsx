@@ -3,7 +3,7 @@ import { Alert, Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Tex
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import * as Notifications from "expo-notifications";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { useNotificationsStore, type NotificationItem } from "../state/notificationsStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getSupabaseClient } from "../lib/supabaseClient";
@@ -564,9 +564,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
     borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderWidth: 1,
-    borderColor: "rgba(217,192,143,0.25)",
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    borderColor: "transparent",
     gap: 12
   },
   avatarWrapper: {
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   itemButtonText: {
-    color: "#0b1f16",
+    color: "#ffffff",
     fontWeight: "700",
     fontSize: 13
   },

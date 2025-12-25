@@ -1,19 +1,18 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View, Modal, Linking } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalizedCopy, useLocale } from "../localization/LocalizationProvider";
-
-const PRIVACY_URL = "https://islam429.github.io/privacy-terms/privacy.html";
-const TERMS_URL = "https://islam429.github.io/privacy-terms/terms.html";
+import { PRIVACY_URL, TERMS_URL } from "../lib/legalLinks";
 
 const PRIVACY_TEXT = `Datenschutzerklärung für die App "нохчи знакомства"
 
-Verantwortlicher: Soul, Mirabellplatz 4, 5020 Salzburg, Österreich, E-Mail: нохчизнакомства@support.com
+Verantwortlicher: Soul, Mirabellplatz 4, 5020 Salzburg, Österreich, E-Mail: support@nokhchi-znakomstva.com
 
 1. Geltung
-Diese Erklärung gilt für die mobile App "Soul".
+Diese Erklärung gilt für die mobile App "нохчи знакомства".
 
 2. Verarbeitete Daten
 - Konto/Profil: E-Mail/Telefon, Anzeigename, Geschlecht, Geburtsdatum/Alter, Intention, Interessen, Bio.
@@ -54,7 +53,7 @@ TLS-Transport, Zugriffsbeschränkungen, serverseitige Prüfungen; 100 % Sicherhe
 Nutzung ab 18 Jahren; Konten Minderjähriger werden gelöscht.
 
 12. Kontakt
-Datenschutzanfragen: нохчизнакомства@support.com`;
+Datenschutzanfragen: support@nokhchi-znakomstva.com`;
 
 const TERMS_TEXT = `Allgemeine Geschäftsbedingungen (AGB) – App "нохчи знакомства"
 
@@ -95,7 +94,7 @@ AGB können angepasst werden; wesentliche Änderungen werden angezeigt. Fortgese
 Österreichisches Recht; zwingendes Verbraucherschutzrecht bleibt unberührt. Gerichtsstand nach gesetzlichen Regeln.
 
 13. Kontakt
-нохчизнакомства@support.com`;
+support@nokhchi-znakomstva.com`;
 
 const translations = {
   en: {
@@ -126,9 +125,9 @@ const translations = {
 
 const LEGAL_CONTENT: Record<string, { privacy: string; terms: string }> = {
   en: {
-    privacy: `Privacy Policy – App "Soul"
+    privacy: `Privacy Policy – App "нохчи знакомства"
 
-Controller: Soul, Mirabellplatz 4, 5020 Salzburg, Austria, E-Mail: нохчизнакомства@support.com
+Controller: Soul, Mirabellplatz 4, 5020 Salzburg, Austria, E-Mail: support@nokhchi-znakomstva.com
 
 We collect: account/profile data (email/phone, display name, gender, birthday/age, intention, interests, bio), photos/selfies (for verification), location (for matches), device/push token, usage events (app_open, view_profile, like, match, message_send), chats/messages, and selfie-to-profile verification via serverless ("face-verify").
 Purpose: matchmaking, profile/photo management, location-based suggestions, push notifications, fraud/abuse prevention (incl. facial match), diagnostics/product improvement, legal obligations.
@@ -138,8 +137,8 @@ Transfers: Supabase may process outside EU; protected by SCCs/technical measures
 Retention: profile data until account deletion; logs/analytics only as needed; photos until removal or account deletion; statutory retention unaffected.
 Rights: access, rectification, erasure, restriction, portability, objection to legitimate interests, withdraw consent, complain to the Austrian DPA.
 Minors: 18+ only; underage accounts are removed.
-Contact: нохчизнакомства@support.com`,
-    terms: `Terms (AGB) – App "Soul"
+Contact: support@nokhchi-znakomstva.com`,
+    terms: `Terms (AGB) – App "нохчи знакомства"
 
 1. Provider: Soul, Mirabellplatz 4, 5020 Salzburg, Austria.
 2. Service: dating/matchmaking app with profiles, photos, location-based suggestions, chat, verification.
@@ -153,16 +152,16 @@ Contact: нохчизнакомства@support.com`,
 10. Termination: open-ended; users can delete accounts anytime; provider may terminate regularly or for cause; subscriptions must be canceled in the store.
 11. Changes: important changes communicated; continued use = acceptance; if you object, account may be closed.
 12. Law: Austrian law; mandatory consumer law remains; venue per statutory rules.
-13. Contact: нохчизнакомства@support.com`
+13. Contact: support@nokhchi-znakomstva.com`
   },
   de: {
     privacy: PRIVACY_TEXT,
     terms: TERMS_TEXT
   },
   fr: {
-    privacy: `Politique de confidentialité – App "Soul"
+    privacy: `Politique de confidentialité – App "нохчи знакомства"
 
-Responsable : Soul, Mirabellplatz 4, 5020 Salzburg, Autriche, E-mail : нохчизнакомства@support.com
+Responsable : Soul, Mirabellplatz 4, 5020 Salzburg, Autriche, E-mail : support@nokhchi-znakomstva.com
 
 Données : compte/profil (e-mail/téléphone, nom affiché, genre, date de naissance/âge, intention, centres d’intérêt, bio), photos/selfies (vérification), localisation (suggestions), appareil/token push, événements d’usage (app_open, view_profile, like, match, message_send), chats, vérification selfie/profil (fonction serverless "face-verify").
 Finalités : mise en relation, gestion profil/photos, suggestions basées sur la localisation, notifications push, prévention fraude/abus (incl. vérif. faciale), diagnostics/optimisation, obligations légales.
@@ -172,8 +171,8 @@ Transferts : Supabase peut traiter hors UE ; protégés par clauses contractuell
 Conservation : jusqu’à suppression du compte ; logs/analytics tant que nécessaire ; photos jusqu’à suppression ou clôture ; obligations légales inchangées.
 Droits : accès, rectification, effacement, limitation, portabilité, opposition aux intérêts légitimes, retrait des consentements, plainte auprès de l’autorité autrichienne.
 Mineurs : 18+ seulement ; comptes mineurs supprimés.
-Contact : нохчизнакомства@support.com`,
-    terms: `Conditions – App "Soul"
+Contact : support@nokhchi-znakomstva.com`,
+    terms: `Conditions – App "нохчи знакомства"
 
 1. Fournisseur : Soul, Mirabellplatz 4, 5020 Salzburg, Autriche.
 2. Service : application de rencontre avec profils, photos, suggestions par localisation, chat, vérification.
@@ -187,12 +186,12 @@ Contact : нохчизнакомства@support.com`,
 10. Résiliation : durée indéterminée ; suppression possible à tout moment ; résiliation ordinaire ou pour motif ; abonnements à résilier dans le store.
 11. Modifications : changements importants annoncés ; l’usage continu vaut acceptation ; en cas d’objection, le compte peut être fermé.
 12. Droit : droit autrichien ; droit consommateur impératif préservé ; juridiction selon la loi.
-13. Contact : нохчизнакомства@support.com`
+13. Contact : support@nokhchi-znakomstva.com`
   },
   ru: {
-    privacy: `Политика конфиденциальности – приложение "Soul"
+    privacy: `Политика конфиденциальности – приложение "нохчи знакомства"
 
-Оператор: Soul, Mirabellplatz 4, 5020 Зальцбург, Австрия, E-mail: нохчизнакомства@support.com
+Оператор: Soul, Mirabellplatz 4, 5020 Зальцбург, Австрия, E-mail: support@nokhchi-znakomstva.com
 
 Данные: аккаунт/профиль (email/телефон, имя, пол, дата рождения/возраст, намерения, интересы, био), фото/селфи (верификация), локация (подбор анкет), устройство/push-токен, события использования (app_open, view_profile, like, match, message_send), чаты, сверка селфи с фото профиля (serverless "face-verify").
 Цели: дейтинг, управление профилем/фото, подсказки по локации, push-уведомления, борьба с мошенничеством/абьюзом (в т.ч. сверка лица), диагностика/улучшения, юр. обязанности.
@@ -202,8 +201,8 @@ Contact : нохчизнакомства@support.com`,
 Хранение: до удаления аккаунта; логи/аналитика — по необходимости; фото — до удаления или удаления аккаунта; законные сроки сохраняются.
 Права: доступ, исправление, удаление, ограничение, переносимость, возражение против законных интересов, отзыв согласий, жалоба в австрийский надзор.
 Несовершеннолетние: 18+; аккаунты младше удаляются.
-Контакт: нохчизнакомства@support.com`,
-    terms: `Условия (AGB) – приложение "Soul"
+Контакт: support@nokhchi-znakomstva.com`,
+    terms: `Условия (AGB) – приложение "нохчи знакомства"
 
 1. Провайдер: Soul, Mirabellplatz 4, 5020 Зальцбург, Австрия.
 2. Сервис: дейтинг/матчмейкинг с профилями, фото, подсказками по локации, чатом и верификацией.
@@ -217,7 +216,7 @@ Contact : нохчизнакомства@support.com`,
 10. Прекращение: бессрочно; пользователь может удалить аккаунт; провайдер — с уведомлением или при нарушениях; подписки отменяются в сторе.
 11. Изменения: важные изменения сообщаются; продолжение использования = согласие; при возражении аккаунт может быть закрыт.
 12. Право: австрийское право; обязательные нормы для потребителей сохраняются; подсудность по закону.
-13. Контакт: нохчизнакомства@support.com`
+13. Контакт: support@nokhchi-znakomstva.com`
   }
 };
 

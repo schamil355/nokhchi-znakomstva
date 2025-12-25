@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { useNavigation } from "@react-navigation/native";
 import { useDiscoveryFeed, useRecentProfiles } from "../hooks/useDiscoveryFeed";
 import { sendLike, skipProfile } from "../services/discoveryService";
@@ -16,6 +16,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNotificationsStore } from "../state/notificationsStore";
 import * as Notifications from "expo-notifications";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRevenueCat } from "../hooks/useRevenueCat";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -152,6 +154,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
 };
 
   const copy = useLocalizedCopy(translations);
+  const errorCopy = useErrorCopy();
   const navigation = useNavigation<any>();
   const {
     data: discoveryProfiles = [],
@@ -176,6 +179,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   } = useRecentProfiles(activeTab === "recent");
   const session = useAuthStore((state) => state.session);
   const isPremium = useAuthStore((state) => state.profile?.isPremium ?? false);
+  const { isPro } = useRevenueCat({ loadOfferings: false });
+  const hasPremiumAccess = isPremium || isPro;
   const filters = usePreferencesStore((state) => state.filters);
   const setFilters = usePreferencesStore((state) => state.setFilters);
   const resetFilters = usePreferencesStore((state) => state.resetFilters);
@@ -283,7 +288,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       }
       advanceQueue();
     } catch (error: any) {
-        Alert.alert(copy.errors.title, error.message ?? copy.errors.likeFallback);
+      logError(error, "send-like");
+      Alert.alert(copy.errors.title, getErrorMessage(error, errorCopy, copy.errors.likeFallback));
     } finally {
       setProcessing(false);
     }
@@ -298,7 +304,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       await skipProfile(session.user.id, currentProfile.userId);
       advanceQueue();
     } catch (error: any) {
-      Alert.alert(copy.errors.title, error.message ?? copy.errors.skipFallback);
+      logError(error, "skip-profile");
+      Alert.alert(copy.errors.title, getErrorMessage(error, errorCopy, copy.errors.skipFallback));
     } finally {
       setProcessing(false);
     }
@@ -308,7 +315,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     if (!session?.user?.id || !currentProfile?.userId || isStartingDirect) {
       return;
     }
-    if (!isPremium) {
+    if (!hasPremiumAccess) {
       const parentNav: any = (navigation as any).getParent?.() ?? navigation;
       const rootNav: any = parentNav?.getParent?.() ?? parentNav;
       const navigateToUpsell = rootNav?.navigate ?? navigation?.navigate;
@@ -333,7 +340,14 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     } finally {
       setIsStartingDirect(false);
     }
-  }, [copy.actions.directChatFailed, currentProfile?.userId, isPremium, isStartingDirect, navigation, session?.user?.id]);
+  }, [
+    copy.actions.directChatFailed,
+    currentProfile?.userId,
+    hasPremiumAccess,
+    isStartingDirect,
+    navigation,
+    session?.user?.id
+  ]);
 
   const handleReportProfile = useCallback(() => {
     if (!session?.user?.id || !currentProfile?.userId || isReporting) {

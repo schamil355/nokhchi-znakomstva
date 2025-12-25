@@ -8,7 +8,7 @@ import {
   Text,
   View
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -23,6 +23,7 @@ import {
 } from "../lib/push";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -164,6 +165,7 @@ const translations = {
 
 const OnboardingNotificationsScreen = ({ navigation }: Props) => {
   const copy = useLocalizedCopy(translations);
+  const errorCopy = useErrorCopy();
   const selectedGender = useOnboardingStore((state) => state.selectedGender);
   const name = useOnboardingStore((state) => state.name);
   const dob = useOnboardingStore((state) => state.dob);
@@ -272,8 +274,9 @@ const OnboardingNotificationsScreen = ({ navigation }: Props) => {
         setSupabaseMessage(copy.supabaseMissing);
       }
     } catch (error: any) {
+      logError(error, "verify-supabase");
       setSupabaseState("error");
-      setSupabaseMessage(error?.message ?? copy.errorGeneric);
+      setSupabaseMessage(getErrorMessage(error, errorCopy, copy.errorGeneric));
     }
   };
 
@@ -286,7 +289,8 @@ const OnboardingNotificationsScreen = ({ navigation }: Props) => {
       setPushMessage(copy.testPushSuccess());
     } catch (error: any) {
       setPushState("error");
-      setPushMessage(error?.message ?? copy.testPushError);
+      logError(error, "test-push");
+      setPushMessage(getErrorMessage(error, errorCopy, copy.testPushError));
       console.error("[Push] test send error", error);
     }
   };

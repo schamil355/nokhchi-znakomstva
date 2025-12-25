@@ -83,3 +83,24 @@ export type Block = {
   blockedUserId: string;
   createdAt: string;
 };
+
+export type DirectMessage = {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  createdAt: string;
+  readAt?: string | null;
+};
+
+export type DirectConversation = {
+  id: string;
+  userA: string;
+  userB: string;
+  createdAt: string;
+  lastMessageAt?: string | null;
+  otherUserId?: string | null;
+  lastMessage?: DirectMessage | null;
+  otherProfile?: Profile | null;
+  otherProfilePhoto?: string | null;
+};

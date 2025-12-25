@@ -58,6 +58,8 @@ const t = (key: keyof typeof serviceCopy.en) => {
   return serviceCopy[locale]?.[key] ?? serviceCopy.en[key];
 };
 
+const withCode = (code: string, message?: string) => Object.assign(new Error(message ?? code), { code });
+
 const ensureApiBase = () => {
   if (!API_BASE) {
     throw new Error(t("apiBaseMissing"));
@@ -68,7 +70,7 @@ const ensureApiBase = () => {
 const getAccessToken = () => {
   const token = useAuthStore.getState().session?.access_token;
   if (!token) {
-    throw new Error(t("notLoggedIn"));
+    throw withCode("AUTH_REQUIRED", t("notLoggedIn"));
   }
   return token;
 };

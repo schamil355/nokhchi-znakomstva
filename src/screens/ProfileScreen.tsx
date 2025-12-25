@@ -16,7 +16,8 @@ import {
   Platform,
   type AlertButton
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -40,8 +41,10 @@ import { getPhotoUrl, PROFILE_BUCKET } from "../lib/storage";
 import { signOut as signOutService } from "../services/authService";
 import { formatCountryLabel, isWithinChechnyaRadius } from "../lib/geo";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { LinearGradient } from "expo-linear-gradient";
-import VerifiedBadgePng from "../../assets/icons/profile-tab-verified.png";
+import VerifiedBadgePng from "../../assets/icons/icon.png";
+import { useRevenueCat } from "../hooks/useRevenueCat";
 
 const BRAND_GREEN = "#0d6e4f";
 const PALETTE = {
@@ -439,7 +442,10 @@ const ProfileScreen = () => {
   const navigation = useNavigation<any>();
   const session = useAuthStore((state) => state.session);
   const isPremium = useAuthStore((state) => state.profile?.isPremium ?? false);
+  const { isPro } = useRevenueCat({ loadOfferings: false });
+  const hasPremiumAccess = isPremium || isPro;
   const copy = useLocalizedCopy(translations);
+  const errorCopy = useErrorCopy();
   const profile = useAuthStore((state) => state.profile);
   const setProfile = useAuthStore((state) => state.setProfile);
   const onboardingName = useOnboardingStore((state) => state.name);
@@ -784,7 +790,8 @@ const ProfileScreen = () => {
       setProfile(updated);
       Alert.alert(copy.alerts.savedTitle, copy.alerts.savedMessage);
     } catch (error: any) {
-      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.saveError);
+      logError(error, "profile-save");
+      Alert.alert(copy.alerts.errorTitle, getErrorMessage(error, errorCopy, copy.alerts.saveError));
     } finally {
       setIsSaving(false);
     }
@@ -852,7 +859,8 @@ const ProfileScreen = () => {
       setProfile(updatedProfile);
       setHasPhotoOrderChanges(true);
     } catch (error: any) {
-      Alert.alert(copy.alerts.uploadFailedTitle, error.message ?? copy.alerts.uploadFailedMessage);
+      logError(error, "photo-upload");
+      Alert.alert(copy.alerts.uploadFailedTitle, getErrorMessage(error, errorCopy, copy.alerts.uploadFailedMessage));
     } finally {
       setIsUploading(false);
       setUploadingIndex(null);
@@ -863,7 +871,7 @@ const ProfileScreen = () => {
     if (!session?.user?.id || !profile) {
       return;
     }
-    if (nextValue && !isPremium) {
+    if (nextValue && !hasPremiumAccess) {
       setIsIncognito(false);
       const parentNav: any = (navigation as any).getParent?.() ?? navigation;
       const rootNav: any = parentNav?.getParent?.() ?? parentNav;
@@ -894,7 +902,8 @@ const ProfileScreen = () => {
         isIncognito: nextValue
       });
     } catch (error: any) {
-      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.saveError);
+      logError(error, "toggle-incognito");
+      Alert.alert(copy.alerts.errorTitle, getErrorMessage(error, errorCopy, copy.alerts.saveError));
       setIsIncognito(Boolean(profile.isIncognito));
     } finally {
       setIsUpdatingIncognito(false);
@@ -927,7 +936,8 @@ const ProfileScreen = () => {
         primaryPhotoPath: nextPrimaryId ? null : profile.primaryPhotoPath ?? null
       });
     } catch (error: any) {
-      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.saveError);
+      logError(error, "photo-manager");
+      Alert.alert(copy.alerts.errorTitle, getErrorMessage(error, errorCopy, copy.alerts.saveError));
     } finally {
       setHasPhotoOrderChanges(false);
       setIsPhotoManagerVisible(false);
@@ -935,6 +945,7 @@ const ProfileScreen = () => {
   }, [
     copy.alerts.errorTitle,
     copy.alerts.saveError,
+    errorCopy,
     hasPhotoOrderChanges,
     profile,
     session?.user?.id,
@@ -1007,7 +1018,8 @@ const ProfileScreen = () => {
       });
       setProfile(saved);
     } catch (error: any) {
-      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.photoDeleteError);
+      logError(error, "photo-delete");
+      Alert.alert(copy.alerts.errorTitle, getErrorMessage(error, errorCopy, copy.alerts.photoDeleteError));
     }
   };
 
@@ -1016,7 +1028,8 @@ const ProfileScreen = () => {
     try {
       await signOutService();
     } catch (error: any) {
-      Alert.alert(copy.alerts.signOutErrorTitle, error.message ?? copy.alerts.signOutErrorMessage);
+      logError(error, "sign-out");
+      Alert.alert(copy.alerts.signOutErrorTitle, getErrorMessage(error, errorCopy, copy.alerts.signOutErrorMessage));
     } finally {
       setIsSigningOut(false);
     }
@@ -1067,7 +1080,8 @@ const ProfileScreen = () => {
       setProfile({ ...currentProfile, photos: updatedPhotos });
       Alert.alert(copy.alerts.visibilityUpdatedTitle, copy.alerts.visibilityUpdatedMessage);
     } catch (error: any) {
-      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.visibilityErrorMessage);
+      logError(error, "visibility-update");
+      Alert.alert(copy.alerts.errorTitle, getErrorMessage(error, errorCopy, copy.alerts.visibilityErrorMessage));
     }
   };
 
@@ -1081,7 +1095,8 @@ const ProfileScreen = () => {
       await revokeAllPermissions(assetId);
       Alert.alert(copy.alerts.sharesUpdatedTitle, copy.alerts.sharesUpdatedMessage);
     } catch (error: any) {
-      Alert.alert(copy.alerts.errorTitle, error.message ?? copy.alerts.sharesErrorMessage);
+      logError(error, "revoke-permissions");
+      Alert.alert(copy.alerts.errorTitle, getErrorMessage(error, errorCopy, copy.alerts.sharesErrorMessage));
     }
   };
 

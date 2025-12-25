@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { signInWithPassword } from "../services/authService";
 import { useAuthStore } from "../state/authStore";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
 type Props = NativeStackScreenProps<any>;
 
@@ -116,6 +117,7 @@ const SignInScreen = ({ navigation }: Props) => {
   const [loading, setLoading] = useState(false);
   const setLoadingState = useAuthStore((state) => state.setLoading);
   const copy = useLocalizedCopy(translations);
+  const errorCopy = useErrorCopy();
   const [resetVisible, setResetVisible] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
@@ -131,7 +133,8 @@ const SignInScreen = ({ navigation }: Props) => {
     try {
       await signInWithPassword(email.trim().toLowerCase(), password);
     } catch (error: any) {
-      Alert.alert(copy.signInFailedTitle, error.message ?? copy.signInFailedMessage);
+      logError(error, "sign-in");
+      Alert.alert(copy.signInFailedTitle, getErrorMessage(error, errorCopy, copy.signInFailedMessage));
     } finally {
       setLoading(false);
       setLoadingState(false);
@@ -153,7 +156,8 @@ const SignInScreen = ({ navigation }: Props) => {
       Alert.alert(copy.resetTitle, copy.resetSuccess);
       setResetVisible(false);
     } catch (error: any) {
-      Alert.alert(copy.resetTitle, error.message ?? copy.resetError);
+      logError(error, "password-reset");
+      Alert.alert(copy.resetTitle, getErrorMessage(error, errorCopy, copy.resetError));
     } finally {
       setResetLoading(false);
     }

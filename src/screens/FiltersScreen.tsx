@@ -12,12 +12,14 @@ import {
   Text,
   View
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { GeoRegion, usePreferencesStore } from "../state/preferencesStore";
 import { useAuthStore } from "../state/authStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { LinearGradient } from "expo-linear-gradient";
 import { useQueryClient } from "@tanstack/react-query";
 import { updatePrivacySettings } from "../services/photoService";
@@ -45,6 +47,11 @@ type CopyShape = {
   sectionPrivacy: string;
   regionPickerTitle: string;
   cancel: string;
+  privacySaveFailed: string;
+  comingSoonTitle: string;
+  comingSoonBody: string;
+  locationPermissionNeeded: string;
+  locationPermissionBlocked: string;
   regionOptions: RegionCopy;
   ageRangeLabel: (min: number, max: number) => string;
   distanceSummary: (min: number, max: number) => string;
@@ -64,6 +71,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     sectionPrivacy: "Privacy",
     regionPickerTitle: "Choose region",
     cancel: "Cancel",
+    privacySaveFailed: "Could not save privacy settings.",
+    comingSoonTitle: "Coming soon",
+    comingSoonBody: "This feature is in preparation.",
+    locationPermissionNeeded: "Location permission needed. Please allow it in Settings.",
+    locationPermissionBlocked: "Location permission blocked. Enable it in Settings.",
     regionOptions: {
       chechnya: { label: "Chechnya", subtitle: "Find matches across Chechnya" },
       russia: { label: "Russia", subtitle: "Find matches across Russia" },
@@ -86,6 +98,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     sectionPrivacy: "Privatsphäre",
     regionPickerTitle: "Region wählen",
     cancel: "Abbrechen",
+    privacySaveFailed: "Konnte Privatsphäre nicht speichern.",
+    comingSoonTitle: "Bald verfügbar",
+    comingSoonBody: "Die Funktion ist in Vorbereitung.",
+    locationPermissionNeeded: "Standortberechtigung benötigt. Bitte in den Systemeinstellungen erlauben.",
+    locationPermissionBlocked: "Standortberechtigung blockiert. Bitte in den Systemeinstellungen aktivieren.",
     regionOptions: {
       chechnya: { label: "Tschetschenien", subtitle: "Finde Matches in Tschetschenien" },
       russia: { label: "Russland", subtitle: "Finde Matches in Russland" },
@@ -108,6 +125,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     sectionPrivacy: "Confidentialité",
     regionPickerTitle: "Choisis la région",
     cancel: "Annuler",
+    privacySaveFailed: "Impossible d'enregistrer les paramètres de confidentialité.",
+    comingSoonTitle: "Bientôt",
+    comingSoonBody: "Cette fonctionnalité est en préparation.",
+    locationPermissionNeeded: "Autorisation de localisation requise. Active-la dans les réglages.",
+    locationPermissionBlocked: "Localisation bloquée. Active-la dans les réglages.",
     regionOptions: {
       chechnya: { label: "Tchétchénie", subtitle: "Rencontres en Tchétchénie" },
       russia: { label: "Russie", subtitle: "Rencontres en Russie" },
@@ -130,6 +152,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     sectionPrivacy: "Конфиденциальность",
     regionPickerTitle: "Выбери регион",
     cancel: "Отмена",
+    privacySaveFailed: "Не удалось сохранить настройки приватности.",
+    comingSoonTitle: "Скоро",
+    comingSoonBody: "Функция в разработке.",
+    locationPermissionNeeded: "Нужен доступ к геолокации. Разреши в настройках.",
+    locationPermissionBlocked: "Геолокация заблокирована. Включи в настройках.",
     regionOptions: {
       chechnya: { label: "Чечня", subtitle: "Ищи анкеты в Чечне" },
       russia: { label: "Россия", subtitle: "Ищи анкеты по всей России" },
@@ -152,6 +179,7 @@ const FiltersScreen = () => {
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
   const copy = useLocalizedCopy(translations);
+  const errorCopy = useErrorCopy();
   const queryClient = useQueryClient();
   const regionOptions = React.useMemo(
     () =>
@@ -214,8 +242,8 @@ const FiltersScreen = () => {
     if (status !== Location.PermissionStatus.GRANTED) {
       setLocationError(
         status === Location.PermissionStatus.DENIED
-          ? "Standortberechtigung benötigt. Bitte in den Systemeinstellungen erlauben."
-          : "Standortberechtigung blockiert. Bitte in den Systemeinstellungen aktivieren."
+          ? copy.locationPermissionNeeded
+          : copy.locationPermissionBlocked
       );
       return null;
     }
@@ -254,7 +282,8 @@ const FiltersScreen = () => {
         });
       } catch (error: any) {
         setSavingIncognito(false);
-        Alert.alert(copy.cancel, error?.message ?? "Konnte Privatsphäre nicht speichern.");
+        logError(error, "save-privacy");
+        Alert.alert(copy.cancel, getErrorMessage(error, errorCopy, copy.privacySaveFailed));
         setHideNearby(false);
         return;
       }
@@ -353,7 +382,7 @@ const FiltersScreen = () => {
               value={hideNearby}
               onValueChange={async (next) => {
                 if (next) {
-                  Alert.alert("Bald verfügbar", "Die Funktion ist in Vorbereitung.");
+                  Alert.alert(copy.comingSoonTitle, copy.comingSoonBody);
                   setHideNearby(false);
                   return;
                 }
@@ -390,7 +419,8 @@ const FiltersScreen = () => {
                   );
                 } catch (error: any) {
                   setHideNearby(prev);
-                  Alert.alert(copy.cancel, error?.message ?? "Konnte Privatsphäre nicht speichern.");
+                  logError(error, "toggle-privacy");
+                  Alert.alert(copy.cancel, getErrorMessage(error, errorCopy, copy.privacySaveFailed));
                 } finally {
                   setSavingIncognito(false);
                 }
@@ -415,9 +445,10 @@ const FiltersScreen = () => {
         </View>
         </ScrollView>
         <SafeAreaView
-        edges={["left", "right", "bottom"]}
-        style={[styles.footerSafe, { paddingBottom: footerBottomSpacing }]}
-      >
+          edges={["left", "right", "bottom"]}
+          bottomPadding={0}
+          style={[styles.footerSafe, { paddingBottom: footerBottomSpacing }]}
+        >
         <Pressable style={styles.applyButton} onPress={handleApply}>
           <LinearGradient
             colors={[PALETTE.gold, "#8b6c2a"]}

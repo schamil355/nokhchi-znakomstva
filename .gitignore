@@ -4,6 +4,19 @@
 server/.env
 server/.env.*
 
+# Secrets / credentials
+credentials/
+android/sentry.properties
+ios/sentry.properties
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+*.key
+*.pem
+*.keystore
+*.jks
+
 # Expo / build artifacts
 .expo
 .expo-shared
@@ -25,3 +38,12 @@ yarn-debug.log*
 yarn-error.log*
 expo-error.log
 android/app/debug.keystore
+android/.gradle/
+android/build/
+android/app/build/
+android/keystore/
+ios/Pods/
+ios/build/
+ios/DerivedData/
+*.xcuserstate
+xcuserdata/

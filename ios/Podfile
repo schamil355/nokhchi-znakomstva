@@ -20,7 +20,7 @@ platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 
 prepare_react_native_project!
 
-target 'meetmateclean' do
+target 'NohchiZnakomstva' do
   use_expo_modules!
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
@@ -37,9 +37,6 @@ target 'meetmateclean' do
   end
 
   config = use_native_modules!(config_command)
-
-  # RevenueCat Paywall UI (not auto-linked)
-  pod 'RNPaywalls', :path => '../node_modules/react-native-purchases-ui'
 
   use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
   use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']

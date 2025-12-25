@@ -10,7 +10,7 @@ import {
   ScrollView,
   Alert as RNAlert
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -18,6 +18,7 @@ import { getSupabaseClient } from "../lib/supabaseClient";
 import { useAuthStore } from "../state/authStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getEmailRedirectUrl } from "../services/authService";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
 type Props = NativeStackScreenProps<any>;
 
@@ -155,6 +156,7 @@ const CreateAccountScreen = ({ navigation, route }: Props) => {
   const setSession = useAuthStore((state) => state.setSession);
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otp, setOtp] = useState("");
+  const errorCopy = useErrorCopy();
 
   const handleNext = async () => {
     if (!consent || loading) return;
@@ -209,7 +211,8 @@ const CreateAccountScreen = ({ navigation, route }: Props) => {
 
       setShowOtpModal(true);
     } catch (err: any) {
-      RNAlert.alert(copy.signupFailed, err?.message ?? copy.tryAgain);
+      logError(err, "sign-up");
+      RNAlert.alert(copy.signupFailed, getErrorMessage(err, errorCopy, copy.tryAgain));
     } finally {
       setLoading(false);
     }
@@ -354,7 +357,8 @@ const CreateAccountScreen = ({ navigation, route }: Props) => {
                       setShowOtpModal(false);
                       navigation.navigate("OnboardingGender");
                     } catch (verifyError: any) {
-                      RNAlert.alert(copy.otpInvalidTitle, verifyError?.message ?? copy.otpInvalidBody);
+                      logError(verifyError, "verify-otp");
+                      RNAlert.alert(copy.otpInvalidTitle, getErrorMessage(verifyError, errorCopy, copy.otpInvalidBody));
                     }
                   }}
                 >
