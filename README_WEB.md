@@ -107,6 +107,5 @@ Deploy the static `dist/` folder to any static host (Vercel, Netlify, Cloudflare
 3) Tap “Send test push” to verify delivery.
 
 ## Notes & assumptions
-- Plans feature uses Supabase tables `date_plans`, `plan_invites`, `plan_messages`, `plan_checkins` (see `supabase/migrations/20270305150000_plans_tab.sql`). If these tables were removed in your environment, re-apply that migration.
 - Web push subscriptions are stored in `public.web_push_subscriptions` (new migration added).
 - `EXPO_PUBLIC_API_URL` must point to the running NestJS server for photo signing and verification endpoints.

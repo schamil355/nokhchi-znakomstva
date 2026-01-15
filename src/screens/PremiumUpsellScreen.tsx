@@ -76,6 +76,7 @@ const translations = {
     ctaHint: "Bitte wähle ein Paket aus.",
     webCta: "Weiter zur Zahlung",
     webUnavailable: "Web-Zahlung ist in deinem Land aktuell nicht verfügbar.",
+    webFallback: "Zahlung in deiner Währung ist aktuell nicht verfügbar. Preise werden in EUR angezeigt.",
     webSuccess: "Zahlung abgeschlossen. Premium wird gleich aktiviert.",
     webCancel: "Zahlung abgebrochen.",
     later: "Später",
@@ -137,6 +138,7 @@ const translations = {
     ctaHint: "Choisis d'abord un plan.",
     webCta: "Continuer vers le paiement",
     webUnavailable: "Le paiement web n'est pas disponible dans votre pays pour le moment.",
+    webFallback: "Le paiement dans votre devise n'est pas disponible. Les prix sont affichés en EUR.",
     webSuccess: "Paiement effectué. Premium sera activé sous peu.",
     webCancel: "Paiement annulé.",
     later: "Plus tard",
@@ -198,6 +200,7 @@ const translations = {
     ctaHint: "Please select a plan first.",
     webCta: "Continue to payment",
     webUnavailable: "Web payments are not available in your country yet.",
+    webFallback: "Payments in your currency are unavailable. Prices are shown in EUR.",
     webSuccess: "Payment completed. Premium will activate shortly.",
     webCancel: "Payment cancelled.",
     later: "Later",
@@ -259,6 +262,7 @@ const translations = {
     ctaHint: "Сначала выбери план.",
     webCta: "Перейти к оплате",
     webUnavailable: "Оплата через веб недоступна в вашей стране.",
+    webFallback: "Оплата в вашей валюте недоступна. Цены показаны в EUR.",
     webSuccess: "Оплата прошла. Premium будет активирован в ближайшее время.",
     webCancel: "Оплата отменена.",
     later: "Позже",
@@ -278,10 +282,13 @@ const PremiumUpsellScreen = () => {
   const packages = useMemo(() => currentOffering?.availablePackages ?? [], [currentOffering]);
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [webPlanId, setWebPlanId] = useState<"monthly" | "yearly">("monthly");
+  const [webCurrency, setWebCurrency] = useState<"EUR" | "NOK">("EUR");
   const [webLoading, setWebLoading] = useState(false);
   const [webError, setWebError] = useState<string | null>(null);
   const [webNotice, setWebNotice] = useState<string | null>(null);
-  const [webPlanIds, setWebPlanIds] = useState<Array<"monthly" | "yearly"> | null>(null);
+  const [webPlanIds, setWebPlanIds] = useState<("monthly" | "yearly")[] | null>(null);
+  const [webPlanError, setWebPlanError] = useState<string | null>(null);
+  const [webCurrencyNotice, setWebCurrencyNotice] = useState<string | null>(null);
   const didAutoCloseRef = useRef(false);
 
   const benefits = [
@@ -307,11 +314,8 @@ const PremiumUpsellScreen = () => {
   }, [profile?.country, session?.user?.user_metadata?.country]);
 
   const webPlans = useMemo(() => {
-    if (currency === "RUB") {
-      return [];
-    }
     const amounts =
-      currency === "NOK"
+      webCurrency === "NOK"
         ? { monthly: 15900, yearly: 99900 }
         : { monthly: 1499, yearly: 9999 };
     const plans = [
@@ -335,7 +339,7 @@ const PremiumUpsellScreen = () => {
     }
     return plans;
   }, [
-    currency,
+    webCurrency,
     copy.planMonthly,
     copy.planAnnual,
     copy.perMonth,
@@ -357,25 +361,50 @@ const PremiumUpsellScreen = () => {
   }, [isWeb, webPlans]);
 
   useEffect(() => {
-    if (!isWeb || currency === "RUB") {
-      setWebPlanIds([]);
-      return;
-    }
+    if (!isWeb) return;
     let active = true;
+    const preferredCurrency = currency === "NOK" ? "NOK" : "EUR";
     setWebPlanIds(null);
-    fetchStripePlanAvailability(currency === "NOK" ? "NOK" : "EUR")
-      .then((data) => {
+    setWebPlanError(null);
+    setWebCurrencyNotice(null);
+    setWebCurrency(preferredCurrency);
+
+    const loadPlans = async () => {
+      try {
+        const data = await fetchStripePlanAvailability(preferredCurrency);
         if (!active) return;
-        setWebPlanIds(data.plans ?? []);
-      })
-      .catch(() => {
-        if (!active) return;
+        if (data.plans?.length) {
+          setWebPlanIds(data.plans);
+          if (preferredCurrency === "EUR" && currency !== "EUR") {
+            setWebCurrencyNotice(copy.webFallback);
+          }
+          return;
+        }
+
+        if (preferredCurrency !== "EUR") {
+          const fallback = await fetchStripePlanAvailability("EUR");
+          if (!active) return;
+          if (fallback.plans?.length) {
+            setWebCurrency("EUR");
+            setWebPlanIds(fallback.plans ?? []);
+            setWebCurrencyNotice(copy.webFallback);
+            return;
+          }
+        }
+
         setWebPlanIds([]);
-      });
+      } catch (planError) {
+        if (!active) return;
+        setWebPlanIds(null);
+        setWebPlanError(getErrorMessage(planError, errorCopy, copy.webUnavailable));
+      }
+    };
+
+    void loadPlans();
     return () => {
       active = false;
     };
-  }, [currency, isWeb]);
+  }, [copy.webFallback, copy.webUnavailable, currency, errorCopy, isWeb]);
 
   useEffect(() => {
     if (!isPremium || didAutoCloseRef.current) return;
@@ -391,6 +420,7 @@ const PremiumUpsellScreen = () => {
   const webSelectedPlan = webPlans.find((plan) => plan.id === webPlanId) ?? webPlans[0] ?? null;
   const isLoading = status === "loading";
   const errorMessage = error ? getErrorMessage(error, errorCopy, copy.purchaseFailed) : null;
+  const webInlineError = webError ?? webPlanError;
 
   useEffect(() => {
     if (!isWeb || typeof window === "undefined") return;
@@ -472,20 +502,16 @@ const PremiumUpsellScreen = () => {
   const formatWebPrice = (amountMinor: number) => {
     const amount = amountMinor / 100;
     if (typeof Intl === "undefined") {
-      return `${amount.toFixed(2)} ${currency}`;
+      return `${amount.toFixed(2)} ${webCurrency}`;
     }
     try {
-      return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amount);
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: webCurrency }).format(amount);
     } catch {
-      return `${amount.toFixed(2)} ${currency}`;
+      return `${amount.toFixed(2)} ${webCurrency}`;
     }
   };
 
   const handleWebCheckout = async () => {
-    if (currency === "RUB") {
-      setWebError(copy.webUnavailable);
-      return;
-    }
     if (!webSelectedPlan) {
       setWebError(copy.ctaHint);
       return;
@@ -495,7 +521,7 @@ const PremiumUpsellScreen = () => {
     try {
       const { url } = await createStripeCheckoutSession({
         planId: webSelectedPlan.id,
-        currency: currency === "NOK" ? "NOK" : "EUR",
+        currency: webCurrency,
       });
       if (typeof window !== "undefined") {
         window.location.assign(url);
@@ -510,7 +536,7 @@ const PremiumUpsellScreen = () => {
   };
 
   const primaryDisabled = isWeb
-    ? webLoading || !webSelectedPlan || isPremium || currency === "RUB"
+    ? webLoading || !webSelectedPlan || isPremium
     : isLoading || !selectedPackage || isPremium;
 
   const handleUpgrade = async () => {
@@ -569,21 +595,21 @@ const PremiumUpsellScreen = () => {
 
           <View style={styles.planSection}>
             <Text style={styles.sectionTitle}>{copy.choosePlan}</Text>
-            {isPremium ? <Text style={styles.planHint}>{copy.alreadyPremium}</Text> : null}
+                {isPremium ? <Text style={styles.planHint}>{copy.alreadyPremium}</Text> : null}
             {isWeb ? (
               <>
                 {webNotice ? <Text style={styles.noticeText}>{webNotice}</Text> : null}
-                {currency === "RUB" ? <Text style={styles.emptyText}>{copy.webUnavailable}</Text> : null}
-                {currency !== "RUB" && webPlanIds === null ? (
+                {webCurrencyNotice ? <Text style={styles.noticeText}>{webCurrencyNotice}</Text> : null}
+                {webPlanIds === null && !webPlanError ? (
                   <View style={styles.loadingRow}>
                     <ActivityIndicator color={PALETTE.gold} />
                     <Text style={styles.loadingText}>{copy.loadingOffers}</Text>
                   </View>
                 ) : null}
-                {currency !== "RUB" && webPlanIds !== null && !webPlans.length ? (
+                {!webPlanError && webPlanIds !== null && !webPlans.length ? (
                   <Text style={styles.emptyText}>{copy.webUnavailable}</Text>
                 ) : null}
-                {currency !== "RUB" && webPlans.length ? (
+                {webPlans.length ? (
                   <View style={styles.planList}>
                     {webPlans.map((plan) => {
                       const isSelected = plan.id === webSelectedPlan?.id;
@@ -606,7 +632,7 @@ const PremiumUpsellScreen = () => {
                     })}
                   </View>
                 ) : null}
-                {webError ? <Text style={styles.errorText}>{webError}</Text> : null}
+                {webInlineError ? <Text style={styles.errorText}>{webInlineError}</Text> : null}
                 {webSelectedPlan ? (
                   <View style={styles.subInfoCard}>
                     <Text style={styles.subInfoTitle}>{copy.subscriptionInfoTitle}</Text>

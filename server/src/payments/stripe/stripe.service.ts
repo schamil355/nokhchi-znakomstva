@@ -5,6 +5,7 @@ import { getSupabaseAdminClient } from "../../common/supabase-admin";
 
 type PlanId = "monthly" | "yearly";
 type Currency = "EUR" | "NOK";
+type StripeSubscription = Stripe.Subscription & { current_period_end?: number | null };
 
 type CheckoutParams = {
   userId: string;
@@ -116,7 +117,7 @@ export class StripePaymentService {
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object as StripeSubscription;
         await this.syncSubscriptionObject(subscription);
         return;
       }
@@ -131,7 +132,7 @@ export class StripePaymentService {
     await this.syncSubscriptionObject(subscription);
   }
 
-  private async syncSubscriptionObject(subscription: Stripe.Subscription): Promise<void> {
+  private async syncSubscriptionObject(subscription: StripeSubscription): Promise<void> {
     const userId = subscription.metadata?.user_id ?? null;
     if (!userId) {
       this.logger.warn(`Stripe subscription ${subscription.id} missing user_id metadata.`);
@@ -140,7 +141,7 @@ export class StripePaymentService {
 
     const status = subscription.status ?? "unknown";
     const isPremium = status === "active" || status === "trialing";
-    const periodEnd = (subscription as { current_period_end?: number | null }).current_period_end ?? null;
+    const periodEnd = subscription.current_period_end ?? null;
     const expiresAt = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
     const updatedAt = new Date().toISOString();
 

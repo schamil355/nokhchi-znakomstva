@@ -21,9 +21,6 @@ import LikesYouScreen from "../screens/LikesYouScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import ChatScreen from "../screens/ChatScreen";
 import DirectChatScreen from "../screens/DirectChatScreen";
-import PlansScreen from "../screens/PlansScreen";
-import PlanDetailScreen from "../screens/PlanDetailScreen";
-import PlanCreateScreen from "../screens/PlanCreateScreen";
 import LegalScreen from "../screens/LegalScreen";
 import PremiumUpsellScreen from "../screens/PremiumUpsellScreen";
 import FiltersScreen from "../screens/FiltersScreen";
@@ -54,8 +51,6 @@ type RootStackParamList = {
   Main: undefined;
   Chat: { matchId: string; participantId: string };
   DirectChat: { conversationId: string; otherUserId: string };
-  PlanDetail: { planId: string };
-  PlanCreate: undefined;
   Notifications: undefined;
   Legal: { screen?: "terms" | "privacy" } | undefined;
   Settings: undefined;
@@ -67,7 +62,6 @@ type RootStackParamList = {
 type TabParamList = {
   Discovery: undefined;
   Matches: undefined;
-  Plans: undefined;
   Likes: undefined;
   Filters: undefined;
   Profile: undefined;
@@ -132,11 +126,6 @@ const baseTabsConfig: TabConfig[] = [
     name: "Matches",
     component: MatchesScreen,
     imageSource: MatchesPng
-  },
-  {
-    name: "Plans",
-    component: PlansScreen,
-    ioniconName: "calendar-outline"
   },
   {
     name: "Likes",
@@ -225,16 +214,6 @@ const AppNavigator = ({ isAuthenticated }: AppNavigatorProps) => {
           <RootStack.Screen name="Main" component={MainTabs} />
           <RootStack.Screen name="Chat" component={ChatScreen} />
           <RootStack.Screen name="DirectChat" component={DirectChatScreen} />
-          <RootStack.Screen
-            name="PlanDetail"
-            component={PlanDetailScreen}
-            options={{ presentation: "fullScreenModal", animation: "slide_from_right" }}
-          />
-          <RootStack.Screen
-            name="PlanCreate"
-            component={PlanCreateScreen}
-            options={{ presentation: "fullScreenModal", animation: "slide_from_right" }}
-          />
           <RootStack.Screen
             name="Filters"
             component={FiltersScreen}

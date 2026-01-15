@@ -135,32 +135,3 @@ export type DirectConversation = {
   otherProfile?: Profile | null;
   otherProfilePhoto?: string | null;
 };
-
-export type PlanStatus = "draft" | "published" | "cancelled" | "completed";
-export type PlanInviteStatus = "pending" | "accepted" | "passed" | "cancelled";
-
-export type DatePlan = {
-  id: string;
-  creatorId: string;
-  status: PlanStatus;
-  dateType: string;
-  startTime: string;
-  endTime: string;
-  areaLabel: string;
-  vibeTags?: string[] | null;
-  budgetMin?: number | null;
-  budgetMax?: number | null;
-  notes?: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type PlanInvite = {
-  id: string;
-  planId: string;
-  fromUserId: string;
-  toUserId: string;
-  status: PlanInviteStatus;
-  createdAt: string;
-  updatedAt: string;
-};

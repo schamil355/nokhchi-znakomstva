@@ -22,6 +22,14 @@ async function bootstrap() {
   });
   const supabase = getSupabaseAdminClient();
 
+  const webBaseUrl = process.env.WEB_BASE_URL ?? "";
+  let webOrigin: string | null = null;
+  try {
+    webOrigin = webBaseUrl ? new URL(webBaseUrl).origin : null;
+  } catch {
+    webOrigin = null;
+  }
+
   const defaultCorsOrigins = [
     "http://localhost:8081",
     "http://localhost:4173",
@@ -30,11 +38,16 @@ async function bootstrap() {
     "https://nokhchi-znakomstva.com",
     "https://www.nokhchi-znakomstva.com",
   ];
+  const derivedCorsOrigins = webOrigin
+    ? [webOrigin, webOrigin.replace("://www.", "://")]
+    : [];
   const envCorsOrigins = (process.env.CORS_ORIGINS ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  const allowedCorsOrigins = Array.from(new Set([...defaultCorsOrigins, ...envCorsOrigins]));
+  const allowedCorsOrigins = Array.from(
+    new Set([...defaultCorsOrigins, ...envCorsOrigins, ...derivedCorsOrigins].filter(Boolean))
+  );
 
   app.enableCors({
     origin: (origin, callback) => {
