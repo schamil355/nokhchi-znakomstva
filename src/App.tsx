@@ -21,6 +21,8 @@ import { track, flushEvents } from "./lib/analytics";
 import { LocalizationProvider, determineLocaleFromDevice } from "./localization/LocalizationProvider";
 import { getSupabaseClient } from "./lib/supabaseClient";
 import { configureRevenueCat } from "./lib/revenuecat";
+import PwaInstallBanner from "./components/PwaInstallBanner";
+import { registerServiceWorker } from "./lib/pwa";
 
 type NotificationCopy = {
   defaultTitle: string;
@@ -218,6 +220,10 @@ const App = (): JSX.Element => {
       mounted = false;
     };
   }, [setSession]);
+
+  useEffect(() => {
+    registerServiceWorker();
+  }, []);
 
   useEffect(() => {
     const receivedSub = Notifications.addNotificationReceivedListener((event) => {
@@ -502,10 +508,13 @@ const App = (): JSX.Element => {
         <SafeAreaProvider>
           <ErrorBoundary>
             <QueryClientProvider client={queryClient}>
-              <NavigationContainer ref={navigationRef} onReady={() => setNavReady(true)} onStateChange={handleNavStateChange}>
-                <StatusBar style="dark" />
-                <AppNavigator isAuthenticated={Boolean(session)} />
-              </NavigationContainer>
+              <View style={{ flex: 1 }}>
+                <NavigationContainer ref={navigationRef} onReady={() => setNavReady(true)} onStateChange={handleNavStateChange}>
+                  <StatusBar style="dark" />
+                  <AppNavigator isAuthenticated={Boolean(session)} />
+                </NavigationContainer>
+                <PwaInstallBanner />
+              </View>
             </QueryClientProvider>
           </ErrorBoundary>
         </SafeAreaProvider>

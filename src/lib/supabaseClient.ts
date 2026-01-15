@@ -1,7 +1,9 @@
 import "react-native-url-polyfill/auto";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { Platform } from "react-native";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SECURE_KEY = "sb.session";
 
@@ -49,14 +51,30 @@ class SecureStoreAdapter {
   }
 }
 
+class AsyncStorageAdapter {
+  async getItem(key: string) {
+    return AsyncStorage.getItem(key);
+  }
+
+  async setItem(key: string, value: string) {
+    await AsyncStorage.setItem(key, value);
+  }
+
+  async removeItem(key: string) {
+    await AsyncStorage.removeItem(key);
+  }
+}
+
 let cachedClient: SupabaseClient | null = null;
 
 export const getSupabaseClient = (): SupabaseClient => {
   if (!cachedClient) {
+    const storage =
+      isTestEnv ? undefined : Platform.OS === "web" ? new AsyncStorageAdapter() : new SecureStoreAdapter();
     cachedClient = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "", {
       auth: {
         persistSession: !isTestEnv,
-        storage: isTestEnv ? undefined : new SecureStoreAdapter(),
+        storage,
         storageKey: isTestEnv ? undefined : SECURE_KEY,
         autoRefreshToken: true,
         detectSessionInUrl: false
