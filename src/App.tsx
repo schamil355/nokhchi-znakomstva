@@ -510,7 +510,7 @@ const App = (): JSX.Element => {
             <QueryClientProvider client={queryClient}>
               <View style={{ flex: 1 }}>
                 <NavigationContainer ref={navigationRef} onReady={() => setNavReady(true)} onStateChange={handleNavStateChange}>
-                  <StatusBar style="dark" />
+                  <StatusBar style="light" />
                   <AppNavigator isAuthenticated={Boolean(session)} />
                 </NavigationContainer>
                 <PwaInstallBanner />
