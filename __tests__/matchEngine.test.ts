@@ -14,6 +14,7 @@ const createProfile = (overrides: Partial<Profile>): Profile => ({
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   isPremium: false,
+  verified: true,
   ...overrides
 });
 
@@ -50,4 +51,5 @@ describe("matchEngine", () => {
     const notEligible = isProfileEligible(profile, { genders: ["male"], ageRange: [20, 30], region: "other" });
     expect(notEligible).toBe(false);
   });
+
 });

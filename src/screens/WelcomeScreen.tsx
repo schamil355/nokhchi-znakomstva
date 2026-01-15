@@ -33,7 +33,7 @@ const translations = {
   },
   en: {
     title: "Noxchiin",
-    subtitle: "“Dating for the Chechen community”",
+    subtitle: "“Partner search for the Chechen community”",
     createAccount: "Create account",
     signIn: "Sign in",
     consentPrefix: "By continuing, you agree to our",

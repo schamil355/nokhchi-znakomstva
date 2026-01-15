@@ -23,7 +23,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://chhkvnvwfjldxgyqexjc.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoaGt2bnZ3ZmpsZHhneXFleGpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3MDY5NzAsImV4cCI6MjA3ODI4Mjk3MH0.hQM-C8a33FXriiLK-ppYwyMP36qUhKBHA6Y8uYyNdeI",
-        "EXPO_PUBLIC_API_URL": "https://tschetschenische-dating-app.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://nokhchi-znakomstva.onrender.com"
       }
     }
   },

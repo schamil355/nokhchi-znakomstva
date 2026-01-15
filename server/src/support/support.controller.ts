@@ -31,7 +31,7 @@ export class SupportController {
       <p>Wenn Sie Fragen haben oder Probleme melden möchten, erreichen Sie uns hier:</p>
 
       <h2>Kontaktmöglichkeiten</h2>
-      <p>E-Mail-Support: <a href="mailto:nokhchiznakomstva@support.com">nokhchiznakomstva@support.com</a></p>
+      <p>E-Mail-Support: <a href="mailto:support@nokhchi-znakomstva.com">support@nokhchi-znakomstva.com</a></p>
       <p class="muted">Bitte schicken Sie, falls möglich, App-Version (Einstellungen &gt; Über), Gerät/OS-Version, kurze Problembeschreibung und Screenshots mit.</p>
 
       <h2>Antwortzeiten</h2>
@@ -47,7 +47,7 @@ export class SupportController {
       </ul>
 
       <h2>Account löschen</h2>
-      <p>In der App: Profil-Tab &gt; <strong>Account löschen</strong> &gt; bestätigen. Falls das nicht möglich ist, schreibe an <a href="mailto:nokhchiznakomstva@support.com">nokhchiznakomstva@support.com</a> mit deiner im Konto verwendeten E-Mail oder Telefonnummer.</p>
+      <p>In der App: Profil-Tab &gt; <strong>Account löschen</strong> &gt; bestätigen. Falls das nicht möglich ist, schreibe an <a href="mailto:support@nokhchi-znakomstva.com">support@nokhchi-znakomstva.com</a> mit deiner im Konto verwendeten E-Mail oder Telefonnummer.</p>
       <p class="muted">Dabei werden Profil, Fotos, Matches, Chats und dein Konto entfernt; gesetzliche Aufbewahrungspflichten (z. B. Zahlungs- oder Protokolldaten) bleiben unberührt.</p>
 
       <h2>Unterstützungssprachen</h2>
@@ -77,7 +77,7 @@ export class SupportController {
 
     <p>
       <strong>Verantwortlicher:</strong> Soul, Mirabellplatz 4, 5020 Salzburg, Österreich,<br>
-      E-Mail: <a href="mailto:nokhchiznakomstva@support.com">nokhchiznakomstva@support.com</a>
+      E-Mail: <a href="mailto:support@nokhchi-znakomstva.com">support@nokhchi-znakomstva.com</a>
     </p>
 
     <h2>1. Geltung</h2>
@@ -126,7 +126,7 @@ export class SupportController {
     <p>Nutzung ab 18 Jahren; Konten Minderjähriger werden gelöscht.</p>
 
     <h2>12. Kontakt</h2>
-    <p>Datenschutzanfragen an: <a href="mailto:nokhchiznakomstva@support.com">nokhchiznakomstva@support.com</a></p>
+    <p>Datenschutzanfragen an: <a href="mailto:support@nokhchi-znakomstva.com">support@nokhchi-znakomstva.com</a></p>
   </main>
 </body>
 </html>`;
@@ -234,7 +234,7 @@ export class SupportController {
 
   <h2>13. Kontakt</h2>
   <p>
-    E-Mail: <a href="mailto:nokhchiznakomstva@support.com">nokhchiznakomstva@support.com</a>
+    E-Mail: <a href="mailto:support@nokhchi-znakomstva.com">support@nokhchi-znakomstva.com</a>
   </p>
 </main>
 </body>
@@ -271,14 +271,14 @@ export class SupportController {
       <ul>
         <li>App öffnen und im Profil-Tab auf <strong>Account löschen</strong> tippen.</li>
         <li>Hinweis lesen und Löschung bestätigen. Dadurch werden Profil, Fotos, Matches, Chats und dein Konto entfernt.</li>
-        <li>Falls die Löschung im Gerät nicht möglich ist, schreibe an <a href="mailto:nokhchiznakomstva@support.com">nokhchiznakomstva@support.com</a> mit der im Konto verwendeten E-Mail oder Telefonnummer.</li>
+        <li>Falls die Löschung im Gerät nicht möglich ist, schreibe an <a href="mailto:support@nokhchi-znakomstva.com">support@nokhchi-znakomstva.com</a> mit der im Konto verwendeten E-Mail oder Telefonnummer.</li>
       </ul>
       <h2>Welche Daten werden gelöscht?</h2>
       <ul>
         <li>Profil- und Kontodaten, Matches, Nachrichten, Profilfotos/Selfies.</li>
         <li>Technische Protokolle und Zahlungsnachweise werden nur insoweit aufbewahrt, wie es gesetzliche Pflichten erfordern.</li>
       </ul>
-      <p class="muted">Bei Fragen zur Löschung oder zu verbleibenden Daten wende dich bitte an <a href="mailto:nokhchiznakomstva@support.com">nokhchiznakomstva@support.com</a>.</p>
+      <p class="muted">Bei Fragen zur Löschung oder zu verbleibenden Daten wende dich bitte an <a href="mailto:support@nokhchi-znakomstva.com">support@nokhchi-znakomstva.com</a>.</p>
     </div>
   </div>
 </body>

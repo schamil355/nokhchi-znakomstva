@@ -2,7 +2,7 @@
 
 The mobile MVP now enforces two complementary privacy layers:
 
-1. **Incognito discovery** – `profiles.is_incognito` hides a user from the feed unless the viewer is the owner, already matched, or has received a like from the incognito profile. Discovery filters (`get_discovery_profiles`) apply this gate server-side so the client never receives blocked cards.
+1. **Incognito discovery** - `profiles.is_incognito` no longer hides a user from the feed. Discovery RPCs return incognito profiles and the client must render them blurred/locked using the `is_incognito` flag. Server-side filtering still removes blocked profiles, while photo access remains enforced by the `/photos/view` visibility checks.
 2. **Photo privacy** – Profile photos live in private Supabase Storage buckets. Originals stay in `photos_private`, blurred derivatives in `photos_blurred`. Photos can only be accessed through signed URLs created by the NestJS `/photos/view` endpoint after the viewer passes the visibility checks (public/match_only/whitelist/blurred_until_match). Signed URLs expire after `SIGN_TTL_SECONDS` (default 120 s); the client must refresh when they expire.
 
 ## Registering photos

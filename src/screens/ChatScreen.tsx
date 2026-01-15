@@ -62,7 +62,8 @@ const ChatScreen = ({ route, navigation }: Props) => {
       online: "Online",
       lastSeen: (time: string) => `last active ${time}`,
       placeholder: "Type a message...",
-      sendFailed: "Message could not be sent."
+      sendFailed: "Message could not be sent.",
+      fallbackName: "Connection"
     },
     de: {
       blockTitle: "Blockieren & Chat beenden?",
@@ -83,7 +84,8 @@ const ChatScreen = ({ route, navigation }: Props) => {
       online: "Online",
       lastSeen: (time: string) => `zuletzt aktiv ${time}`,
       placeholder: "Nachricht schreiben...",
-      sendFailed: "Nachricht konnte nicht gesendet werden."
+      sendFailed: "Nachricht konnte nicht gesendet werden.",
+      fallbackName: "Verbindung"
     },
     fr: {
       blockTitle: "Bloquer et fermer le chat ?",
@@ -104,7 +106,8 @@ const ChatScreen = ({ route, navigation }: Props) => {
       online: "En ligne",
       lastSeen: (time: string) => `dernière activité ${time}`,
       placeholder: "Écrire un message...",
-      sendFailed: "Impossible d'envoyer le message."
+      sendFailed: "Impossible d'envoyer le message.",
+      fallbackName: "Connexion"
     },
     ru: {
       blockTitle: "Заблокировать и закрыть чат?",
@@ -125,7 +128,8 @@ const ChatScreen = ({ route, navigation }: Props) => {
       online: "Онлайн",
       lastSeen: (time: string) => `был(а) в сети ${time}`,
       placeholder: "Напишите сообщение...",
-      sendFailed: "Не удалось отправить сообщение."
+      sendFailed: "Не удалось отправить сообщение.",
+      fallbackName: "Связь"
     }
   });
   const errorCopy = useErrorCopy();
@@ -477,14 +481,14 @@ const ChatScreen = ({ route, navigation }: Props) => {
       readAt: message.readAt,
       user: {
         _id: message.senderId,
-        name: message.senderId === session.user.id ? "Du" : "Match"
+        name: message.senderId === session.user.id ? "Du" : copy.fallbackName
       }
     }));
 
   const currentMatch = matches.find((item) => item.id === matchId);
   const matchIsIncognito =
     headerMeta.isIncognito || Boolean(currentMatch?.otherIsIncognito || !currentMatch?.previewPhotoUrl);
-  const matchName = headerMeta.name || currentMatch?.otherDisplayName || "Match";
+  const matchName = headerMeta.name || currentMatch?.otherDisplayName || copy.fallbackName;
   const matchPhoto = matchIsIncognito ? null : headerMeta.photo || currentMatch?.previewPhotoUrl || null;
   const isTyping = Boolean(typingMatches[matchId]);
   const online = currentMatch?.lastMessageAt
@@ -535,15 +539,17 @@ const ChatScreen = ({ route, navigation }: Props) => {
               ) : null}
             </View>
           </View>
-          <Pressable
-            onPress={handleBlock}
-            style={styles.topBarButton}
-            disabled={isBlocking || !otherUserId}
-            accessibilityRole="button"
-            accessibilityLabel={copy.blockConfirm}
-          >
-            <Ionicons name="ban-outline" size={22} color={PALETTE.sand} />
-          </Pressable>
+          <View style={styles.topBarActions}>
+            <Pressable
+              onPress={handleBlock}
+              style={[styles.topBarButton, (isBlocking || !otherUserId) && styles.topBarButtonDisabled]}
+              disabled={isBlocking || !otherUserId}
+              accessibilityRole="button"
+              accessibilityLabel={copy.blockConfirm}
+            >
+              <Ionicons name="ban-outline" size={22} color={PALETTE.sand} />
+            </Pressable>
+          </View>
         </View>
         <KeyboardAvoidingView
           style={styles.keyboardAvoider}
@@ -696,6 +702,14 @@ const styles = StyleSheet.create({
   },
   topBarButton: {
     padding: 6
+  },
+  topBarButtonDisabled: {
+    opacity: 0.55
+  },
+  topBarActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6
   },
   topBarTitle: {
     fontSize: 17,

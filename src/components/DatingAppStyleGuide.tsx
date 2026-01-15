@@ -11,8 +11,7 @@ export default function DatingAppStyleGuide() {
     "Profil",
     "Paywall",
     "Verifizierung",
-    "Onboarding",
-    "Date-Planner",
+    "Onboarding"
   ];
 
   // Green brand palette (Dua-like styling, brand-green primary)
@@ -343,7 +342,7 @@ export default function DatingAppStyleGuide() {
                 <div className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-6 flex flex-col items-center justify-center text-center">
                   <div className="text-3xl mb-2">🔍</div>
                   <div className="font-semibold">Noch nichts hier</div>
-                  <div className="text-sm text-[var(--muted)] mb-3">Starte mit deinem ersten Like.</div>
+                  <div className="text-sm text-[var(--muted)] mb-3">Starte mit deiner ersten Intro-Anfrage.</div>
                   <Button>Profile entdecken</Button>
                 </div>
               </div>
@@ -353,7 +352,7 @@ export default function DatingAppStyleGuide() {
       )}
 
       {tab === "Discover" && (
-        <Section title="Discover (Swipe-Deck)" subtitle="Hero-Karte mit Aktionen & Tags">
+        <Section title="Discover (Intro-Deck)" subtitle="Hero-Karte mit Aktionen & Tags">
           <div className="grid md:grid-cols-3 gap-6">
             <div className="md:col-span-2">
               <div className="relative h-[520px] rounded-[24px] overflow-hidden border border-[var(--border)]" style={{boxShadow:'var(--shadow-lg)'}}>

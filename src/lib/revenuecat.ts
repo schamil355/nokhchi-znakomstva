@@ -28,7 +28,8 @@ export const configureRevenueCat = async (appUserId?: string | null) => {
 
   await Purchases.configure({
     apiKey: RC_PUBLIC_API_KEY,
-    appUserID: appUserId ?? undefined
+    appUserID: appUserId ?? undefined,
+    storeKitVersion: Purchases.STOREKIT_VERSION.STOREKIT_1
   });
 
   // Production: nur Warnungen loggen (kein Debug-Overlay für Nutzer).

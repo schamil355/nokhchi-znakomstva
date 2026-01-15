@@ -16,6 +16,7 @@ import { useOnboardingStore } from "../state/onboardingStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { useAuthStore } from "../state/authStore";
 import { upsertProfile } from "../services/profileService";
+import { openWebDatePicker } from "../lib/webDatePicker";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -168,7 +169,19 @@ const OnboardingBirthdayScreen = ({ navigation }: Props) => {
     return require("../../assets/onboarding/step3/male_avatar_step_3.png");
   }, [selectedGender]);
 
-  const openPicker = useCallback(() => {
+  const openPicker = useCallback(async () => {
+    if (Platform.OS === "web") {
+      const next = await openWebDatePicker({
+        mode: "date",
+        initial: selectedDate,
+        min: earliestAllowed,
+        max: latestAllowed
+      });
+      if (next) {
+        setSelectedDate(clampDate(next, earliestAllowed, latestAllowed));
+      }
+      return;
+    }
     if (Platform.OS === "android") {
       DateTimePickerAndroid.open({
         value: selectedDate,

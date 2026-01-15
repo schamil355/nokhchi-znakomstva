@@ -77,10 +77,10 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     locationPermissionNeeded: "Location permission needed. Please allow it in Settings.",
     locationPermissionBlocked: "Location permission blocked. Enable it in Settings.",
     regionOptions: {
-      chechnya: { label: "Chechnya", subtitle: "Find matches across Chechnya" },
-      russia: { label: "Russia", subtitle: "Find matches across Russia" },
-      europe: { label: "Europe", subtitle: "Find matches across Europe" },
-      other: { label: "Somewhere else", subtitle: "Match worldwide outside Europe & Russia" }
+      chechnya: { label: "Chechnya", subtitle: "Find members across Chechnya" },
+      russia: { label: "Russia", subtitle: "Find members across Russia" },
+      europe: { label: "Europe", subtitle: "Find members across Europe" },
+      other: { label: "Somewhere else", subtitle: "Find members worldwide outside Europe & Russia" }
     },
     ageRangeLabel: (min, max) => `Between ${min} - ${max}`,
     distanceSummary: (min, max) => `From ${min} km - Up to ${max} km`,
@@ -104,10 +104,10 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     locationPermissionNeeded: "Standortberechtigung benötigt. Bitte in den Systemeinstellungen erlauben.",
     locationPermissionBlocked: "Standortberechtigung blockiert. Bitte in den Systemeinstellungen aktivieren.",
     regionOptions: {
-      chechnya: { label: "Tschetschenien", subtitle: "Finde Matches in Tschetschenien" },
-      russia: { label: "Russland", subtitle: "Finde Matches in Russland" },
-      europe: { label: "Europa", subtitle: "Finde Matches in Europa" },
-      other: { label: "Wo anders", subtitle: "Finde Matches außerhalb Europas & Russland" }
+      chechnya: { label: "Tschetschenien", subtitle: "Finde Profile in Tschetschenien" },
+      russia: { label: "Russland", subtitle: "Finde Profile in Russland" },
+      europe: { label: "Europa", subtitle: "Finde Profile in Europa" },
+      other: { label: "Wo anders", subtitle: "Finde Profile außerhalb Europas & Russland" }
     },
     ageRangeLabel: (min, max) => `Zwischen ${min} - ${max}`,
     distanceSummary: (min, max) => `Ab ${min} km - Bis ${max} km`,
@@ -131,10 +131,10 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     locationPermissionNeeded: "Autorisation de localisation requise. Active-la dans les réglages.",
     locationPermissionBlocked: "Localisation bloquée. Active-la dans les réglages.",
     regionOptions: {
-      chechnya: { label: "Tchétchénie", subtitle: "Rencontres en Tchétchénie" },
-      russia: { label: "Russie", subtitle: "Rencontres en Russie" },
-      europe: { label: "Europe", subtitle: "Rencontres en Europe" },
-      other: { label: "Autre", subtitle: "Rencontres partout hors Europe & Russie" }
+      chechnya: { label: "Tchétchénie", subtitle: "Trouve des membres en Tchétchénie" },
+      russia: { label: "Russie", subtitle: "Trouve des membres en Russie" },
+      europe: { label: "Europe", subtitle: "Trouve des membres en Europe" },
+      other: { label: "Autre", subtitle: "Trouve des membres partout hors Europe & Russie" }
     },
     ageRangeLabel: (min, max) => `Entre ${min} - ${max}`,
     distanceSummary: (min, max) => `De ${min} km - Jusqu'à ${max} km`,
@@ -161,7 +161,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       chechnya: { label: "Чечня", subtitle: "Ищи анкеты в Чечне" },
       russia: { label: "Россия", subtitle: "Ищи анкеты по всей России" },
       europe: { label: "Европа", subtitle: "Ищи анкеты по всей Европе" },
-      other: { label: "Где угодно", subtitle: "Ищи во всём мире вне Европы и России" }
+      other: { label: "Где угодно", subtitle: "Ищи анкеты по всему миру вне Европы и России" }
     },
     ageRangeLabel: (min, max) => `От ${min} до ${max}`,
     distanceSummary: (min, max) => `От ${min} км — До ${max} км`,
@@ -210,7 +210,12 @@ const FiltersScreen = () => {
     setAgeRange(filters.ageRange);
     setDistanceRange([filters.minDistanceKm, Math.min(filters.distanceKm, MAX_DISTANCE_KM)]);
     setRegion(filters.region);
-  }, [filters.ageRange, filters.minDistanceKm, filters.distanceKm, filters.region]);
+  }, [
+    filters.ageRange,
+    filters.minDistanceKm,
+    filters.distanceKm,
+    filters.region
+  ]);
 
   React.useEffect(() => {
     setHideNearby(Boolean(profile?.hideNearby));
@@ -230,6 +235,7 @@ const FiltersScreen = () => {
     () => Math.max(insets.bottom + 8, 20),
     [insets.bottom]
   );
+  const privacyRadiusDisabled = searchDisabled || !hideNearby;
 
   const acquireLocation = React.useCallback(async () => {
     setLocationError(null);
@@ -254,42 +260,60 @@ const FiltersScreen = () => {
       latitude: position.coords.latitude,
       longitude: position.coords.longitude
     };
-  }, []);
+  }, [copy.locationPermissionBlocked, copy.locationPermissionNeeded]);
 
   const handleApply = async () => {
-    if (hideNearby && profile?.userId) {
+    const upperDistance = Math.min(distanceRange[1], MAX_DISTANCE_KM);
+    const previousHideNearby = Boolean(profile?.hideNearby);
+    const previousRadius = profile?.hideNearbyRadius ?? upperDistance;
+    const shouldUpdatePrivacy =
+      Boolean(profile?.userId) &&
+      (hideNearby !== previousHideNearby || (hideNearby && previousRadius !== upperDistance));
+
+    if (shouldUpdatePrivacy && profile?.userId) {
       setSavingIncognito(true);
-      const coords = await acquireLocation();
-      if (!coords) {
-        setSavingIncognito(false);
-        setHideNearby(false);
-        return;
-      }
       try {
-        const radiusToPersist = distanceRange[1];
+        let coords: { latitude: number; longitude: number } | null = null;
+        if (hideNearby) {
+          coords = await acquireLocation();
+          if (!coords) {
+            setSavingIncognito(false);
+            setHideNearby(previousHideNearby);
+            return;
+          }
+        }
         await updatePrivacySettings({
-          hide_nearby: true,
-          hide_nearby_radius: radiusToPersist,
-          latitude: coords.latitude,
-          longitude: coords.longitude
+          hide_nearby: hideNearby,
+          hide_nearby_radius: upperDistance,
+          ...(coords
+            ? {
+                latitude: coords.latitude,
+                longitude: coords.longitude
+              }
+            : {})
         });
-        setProfile({
-          ...profile,
-          hideNearby: true,
-          hideNearbyRadius: radiusToPersist,
-          latitude: coords.latitude,
-          longitude: coords.longitude
-        });
+        if (profile) {
+          setProfile({
+            ...profile,
+            hideNearby,
+            hideNearbyRadius: upperDistance,
+            ...(coords
+              ? {
+                  latitude: coords.latitude,
+                  longitude: coords.longitude
+                }
+              : {})
+          });
+        }
       } catch (error: any) {
-        setSavingIncognito(false);
         logError(error, "save-privacy");
         Alert.alert(copy.cancel, getErrorMessage(error, errorCopy, copy.privacySaveFailed));
-        setHideNearby(false);
+        setHideNearby(previousHideNearby);
+        setSavingIncognito(false);
         return;
       }
       setSavingIncognito(false);
     }
-    const upperDistance = Math.min(distanceRange[1], MAX_DISTANCE_KM);
     setFilters({
       ageRange,
       minDistanceKm: distanceRange[0],
@@ -340,7 +364,6 @@ const FiltersScreen = () => {
   };
 
   const activeRegion = regionOptions.find((option) => option.value === region) ?? regionOptions[0];
-
   return (
     <LinearGradient colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]} locations={[0, 0.55, 1]} style={{ flex: 1 }}>
       <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
@@ -371,68 +394,34 @@ const FiltersScreen = () => {
             </View>
           </View>
 
-        <Text style={styles.sectionLabel}>{copy.sectionPrivacy}</Text>
-        <View style={[styles.card, searchDisabled && styles.cardDisabled]}>
+          <Text style={styles.sectionLabel}>{copy.sectionPrivacy}</Text>
+          <View style={[styles.card, searchDisabled && styles.cardDisabled]}>
             <View style={styles.privacyHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>{copy.privacyTitle}</Text>
                 <Text style={styles.cardSubtitle}>{copy.privacySubtitle}</Text>
               </View>
-            <Switch
-              value={hideNearby}
-              onValueChange={async (next) => {
-                if (next) {
-                  Alert.alert(copy.comingSoonTitle, copy.comingSoonBody);
-                  setHideNearby(false);
-                  return;
-                }
-                if (!profile?.userId) {
-                  return;
-                }
-                const prev = hideNearby;
-                setHideNearby(next);
-                setSavingIncognito(true);
-                try {
-                  const coords = await acquireLocation();
-                  if (!coords) {
+              <Switch
+                value={hideNearby}
+                onValueChange={(next) => {
+                  if (next) {
+                    Alert.alert(copy.comingSoonTitle, copy.comingSoonBody);
                     setHideNearby(false);
-                    setSavingIncognito(false);
                     return;
                   }
-                  const radiusToPersist = distanceRange[1];
-                  await updatePrivacySettings({
-                    hide_nearby: next,
-                    hide_nearby_radius: radiusToPersist,
-                    latitude: coords.latitude,
-                    longitude: coords.longitude
-                  });
-                  setProfile(
-                    profile
-                      ? {
-                          ...profile,
-                          hideNearby: next,
-                          hideNearbyRadius: radiusToPersist,
-                          latitude: coords.latitude,
-                          longitude: coords.longitude
-                        }
-                      : profile
-                  );
-                } catch (error: any) {
-                  setHideNearby(prev);
-                  logError(error, "toggle-privacy");
-                  Alert.alert(copy.cancel, getErrorMessage(error, errorCopy, copy.privacySaveFailed));
-                } finally {
-                  setSavingIncognito(false);
-                }
-              }}
-              disabled={savingIncognito}
-              trackColor={{ true: PALETTE.gold, false: "rgba(255,255,255,0.25)" }}
-              thumbColor="#ffffff"
-            />
-          </View>
+                  setHideNearby(next);
+                }}
+                disabled={savingIncognito}
+                trackColor={{ true: PALETTE.gold, false: "rgba(255,255,255,0.25)" }}
+                thumbColor="#ffffff"
+              />
+            </View>
           {locationError ? <Text style={styles.locationHint}>{locationError}</Text> : null}
           <Text style={styles.radiusLabel}>{copy.radiusLabel(distanceRange[1])}</Text>
-          <View style={[styles.sliderWrapper, searchDisabled && styles.disabledOverlay]} pointerEvents={searchDisabled ? "none" : "auto"}>
+          <View
+            style={[styles.sliderWrapper, privacyRadiusDisabled && styles.disabledOverlay]}
+            pointerEvents={privacyRadiusDisabled ? "none" : "auto"}
+          >
             <RangeSlider
               min={0}
               max={MAX_DISTANCE_KM}
@@ -449,9 +438,9 @@ const FiltersScreen = () => {
           bottomPadding={0}
           style={[styles.footerSafe, { paddingBottom: footerBottomSpacing }]}
         >
-        <Pressable style={styles.applyButton} onPress={handleApply}>
-          <LinearGradient
-            colors={[PALETTE.gold, "#8b6c2a"]}
+          <Pressable style={styles.applyButton} onPress={handleApply}>
+            <LinearGradient
+              colors={[PALETTE.gold, "#8b6c2a"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.applyButtonInner}

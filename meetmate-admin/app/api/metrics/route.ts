@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseServiceClient } from "@/lib/supabase-server";
+import { getSupabaseServerClient } from "@/lib/supabase-server";
 
 const EU_CODES = [
   "AL","AD","AM","AT","AZ","BY","BE","BA","BG","HR","CY","CZ","DK","EE","FI","FR","GE","DE","GR","HU","IS","IE","IT",
@@ -84,7 +84,7 @@ const encodeGeohash = (lat: number, lon: number, precision = 5) => {
 };
 
 export async function GET() {
-  const supabase = getSupabaseServiceClient();
+  const supabase = getSupabaseServerClient();
 
   const [
     { data: metrics, error: metricsError },

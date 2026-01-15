@@ -129,7 +129,7 @@ export class VerificationService {
       throw new ForbiddenException("SELFIE_RATE_LIMIT");
     }
 
-    const session = await this.getActiveSession(userId, sessionId);
+    await this.getActiveSession(userId, sessionId);
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -250,7 +250,7 @@ export class VerificationService {
       throw new BadRequestException("PHONE_NOT_AVAILABLE");
     }
 
-    const code = await this.otpService.generate(userId, resolvedChannel);
+    await this.otpService.generate(userId, resolvedChannel);
 
     if (resolvedChannel === OtpChannel.EMAIL) {
       // integrate with mailer

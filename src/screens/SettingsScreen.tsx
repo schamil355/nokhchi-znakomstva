@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import SafeAreaView from "../components/SafeAreaView";
@@ -9,6 +9,7 @@ import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { signOut } from "../services/authService";
 import { deleteAccount } from "../services/accountService";
+import { getWebPushStatus, sendWebPushTest, subscribeWebPush, unsubscribeWebPush } from "../services/webPushService";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -38,6 +39,17 @@ type CopyShape = {
   deleteErrorTitle: string;
   deleteError: string;
   cancel: string;
+  webPush: {
+    title: string;
+    description: string;
+    enable: string;
+    disable: string;
+    test: string;
+    unsupported: string;
+    statusEnabled: string;
+    statusDisabled: string;
+    error: string;
+  };
 };
 
 const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
@@ -57,7 +69,18 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     deleteConfirmYes: "Delete",
     deleteErrorTitle: "Deletion failed",
     deleteError: "Please try again.",
-    cancel: "Cancel"
+    cancel: "Cancel",
+    webPush: {
+      title: "Web notifications",
+      description: "Receive messages even when the app is closed.",
+      enable: "Enable",
+      disable: "Disable",
+      test: "Send test push",
+      unsupported: "Web push is not supported on this device.",
+      statusEnabled: "Enabled",
+      statusDisabled: "Disabled",
+      error: "Web push could not be updated."
+    }
   },
   de: {
     title: "Einstellungen",
@@ -75,7 +98,18 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     deleteConfirmYes: "Löschen",
     deleteErrorTitle: "Löschen fehlgeschlagen",
     deleteError: "Bitte versuche es erneut.",
-    cancel: "Abbrechen"
+    cancel: "Abbrechen",
+    webPush: {
+      title: "Web-Benachrichtigungen",
+      description: "Erhalte Nachrichten auch wenn die App geschlossen ist.",
+      enable: "Aktivieren",
+      disable: "Deaktivieren",
+      test: "Test-Push senden",
+      unsupported: "Web-Push wird nicht unterstützt.",
+      statusEnabled: "Aktiv",
+      statusDisabled: "Inaktiv",
+      error: "Web-Push konnte nicht geändert werden."
+    }
   },
   fr: {
     title: "Réglages",
@@ -93,7 +127,18 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     deleteConfirmYes: "Supprimer",
     deleteErrorTitle: "Échec de la suppression",
     deleteError: "Veuillez réessayer.",
-    cancel: "Annuler"
+    cancel: "Annuler",
+    webPush: {
+      title: "Notifications web",
+      description: "Recevez des messages même lorsque l'app est fermée.",
+      enable: "Activer",
+      disable: "Désactiver",
+      test: "Envoyer un test",
+      unsupported: "Le push web n'est pas pris en charge.",
+      statusEnabled: "Activé",
+      statusDisabled: "Désactivé",
+      error: "Impossible de mettre à jour le push web."
+    }
   },
   ru: {
     title: "Настройки",
@@ -111,7 +156,18 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     deleteConfirmYes: "Удалить",
     deleteErrorTitle: "Не удалось удалить",
     deleteError: "Попробуй еще раз.",
-    cancel: "Отмена"
+    cancel: "Отмена",
+    webPush: {
+      title: "Веб-уведомления",
+      description: "Получайте сообщения даже когда приложение закрыто.",
+      enable: "Включить",
+      disable: "Выключить",
+      test: "Тестовый пуш",
+      unsupported: "Web Push не поддерживается на этом устройстве.",
+      statusEnabled: "Включено",
+      statusDisabled: "Выключено",
+      error: "Не удалось обновить web push."
+    }
   }
 };
 
@@ -122,6 +178,24 @@ const SettingsScreen = () => {
   const errorCopy = useErrorCopy();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [webPushSupported, setWebPushSupported] = useState(false);
+  const [webPushSubscribed, setWebPushSubscribed] = useState(false);
+  const [webPushLoading, setWebPushLoading] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      return;
+    }
+    getWebPushStatus()
+      .then((status) => {
+        setWebPushSupported(status.supported);
+        setWebPushSubscribed(status.subscribed);
+      })
+      .catch(() => {
+        setWebPushSupported(false);
+        setWebPushSubscribed(false);
+      });
+  }, []);
 
   const handleClose = useCallback(() => {
     if (navigation.canGoBack()) {
@@ -143,14 +217,27 @@ const SettingsScreen = () => {
     setIsSigningOut(true);
     try {
       await signOut();
-      navigation.navigate("Welcome" as never);
     } catch (error: any) {
       logError(error, "sign-out");
       Alert.alert(copy.signOutErrorTitle, getErrorMessage(error, errorCopy, copy.signOutError));
     } finally {
       setIsSigningOut(false);
     }
-  }, [copy.signOutError, copy.signOutErrorTitle, errorCopy, isDeleting, isSigningOut, navigation]);
+  }, [copy.signOutError, copy.signOutErrorTitle, errorCopy, isDeleting, isSigningOut]);
+
+  const handleDelete = useCallback(async () => {
+    setIsDeleting(true);
+    try {
+      await deleteAccount();
+      await signOut();
+    } catch (error: any) {
+      logError(error, "delete-account");
+      Alert.alert(copy.deleteErrorTitle, getErrorMessage(error, errorCopy, copy.deleteError));
+    } finally {
+      setIsDeleting(false);
+      setIsSigningOut(false);
+    }
+  }, [copy.deleteError, copy.deleteErrorTitle, errorCopy]);
 
   const confirmDelete = useCallback(() => {
     if (isSigningOut || isDeleting) return;
@@ -168,25 +255,48 @@ const SettingsScreen = () => {
     isSigningOut
   ]);
 
-  const handleDelete = useCallback(async () => {
-    setIsDeleting(true);
-    try {
-      await deleteAccount();
-      await signOut();
-      navigation.navigate("Welcome" as never);
-    } catch (error: any) {
-      logError(error, "delete-account");
-      Alert.alert(copy.deleteErrorTitle, getErrorMessage(error, errorCopy, copy.deleteError));
-    } finally {
-      setIsDeleting(false);
-      setIsSigningOut(false);
-    }
-  }, [copy.deleteError, copy.deleteErrorTitle, errorCopy, navigation]);
-
   const linkRows = [
     { label: copy.privacy, onPress: () => openLegal("privacy") },
     { label: copy.terms, onPress: () => openLegal("terms") }
   ];
+
+  const refreshWebPushStatus = useCallback(async () => {
+    if (Platform.OS !== "web") {
+      return;
+    }
+    const status = await getWebPushStatus();
+    setWebPushSupported(status.supported);
+    setWebPushSubscribed(status.subscribed);
+  }, []);
+
+  const handleWebPushToggle = useCallback(async () => {
+    if (webPushLoading) return;
+    setWebPushLoading(true);
+    try {
+      if (webPushSubscribed) {
+        await unsubscribeWebPush();
+      } else {
+        await subscribeWebPush();
+      }
+      await refreshWebPushStatus();
+    } catch (error) {
+      Alert.alert(copy.webPush.error);
+    } finally {
+      setWebPushLoading(false);
+    }
+  }, [copy.webPush.error, refreshWebPushStatus, webPushLoading, webPushSubscribed]);
+
+  const handleWebPushTest = useCallback(async () => {
+    if (webPushLoading) return;
+    setWebPushLoading(true);
+    try {
+      await sendWebPushTest();
+    } catch (error) {
+      Alert.alert(copy.webPush.error);
+    } finally {
+      setWebPushLoading(false);
+    }
+  }, [copy.webPush.error, webPushLoading]);
 
   return (
     <LinearGradient
@@ -228,6 +338,56 @@ const SettingsScreen = () => {
               </Pressable>
             ))}
           </View>
+
+          {Platform.OS === "web" ? (
+            <View style={[styles.card, styles.webPushCard]}>
+              <View style={styles.webPushHeader}>
+                <Text style={styles.cardTitle}>{copy.webPush.title}</Text>
+                <Text style={styles.webPushStatus}>
+                  {webPushSupported
+                    ? webPushSubscribed
+                      ? copy.webPush.statusEnabled
+                      : copy.webPush.statusDisabled
+                    : copy.webPush.unsupported}
+                </Text>
+              </View>
+              <Text style={styles.webPushDescription}>{copy.webPush.description}</Text>
+              {webPushSupported ? (
+                <View style={styles.webPushActions}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.webPushButton,
+                      pressed && styles.buttonPressed,
+                      webPushLoading && styles.disabled
+                    ]}
+                    onPress={handleWebPushToggle}
+                    disabled={webPushLoading}
+                  >
+                    <Text style={styles.webPushButtonText}>
+                      {webPushSubscribed ? copy.webPush.disable : copy.webPush.enable}
+                    </Text>
+                  </Pressable>
+                  {webPushSubscribed ? (
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.webPushSecondary,
+                        pressed && styles.buttonPressed,
+                        webPushLoading && styles.disabled
+                      ]}
+                      onPress={handleWebPushTest}
+                      disabled={webPushLoading}
+                    >
+                      {webPushLoading ? (
+                        <ActivityIndicator color={PALETTE.sand} />
+                      ) : (
+                        <Text style={styles.webPushSecondaryText}>{copy.webPush.test}</Text>
+                      )}
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
 
           <View style={[styles.card, styles.accountCard]}>
             <Text style={styles.cardTitle}>{copy.account}</Text>
@@ -284,6 +444,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
+    paddingTop: 24,
     paddingBottom: 8
   },
   headerButton: {
@@ -310,6 +471,52 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(217,192,143,0.35)",
     overflow: "hidden"
+  },
+  webPushCard: {
+    padding: 16,
+    gap: 12
+  },
+  webPushHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  webPushStatus: {
+    color: "rgba(242, 231, 215, 0.7)",
+    fontSize: 12,
+    fontWeight: "600"
+  },
+  webPushDescription: {
+    color: "rgba(242, 231, 215, 0.7)",
+    fontSize: 13
+  },
+  webPushActions: {
+    flexDirection: "row",
+    gap: 10,
+    flexWrap: "wrap"
+  },
+  webPushButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: PALETTE.gold
+  },
+  webPushButtonText: {
+    color: PALETTE.deep,
+    fontWeight: "700",
+    fontSize: 13
+  },
+  webPushSecondary: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.2,
+    borderColor: "rgba(217,192,143,0.35)"
+  },
+  webPushSecondaryText: {
+    color: PALETTE.sand,
+    fontWeight: "600",
+    fontSize: 13
   },
   row: {
     flexDirection: "row",

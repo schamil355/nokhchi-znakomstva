@@ -56,10 +56,34 @@ type MetricPayload = {
   reportedUsers?: Array<{ targetId: string; count: number; lastReportedAt: string; reporters: string[] }>;
 };
 
+type MixedMatchRow = {
+  match_id: string;
+  male_user_id: string;
+  female_user_id: string;
+  created_at: string;
+};
+
+type MixedMatchesResponse = {
+  items: MixedMatchRow[];
+  hasMore: boolean;
+  nextOffset: number | null;
+  limit: number;
+};
+
+const MIXED_MATCHES_PAGE_SIZE = 200;
+
 const MetricsPage = () => {
   const [data, setData] = React.useState<MetricPayload | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [mixedMatches, setMixedMatches] = React.useState<MixedMatchRow[]>([]);
+  const [mixedMatchesError, setMixedMatchesError] = React.useState<string | null>(null);
+  const [mixedMatchesLoading, setMixedMatchesLoading] = React.useState(false);
+  const [mixedMatchesHasMore, setMixedMatchesHasMore] = React.useState(true);
+  const [mixedMatchesOffset, setMixedMatchesOffset] = React.useState(0);
+  const [mixedMatchesFrom, setMixedMatchesFrom] = React.useState("");
+  const [mixedMatchesTo, setMixedMatchesTo] = React.useState("");
+  const [mixedMatchesApplied, setMixedMatchesApplied] = React.useState({ from: "", to: "" });
 
   const fetchMetrics = React.useCallback(async () => {
     try {
@@ -82,6 +106,71 @@ const MetricsPage = () => {
     const interval = setInterval(fetchMetrics, 30000);
     return () => clearInterval(interval);
   }, [fetchMetrics]);
+
+  const loadMixedMatches = React.useCallback(async () => {
+    setMixedMatchesLoading(true);
+    setMixedMatchesError(null);
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", String(MIXED_MATCHES_PAGE_SIZE));
+      params.set("offset", String(mixedMatchesOffset));
+      if (mixedMatchesApplied.from) {
+        params.set("from", mixedMatchesApplied.from);
+      }
+      if (mixedMatchesApplied.to) {
+        params.set("to", mixedMatchesApplied.to);
+      }
+      const res = await fetch(`/api/metrics/mixed-matches?${params.toString()}`, { cache: "no-store" });
+      const payload = (await res.json()) as MixedMatchesResponse & { error?: string };
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Failed to load matches");
+      }
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      setMixedMatches((prev) => (mixedMatchesOffset === 0 ? items : [...prev, ...items]));
+      setMixedMatchesHasMore(Boolean(payload.hasMore));
+    } catch (err: any) {
+      setMixedMatchesError(err?.message ?? "Failed to load matches");
+    } finally {
+      setMixedMatchesLoading(false);
+    }
+  }, [mixedMatchesApplied, mixedMatchesOffset]);
+
+  React.useEffect(() => {
+    loadMixedMatches();
+  }, [loadMixedMatches]);
+
+  const toIsoOrEmpty = (value: string) => {
+    if (!value) return "";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return parsed.toISOString();
+  };
+
+  const applyMixedMatchesFilters = () => {
+    setMixedMatches([]);
+    setMixedMatchesHasMore(true);
+    setMixedMatchesOffset(0);
+    setMixedMatchesApplied({
+      from: toIsoOrEmpty(mixedMatchesFrom),
+      to: toIsoOrEmpty(mixedMatchesTo)
+    });
+  };
+
+  const resetMixedMatchesFilters = () => {
+    setMixedMatchesFrom("");
+    setMixedMatchesTo("");
+    setMixedMatches([]);
+    setMixedMatchesHasMore(true);
+    setMixedMatchesOffset(0);
+    setMixedMatchesApplied({ from: "", to: "" });
+  };
+
+  const loadMoreMixedMatches = () => {
+    if (mixedMatchesLoading || !mixedMatchesHasMore) {
+      return;
+    }
+    setMixedMatchesOffset((prev) => prev + MIXED_MATCHES_PAGE_SIZE);
+  };
 
   if (loading) {
     return (
@@ -126,6 +215,17 @@ const MetricsPage = () => {
   const ACCENT = "#0d6e4f";
   const topFemale = data.topFemale ?? [];
   const topMale = data.topMale ?? [];
+  const formatMatchCreatedAt = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return new Intl.DateTimeFormat("de-DE", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(date);
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900">
@@ -208,6 +308,100 @@ const MetricsPage = () => {
           <TopList rows={topMale} />
         </Panel>
       </div>
+
+      <Panel title="Matches (m/w)">
+        <div className="grid gap-3 md:grid-cols-4 items-end">
+          <label className="text-xs text-slate-400">
+            <span>Von (Datum/Uhrzeit)</span>
+            <input
+              type="datetime-local"
+              value={mixedMatchesFrom}
+              onChange={(event) => setMixedMatchesFrom(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-200"
+            />
+          </label>
+          <label className="text-xs text-slate-400">
+            <span>Bis (Datum/Uhrzeit)</span>
+            <input
+              type="datetime-local"
+              value={mixedMatchesTo}
+              onChange={(event) => setMixedMatchesTo(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-200"
+            />
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={applyMixedMatchesFilters}
+              disabled={mixedMatchesLoading}
+              className="rounded-md bg-emerald-600/80 px-3 py-2 text-xs font-semibold text-emerald-50 hover:bg-emerald-600 disabled:opacity-50"
+            >
+              Filtern
+            </button>
+            <button
+              type="button"
+              onClick={resetMixedMatchesFilters}
+              disabled={mixedMatchesLoading}
+              className="rounded-md border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800/60 disabled:opacity-50"
+            >
+              Zurücksetzen
+            </button>
+          </div>
+          <div className="text-xs text-slate-400 md:text-right">
+            {mixedMatches.length} Einträge
+          </div>
+        </div>
+
+        {mixedMatchesError ? (
+          <div className="mt-3 rounded-lg border border-rose-800/50 bg-rose-900/20 px-3 py-2 text-xs text-rose-200">
+            {mixedMatchesError}
+          </div>
+        ) : null}
+
+        <div className="mt-3 max-h-96 overflow-auto rounded-lg border border-slate-800 bg-slate-900/70">
+          <table className="w-full text-sm text-slate-200">
+            <thead className="bg-slate-900 text-slate-400 text-xs uppercase">
+              <tr>
+                <th className="px-3 py-2 text-left">Match ID</th>
+                <th className="px-3 py-2 text-left">Male ID</th>
+                <th className="px-3 py-2 text-left">Female ID</th>
+                <th className="px-3 py-2 text-left">Datum/Uhrzeit</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {mixedMatches.map((row) => (
+                <tr key={row.match_id} className="hover:bg-slate-800/40">
+                  <td className="px-3 py-2 text-xs text-slate-400">{row.match_id}</td>
+                  <td className="px-3 py-2 text-xs text-slate-400">{row.male_user_id}</td>
+                  <td className="px-3 py-2 text-xs text-slate-400">{row.female_user_id}</td>
+                  <td className="px-3 py-2 text-xs text-slate-300">
+                    {formatMatchCreatedAt(row.created_at)}
+                  </td>
+                </tr>
+              ))}
+              {mixedMatches.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-3 py-3 text-center text-slate-500">
+                    Keine Daten
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+          <span>{mixedMatchesLoading ? "Lade…" : mixedMatchesHasMore ? "Weitere Einträge verfügbar" : "Keine weiteren Einträge"}</span>
+          <button
+            type="button"
+            onClick={loadMoreMixedMatches}
+            disabled={mixedMatchesLoading || !mixedMatchesHasMore}
+            className="rounded-md border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800/60 disabled:opacity-50"
+          >
+            {mixedMatchesLoading ? "Lade…" : "Mehr laden"}
+          </button>
+        </div>
+      </Panel>
 
       <Panel title="Gemeldete Profile">
         <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-900/70">

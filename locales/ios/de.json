@@ -1,7 +1,7 @@
 {
   "NSCameraUsageDescription": "Wir benötigen die Kamera für Profilfotos.",
-  "NSPhotoLibraryUsageDescription": "Wir nutzen deine Fotos, damit du Profilbilder hochladen und dich für Matches verifizieren kannst.",
+  "NSPhotoLibraryUsageDescription": "Wir nutzen deine Fotos, damit du Profilbilder hochladen und dich für verifizierte Verbindungen bestätigen kannst.",
   "NSLocationWhenInUseUsageDescription": "Wir nutzen deinen Standort, um dir Profile in deiner Nähe anzuzeigen und Radius/Unsichtbar-Einstellungen anzuwenden.",
-  "NSLocationAlwaysUsageDescription": "Wir verwenden deinen Standort nur, um dir relevante Matches in deiner Nähe zu zeigen und deinen Radius zu berücksichtigen.",
+  "NSLocationAlwaysUsageDescription": "Wir verwenden deinen Standort nur, um dir relevante Verbindungen in deiner Nähe zu zeigen und deinen Radius zu berücksichtigen.",
   "NSLocationAlwaysAndWhenInUseUsageDescription": "Wir nutzen deinen Standort nur bei aktiver Nutzung, um nahe Profile zu zeigen und deinen Radius/Unsichtbar-Einstellungen zu folgen."
 }

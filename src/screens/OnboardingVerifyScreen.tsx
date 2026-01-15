@@ -29,7 +29,7 @@ type Props = NativeStackScreenProps<any>;
 const translations = {
   en: {
     title: "Verify yourself",
-    subtitle: "Verified profiles receive three times more likes and matches.",
+    subtitle: "Verified profiles receive three times more connections.",
     guidelines: [
       "Photos must match the scan.",
       "Ensure good lighting.",
@@ -49,7 +49,7 @@ const translations = {
   },
   de: {
     title: "Verifiziere dich",
-    subtitle: "Verifizierte Profile erhalten dreimal mehr Likes und Matches.",
+    subtitle: "Verifizierte Profile erhalten dreimal mehr Verbindungen.",
     guidelines: [
       "Die Fotos müssen mit dem Scan übereinstimmen.",
       "Das Licht sollte gut sein.",
@@ -69,7 +69,7 @@ const translations = {
   },
   fr: {
     title: "Vérifie ton profil",
-    subtitle: "Les profils vérifiés reçoivent trois fois plus de likes et de matchs.",
+    subtitle: "Les profils vérifiés reçoivent trois fois plus de connexions.",
     guidelines: [
       "Les photos doivent correspondre au scan.",
       "La lumière doit être bonne.",
@@ -89,7 +89,7 @@ const translations = {
   },
   ru: {
     title: "Подтверди себя",
-    subtitle: "Подтверждённые профили получают в три раза больше лайков и матчей.",
+    subtitle: "Подтверждённые профили получают в три раза больше связей.",
     guidelines: [
       "Фото должны совпадать с селфи-сканом.",
       "Нужно хорошее освещение.",

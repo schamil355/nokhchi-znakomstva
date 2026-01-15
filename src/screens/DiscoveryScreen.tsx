@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import SafeAreaView from "../components/SafeAreaView";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDiscoveryFeed, useRecentProfiles } from "../hooks/useDiscoveryFeed";
 import { sendLike, skipProfile } from "../services/discoveryService";
 import { ensureDirectConversation } from "../services/directChatService";
-import { reportUser } from "../services/moderationService";
+import { blockUser, reportUser } from "../services/moderationService";
 import { useAuthStore } from "../state/authStore";
 import { usePreferencesStore } from "../state/preferencesStore";
 import { Profile } from "../types";
@@ -18,6 +19,7 @@ import * as Notifications from "expo-notifications";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRevenueCat } from "../hooks/useRevenueCat";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
+import { calculateCompassAlignment } from "../lib/matchEngine";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -51,104 +53,119 @@ type CopyShape = {
     report: string;
     reportTitle: string;
     reportBody: string;
-    reportConfirm: string;
+    reportOnly: string;
+    blockAndReport: string;
     reportCancel: string;
     reportSuccess: string;
     reportFailed: string;
+    blockSuccess: string;
+    blockFailed: string;
   };
 };
 
 const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   en: {
-    tabs: { forYou: "For you", recent: "Recently active" },
-    matchTitle: "New match!",
-    matchBody: (name) => `You and ${name} are now a match.`,
-    matchAlertBody: "Someone liked you back. You can start chatting now.",
+    tabs: { forYou: "For you", recent: "Recently verified" },
+    matchTitle: "New connection!",
+    matchBody: (name) => `You and ${name} are now connected.`,
+    matchAlertBody: "A mutual introduction was created. You can start chatting now.",
     fallbackName: "someone",
     errors: {
       title: "Error",
-      likeFallback: "We couldn't send your like.",
+      likeFallback: "We couldn't send your request.",
       skipFallback: "Couldn't skip this profile."
     },
     actions: {
-      directChat: "Direct chat",
-      directChatFailed: "Couldn't start a direct chat.",
+      directChat: "Direct intro",
+      directChatFailed: "Couldn't start a direct intro.",
       report: "Report",
       reportTitle: "Report this profile?",
-      reportBody: "We will review the report and may block this user.",
-      reportConfirm: "Report",
+      reportBody: "We will review the report. You can also block this user immediately.",
+      reportOnly: "Report only",
+      blockAndReport: "Block & report",
       reportCancel: "Cancel",
       reportSuccess: "Report received. Thank you.",
-      reportFailed: "Report failed. Please try again."
+      reportFailed: "Report failed. Please try again.",
+      blockSuccess: "User blocked and reported.",
+      blockFailed: "Blocking failed. Please try again."
     },
   },
   de: {
-    tabs: { forYou: "Für dich", recent: "Zuletzt aktiv" },
-    matchTitle: "Neues Match!",
-    matchBody: (name) => `Du und ${name} seid jetzt ein Match.`,
-    matchAlertBody: "Jemand hat dich auch gemocht. Ihr könnt jetzt chatten.",
+    tabs: { forYou: "Für dich", recent: "Kürzlich verifiziert" },
+    matchTitle: "Neue Verbindung!",
+    matchBody: (name) => `Du und ${name} seid jetzt verbunden.`,
+    matchAlertBody: "Es gibt eine gegenseitige Einführung. Ihr könnt jetzt chatten.",
     fallbackName: "jemand",
     errors: {
       title: "Fehler",
-      likeFallback: "Dein Like konnte nicht gesendet werden.",
+      likeFallback: "Deine Anfrage konnte nicht gesendet werden.",
       skipFallback: "Profil konnte nicht übersprungen werden."
     },
     actions: {
-      directChat: "Direktchat",
-      directChatFailed: "Direktchat konnte nicht gestartet werden.",
+      directChat: "Direktkontakt",
+      directChatFailed: "Direktkontakt konnte nicht gestartet werden.",
       report: "Melden",
       reportTitle: "Profil melden?",
-      reportBody: "Wir prüfen Meldungen und können den Nutzer blockieren.",
-      reportConfirm: "Melden",
+      reportBody: "Wir prüfen Meldungen. Du kannst den Nutzer auch sofort blockieren.",
+      reportOnly: "Nur melden",
+      blockAndReport: "Blockieren & melden",
       reportCancel: "Abbrechen",
       reportSuccess: "Meldung erhalten. Danke!",
-      reportFailed: "Meldung fehlgeschlagen."
+      reportFailed: "Meldung fehlgeschlagen.",
+      blockSuccess: "Nutzer blockiert und gemeldet.",
+      blockFailed: "Blockieren fehlgeschlagen."
     },
   },
   fr: {
-    tabs: { forYou: "Pour toi", recent: "Récemment actif" },
-    matchTitle: "Nouveau match !",
+    tabs: { forYou: "Pour toi", recent: "Récemment vérifiés" },
+    matchTitle: "Nouvelle connexion !",
     matchBody: (name) => `Toi et ${name} êtes désormais connectés.`,
-    matchAlertBody: "Quelqu'un t'a rendu ton like. Discute dès maintenant.",
+    matchAlertBody: "Une introduction mutuelle a été créée. Tu peux discuter maintenant.",
     fallbackName: "quelqu'un",
     errors: {
       title: "Erreur",
-      likeFallback: "Impossible d'envoyer ton like.",
+      likeFallback: "Impossible d'envoyer ta demande.",
       skipFallback: "Impossible d'ignorer ce profil."
     },
     actions: {
-      directChat: "Direct chat",
-      directChatFailed: "Impossible d'ouvrir le direct chat.",
+      directChat: "Contact direct",
+      directChatFailed: "Impossible d'ouvrir le contact direct.",
       report: "Signaler",
       reportTitle: "Signaler ce profil ?",
-      reportBody: "Nous examinerons ce signalement et pourrons bloquer l'utilisateur.",
-      reportConfirm: "Signaler",
+      reportBody: "Nous examinerons ce signalement. Tu peux aussi bloquer l'utilisateur.",
+      reportOnly: "Signaler seulement",
+      blockAndReport: "Bloquer et signaler",
       reportCancel: "Annuler",
       reportSuccess: "Signalement reçu. Merci.",
-      reportFailed: "Échec du signalement. Réessaie."
+      reportFailed: "Échec du signalement. Réessaie.",
+      blockSuccess: "Utilisateur bloqué et signalé.",
+      blockFailed: "Échec du blocage."
     },
   },
   ru: {
-    tabs: { forYou: "Для тебя", recent: "Недавно активны" },
-    matchTitle: "Новый матч!",
-    matchBody: (name) => `Вы и ${name} теперь совпали.`,
-    matchAlertBody: "Кто-то взаимно лайкнул тебя. Можно начинать диалог.",
+    tabs: { forYou: "Для тебя", recent: "Недавно проверены" },
+    matchTitle: "Новая связь!",
+    matchBody: (name) => `Вы и ${name} теперь на связи.`,
+    matchAlertBody: "Создана взаимная связь. Можно начинать диалог.",
     fallbackName: "кто-то",
     errors: {
       title: "Ошибка",
-      likeFallback: "Не удалось отправить лайк.",
+      likeFallback: "Не удалось отправить запрос.",
       skipFallback: "Не удалось пропустить профиль."
     },
     actions: {
-      directChat: "Прямой чат",
-      directChatFailed: "Не удалось открыть прямой чат.",
+      directChat: "Прямая связь",
+      directChatFailed: "Не удалось начать прямую связь.",
       report: "Пожаловаться",
       reportTitle: "Пожаловаться на профиль?",
-      reportBody: "Мы рассмотрим жалобу и можем заблокировать пользователя.",
-      reportConfirm: "Пожаловаться",
+      reportBody: "Мы рассмотрим жалобу. Вы также можете заблокировать пользователя.",
+      reportOnly: "Только жалоба",
+      blockAndReport: "Заблокировать и пожаловаться",
       reportCancel: "Отмена",
       reportSuccess: "Жалоба отправлена. Спасибо.",
-      reportFailed: "Не удалось отправить жалобу."
+      reportFailed: "Не удалось отправить жалобу.",
+      blockSuccess: "Пользователь заблокирован и жалоба отправлена.",
+      blockFailed: "Не удалось заблокировать."
     },
   },
 };
@@ -156,6 +173,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   const copy = useLocalizedCopy(translations);
   const errorCopy = useErrorCopy();
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const {
     data: discoveryProfiles = [],
     isLoading: isDiscoveryLoading,
@@ -164,7 +182,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   } = useDiscoveryFeed();
   const [processing, setProcessing] = useState(false);
   const [isStartingDirect, setIsStartingDirect] = useState(false);
-  const [isReporting, setIsReporting] = useState(false);
+  const [isModerating, setIsModerating] = useState(false);
   const [activeTab, setActiveTab] = useState<"forYou" | "recent">("forYou");
   const [queues, setQueues] = useState<{ forYou: Profile[]; recent: Profile[] }>({
     forYou: [],
@@ -178,6 +196,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     isRefetching: isRecentRefetching
   } = useRecentProfiles(activeTab === "recent");
   const session = useAuthStore((state) => state.session);
+  const viewerProfile = useAuthStore((state) => state.profile);
   const isPremium = useAuthStore((state) => state.profile?.isPremium ?? false);
   const { isPro } = useRevenueCat({ loadOfferings: false });
   const hasPremiumAccess = isPremium || isPro;
@@ -232,6 +251,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
 
   const queue = queues[activeTab];
   const currentProfile: Profile | undefined = queue[0];
+  const compassSummary =
+    viewerProfile && currentProfile
+      ? calculateCompassAlignment(viewerProfile, currentProfile)
+      : null;
+
 
   const maybeExtendDistance = useCallback(() => {
     if (!filters.autoExtendDistance || filters.distanceKm >= MAX_DISTANCE_KM) {
@@ -350,25 +374,42 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   ]);
 
   const handleReportProfile = useCallback(() => {
-    if (!session?.user?.id || !currentProfile?.userId || isReporting) {
+    if (!session?.user?.id || !currentProfile?.userId || isModerating) {
       return;
     }
     Alert.alert(copy.actions.reportTitle, copy.actions.reportBody, [
       { text: copy.actions.reportCancel, style: "cancel" },
       {
-        text: copy.actions.reportConfirm,
-        style: "destructive",
+        text: copy.actions.reportOnly,
+        style: "default",
         onPress: async () => {
-          setIsReporting(true);
+          setIsModerating(true);
           try {
             await reportUser(session.user.id, currentProfile.userId, "abuse");
             Alert.alert(copy.actions.reportSuccess);
-            advanceQueue();
           } catch (error) {
             console.warn("Failed to report user from discovery", error);
             Alert.alert(copy.actions.reportFailed);
           } finally {
-            setIsReporting(false);
+            setIsModerating(false);
+          }
+        }
+      },
+      {
+        text: copy.actions.blockAndReport,
+        style: "destructive",
+        onPress: async () => {
+          setIsModerating(true);
+          try {
+            await reportUser(session.user.id, currentProfile.userId, "abuse");
+            await blockUser(session.user.id, currentProfile.userId);
+            Alert.alert(copy.actions.blockSuccess);
+            advanceQueue();
+          } catch (error) {
+            console.warn("Failed to block/report user from discovery", error);
+            Alert.alert(copy.actions.blockFailed);
+          } finally {
+            setIsModerating(false);
           }
         }
       }
@@ -377,12 +418,15 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     advanceQueue,
     copy.actions.reportBody,
     copy.actions.reportCancel,
-    copy.actions.reportConfirm,
+    copy.actions.reportOnly,
+    copy.actions.blockAndReport,
     copy.actions.reportFailed,
     copy.actions.reportSuccess,
     copy.actions.reportTitle,
+    copy.actions.blockFailed,
+    copy.actions.blockSuccess,
     currentProfile?.userId,
-    isReporting,
+    isModerating,
     session?.user?.id
   ]);
 
@@ -443,10 +487,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       end={{ x: 0, y: 1 }}
       style={{ flex: 1 }}
     >
-      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]} topPadding={0}>
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: Math.max(32, insets.bottom + 48) }
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -502,8 +549,14 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
               onDirectChat={handleDirectChat}
               onReport={handleReportProfile}
               directChatDisabled={isStartingDirect}
-              reportDisabled={isReporting}
+              reportDisabled={isModerating}
               showActions={canInteract}
+              fillHeight
+              compassSummary={
+                compassSummary && compassSummary.total > 0
+                  ? { matches: compassSummary.matches, total: compassSummary.total }
+                  : undefined
+              }
             />
           ) : (
             <EmptyFeed
@@ -530,8 +583,8 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent"
   },
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 28,
+    paddingHorizontal: 16,
+    paddingTop: 0,
     paddingBottom: 32,
     flexGrow: 1,
     backgroundColor: "transparent"
@@ -547,7 +600,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     backgroundColor: "transparent",
-    paddingBottom: 12
+    paddingBottom: 6
   },
   headerRow: {
     flexDirection: "row",
@@ -564,7 +617,7 @@ const styles = StyleSheet.create({
   tabRow: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 12
+    marginBottom: 6
   },
   tabButton: {
     borderRadius: 999,

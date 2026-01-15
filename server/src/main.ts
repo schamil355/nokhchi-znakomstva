@@ -18,8 +18,35 @@ Sentry.init({
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     snapshot: true,
+    rawBody: true,
   });
   const supabase = getSupabaseAdminClient();
+
+  const defaultCorsOrigins = [
+    "http://localhost:8081",
+    "http://localhost:4173",
+    "http://127.0.0.1:8081",
+    "http://127.0.0.1:4173",
+    "https://nokhchi-znakomstva.com",
+    "https://www.nokhchi-znakomstva.com",
+  ];
+  const envCorsOrigins = (process.env.CORS_ORIGINS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const allowedCorsOrigins = Array.from(new Set([...defaultCorsOrigins, ...envCorsOrigins]));
+
+  app.enableCors({
+    origin: (origin, callback) => {
+      if (!origin || allowedCorsOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked for origin: ${origin}`), false);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Authorization", "Content-Type"],
+  });
 
   app.use(async (req: Request & { user?: any }, _res: Response, next: NextFunction) => {
     const authHeader = req.headers["authorization"] ?? "";

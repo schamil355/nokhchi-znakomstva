@@ -101,7 +101,7 @@ const persistLocationToSupabase = async (location: OnboardingLocation) => {
 const translations = {
   en: {
     titleAccent: "Enable location,",
-    title: "love might be just around the corner.",
+    title: "trusted connections might be nearby.",
     statusGranted: "Location enabled. We'll show you matches nearby.",
     statusDenied: "Location was denied. You can allow it in Settings anytime.",
     statusBlocked: "Location is blocked. Please open Settings to allow it.",
@@ -119,7 +119,7 @@ const translations = {
   },
   de: {
     titleAccent: "Standort aktivieren,",
-    title: "dein perfektes Match könnte ganz nah bei dir sein.",
+    title: "vertrauensvolle Verbindungen könnten ganz nah sein.",
     statusGranted: "Standort wurde aktiviert. Wir zeigen dir passende Profile in deiner Nähe.",
     statusDenied: "Standort wurde abgelehnt. Du kannst ihn jederzeit in den Einstellungen aktivieren.",
     statusBlocked: "Standort ist blockiert. Bitte öffne die Einstellungen, um ihn freizugeben.",
@@ -137,7 +137,7 @@ const translations = {
   },
   fr: {
     titleAccent: "Active la localisation,",
-    title: "l'amour est peut-être juste à côté.",
+    title: "des connexions vérifiées sont peut-être proches.",
     statusGranted: "Localisation activée. Nous te montrons des profils proches.",
     statusDenied: "Localisation refusée. Tu peux l'autoriser à tout moment dans les réglages.",
     statusBlocked: "Localisation bloquée. Ouvre les réglages pour l'autoriser.",
@@ -155,7 +155,7 @@ const translations = {
   },
   ru: {
     titleAccent: "Включи геолокацию,",
-    title: "Твоя идеальная пара может быть совсем рядом с тобой.",
+    title: "проверенные связи могут быть совсем рядом с тобой.",
     statusGranted: "Локация включена. Мы покажем тебе анкеты поблизости.",
     statusDenied: "Локация отклонена. Ты можешь разрешить её в настройках.",
     statusBlocked: "Локация заблокирована. Открой настройки, чтобы разрешить.",

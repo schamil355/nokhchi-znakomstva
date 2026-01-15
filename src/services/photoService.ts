@@ -7,7 +7,11 @@ import { getCurrentLocale } from "../localization/LocalizationProvider";
 import { PROFILE_BUCKET } from "../lib/storage";
 import * as ImageManipulator from "expo-image-manipulator";
 
-const rawApiBase = process.env.EXPO_PUBLIC_API_URL ?? Constants.expoConfig?.extra?.apiUrl ?? null;
+const rawApiBase =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_API_URL ??
+  Constants.expoConfig?.extra?.apiUrl ??
+  null;
 const API_BASE = rawApiBase ? rawApiBase.replace(/\/$/, "") : null;
 
 const serviceCopy: Record<string, Record<string, string>> = {
@@ -187,6 +191,8 @@ export const updatePrivacySettings = (payload: {
   show_last_seen?: boolean;
   hide_nearby?: boolean;
   hide_nearby_radius?: number;
+  latitude?: number;
+  longitude?: number;
 }) =>
   jsonRequest<{ ok: boolean }>("/v1/settings/privacy", payload);
 

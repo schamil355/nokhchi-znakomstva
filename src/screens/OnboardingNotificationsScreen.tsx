@@ -313,6 +313,7 @@ const OnboardingNotificationsScreen = ({ navigation }: Props) => {
   const showSettingsCta =
     permissionStatus === "blocked" || permissionStatus === "denied" || permissionStatus === "unavailable";
   const showDevTools = IS_DEV && devHarnessActive;
+  const showSkip = Platform.OS === "web" || showSettingsCta;
 
   return (
     <LinearGradient
@@ -439,6 +440,11 @@ const OnboardingNotificationsScreen = ({ navigation }: Props) => {
               </LinearGradient>
             )}
           </Pressable>
+          {showSkip ? (
+            <Pressable onPress={continueToNext}>
+              <Text style={styles.skipText}>{copy.skip}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </SafeAreaView>
     </LinearGradient>

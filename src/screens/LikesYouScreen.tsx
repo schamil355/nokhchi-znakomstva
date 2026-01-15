@@ -31,28 +31,30 @@ const translations = {
   de: {
     title: "Mochten dich",
     lockedCta: "Sieh, wer dich geliket hat",
-    lockedHint: "Upgrade auf Premium, um alle Likes zu sehen.",
+    lockedHint: "Upgrade auf Premium, um alle Anfragen zu sehen.",
     unlocked: "Premium aktiv",
-    empty: "Noch keine Likes."
+    empty: "Noch keine Anfragen."
   },
   en: {
-    title: "Likes you",
-    lockedCta: "See who liked you",
-    lockedHint: "Upgrade to Premium to reveal your likes.",
+    title: "People liked you",
+    lockedCta: "See who requested an intro",
+    lockedHint: "Upgrade to Premium to reveal your requests.",
     unlocked: "Premium active",
-    empty: "No likes yet."
+    empty: "No requests yet."
   },
   fr: {
-    title: "T'ont aimé",
-    lockedCta: "Voir qui t'a liké",
-    lockedHint: "Passe en Premium pour voir tes likes.",
-    unlocked: "Premium actif"
+    title: "On t’aimait bien",
+    lockedCta: "Découvrez qui vous a liké",
+    lockedHint: "Passe en Premium pour voir toutes les demandes.",
+    unlocked: "Premium actif",
+    empty: "Pas encore de demandes."
   },
   ru: {
-    title: "Вам поставили лайк",
-    lockedCta: "Посмотреть, кто лайкнул",
-    lockedHint: "Обнови до Premium, чтобы увидеть всех.",
-    unlocked: "Premium активен"
+    title: "Вы получили лайк",
+    lockedCta: "Смотрите, кто вас лайкнул",
+    lockedHint: "Обнови до Premium, чтобы увидеть все запросы.",
+    unlocked: "Premium активен",
+    empty: "Пока нет запросов."
   }
 };
 
@@ -166,35 +168,38 @@ const LikesYouScreen = () => {
             columnWrapperStyle={styles.row}
             contentContainerStyle={styles.grid}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-            renderItem={({ item }) => (
-              <Pressable style={styles.card} onPress={() => handleOpenChat(item)} disabled={isStartingDirect}>
-                <View style={styles.avatarWrapper}>
-                  {("photos" in item ? item.photos?.[0]?.url : item.photo) ? (
-                    <>
-                      <Image
-                        source={{ uri: ("photos" in item ? item.photos?.[0]?.url : item.photo) ?? undefined }}
-                        style={styles.avatar}
-                        blurRadius={locked ? 70 : 0}
-                        resizeMode="cover"
-                      />
-                      {locked && <View style={styles.blurOverlay} />}
-                    </>
-                  ) : (
-                    <View style={styles.avatarPlaceholder} />
-                  )}
-                </View>
-                <View style={styles.metaRow}>
-                  <Text style={styles.name} numberOfLines={1}>
-                    {`${"displayName" in item ? item.displayName : "Profil"}, ${calculateAge(
-                      "birthday" in item ? item.birthday : null
-                    )}`}
-                  </Text>
-                  {"verified" in item && item.verified && (
-                    <Image source={VerifiedBadgePng} style={styles.verifiedIcon} resizeMode="contain" />
-                  )}
-                </View>
-              </Pressable>
-            )}
+            renderItem={({ item }) => {
+              const avatarUrl = item.photos?.[0]?.url ?? null;
+              const displayName = item.displayName || "Profil";
+              const age = calculateAge(item.birthday);
+              return (
+                <Pressable style={styles.card} onPress={() => handleOpenChat(item)} disabled={isStartingDirect}>
+                  <View style={styles.avatarWrapper}>
+                    {avatarUrl ? (
+                      <>
+                        <Image
+                          source={{ uri: avatarUrl }}
+                          style={styles.avatar}
+                          blurRadius={locked ? 70 : 0}
+                          resizeMode="cover"
+                        />
+                        {locked && <View style={styles.blurOverlay} />}
+                      </>
+                    ) : (
+                      <View style={styles.avatarPlaceholder} />
+                    )}
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.name} numberOfLines={1}>
+                      {`${displayName}, ${age}`}
+                    </Text>
+                    {item.verified && (
+                      <Image source={VerifiedBadgePng} style={styles.verifiedIcon} resizeMode="contain" />
+                    )}
+                  </View>
+                </Pressable>
+              );
+            }}
             ListEmptyComponent={null}
           />
         </View>

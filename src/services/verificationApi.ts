@@ -1,7 +1,11 @@
 import Constants from "expo-constants";
 import { useAuthStore } from "../state/authStore";
 
-const rawApiBase = process.env.EXPO_PUBLIC_API_URL ?? Constants.expoConfig?.extra?.apiUrl ?? null;
+const rawApiBase =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_API_URL ??
+  Constants.expoConfig?.extra?.apiUrl ??
+  null;
 const API_BASE = rawApiBase ? rawApiBase.replace(/\/$/, "") : null;
 
 const ensureApiBase = () => {
@@ -12,6 +16,20 @@ const ensureApiBase = () => {
 };
 
 const withCode = (code: string, message?: string) => Object.assign(new Error(message ?? code), { code });
+
+const extractErrorMessage = (payload: any, fallback: string) => {
+  if (!payload) {
+    return fallback;
+  }
+  const rawMessage = payload.message ?? payload.error ?? fallback;
+  if (Array.isArray(rawMessage)) {
+    return rawMessage.filter(Boolean).join(", ") || fallback;
+  }
+  if (typeof rawMessage === "string" && rawMessage.trim().length > 0) {
+    return rawMessage;
+  }
+  return fallback;
+};
 
 const getAccessToken = () => {
   const token = useAuthStore.getState().session?.access_token;
@@ -39,7 +57,7 @@ export const startVerificationSession = async (): Promise<VerificationSession> =
     let message = "Failed to start verification.";
     try {
       const payload = await response.json();
-      message = payload.error ?? payload.message ?? message;
+      message = extractErrorMessage(payload, message);
     } catch {
       // ignore
     }
@@ -79,7 +97,7 @@ export const uploadVerificationSelfie = async (params: {
     try {
       payloadText = await response.text();
       const payload = JSON.parse(payloadText);
-      message = payload.error ?? payload.message ?? message;
+      message = extractErrorMessage(payload, message);
     } catch {
       // ignore parse errors
     }

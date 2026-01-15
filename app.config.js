@@ -16,8 +16,6 @@ export default ({ config }) => ({
       NSPhotoLibraryUsageDescription: "Доступ к фотогалерее нужен, чтобы загружать и выбирать твои фото для профиля.",
       NSPhotoLibraryAddUsageDescription: "Разреши сохранять фото, чтобы мы могли сохранять твои профильные снимки в галерее.",
       NSLocationWhenInUseUsageDescription: "Доступ к геолокации нужен, чтобы показывать профили поблизости и работать \"Невидимка рядом\".",
-      NSLocationAlwaysUsageDescription: "Геолокация используется только для подбора анкет поблизости и функции \"Невидимка рядом\".",
-      NSLocationAlwaysAndWhenInUseUsageDescription: "Мы используем местоположение только во время активной работы приложения для поиска анкет поблизости.",
       NSMicrophoneUsageDescription: "Доступ к микрофону нужен для записи голосовых сообщений."
     }
   },
@@ -25,6 +23,15 @@ export default ({ config }) => ({
     ...(config.android ?? {}),
     package: process.env.EXPO_PUBLIC_ANDROID_PACKAGE ?? "com.zelimkhan.meetmateclean",
     appName: "Нохчи Знакомства"
+  },
+  web: {
+    ...(config.web ?? {}),
+    name: "Нохчи Знакомства",
+    shortName: "Нохчи",
+    themeColor: "#0b1f16",
+    backgroundColor: "#0b1f16",
+    display: "standalone",
+    startUrl: "/?source=pwa"
   },
   splash: {
     image: "./assets/icon.png",
@@ -40,10 +47,12 @@ export default ({ config }) => ({
     emailRedirectUrl: process.env.EXPO_PUBLIC_EMAIL_REDIRECT_URL,
     EXPO_PROJECT_ID: process.env.EXPO_PROJECT_ID,
     EXPO_PUBLIC_STORAGE_PUBLIC: process.env.EXPO_PUBLIC_STORAGE_PUBLIC,
+    EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
     EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
     EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     EXPO_PUBLIC_VERIFY_PROVIDER: process.env.EXPO_PUBLIC_VERIFY_PROVIDER,
     EXPO_PUBLIC_VERIFY_ENDPOINT: process.env.EXPO_PUBLIC_VERIFY_ENDPOINT,
-    EXPO_PUBLIC_EXPO_PUSH_ACCESS_TOKEN: process.env.EXPO_PUBLIC_EXPO_PUSH_ACCESS_TOKEN
+    EXPO_PUBLIC_EXPO_PUSH_ACCESS_TOKEN: process.env.EXPO_PUBLIC_EXPO_PUSH_ACCESS_TOKEN,
+    EXPO_PUBLIC_WEB_PUSH_VAPID_KEY: process.env.EXPO_PUBLIC_WEB_PUSH_VAPID_KEY
   }
 });

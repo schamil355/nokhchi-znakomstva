@@ -1,0 +1,70 @@
+/*!*************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[12].use[3]!./app/globals.css ***!
+  \*************************************************************************************************************************************************************************************************************************************************************/
+:root {
+  color-scheme: dark;
+}
+
+:root {
+  --bg:#ffffff;
+  --surface:#F8FAFC;
+  --text:#0F172A;
+  --muted:#64748B;
+  --border:#E5E7EB;
+
+  /* Brand Green – aus Logo (#0B6E4F) abgeleitete Skala */
+  --primary-50:#F1F9F6;
+  --primary-100:#DCEFE9;
+  --primary-200:#B1E7D6;
+  --primary-300:#8ADBC2;
+  --primary-400:#45DEAE;
+  --primary-500:#22BE8D;
+  --primary-600:#0B6E4F; /* Logo-Grün */
+  --primary-700:#0B5B42;
+  --primary-800:#093E2E;
+  --primary-900:#072C21;
+
+  /* Neutrale Akzente */
+  --accent-100:#F3F4F6;
+  --accent-600:#0F172A;
+
+  --success:#10B981; --warning:#F59E0B; --danger:#EF4444;
+
+  --radius-sm:8px; --radius-lg:16px; --radius-pill:9999px;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.06);
+  --shadow-lg:0 10px 25px rgba(0,0,0,.12);
+}
+.theme-dark {
+  --bg:#0B1220; --surface:#111827; --text:#E5E7EB; --muted:#94A3B8; --border:#1F2937;
+
+  /* Dark-Mode-Tints vom selben Grün */
+  --primary-50:#093E2E;
+  --primary-100:#07362B;
+  --primary-200:#0A4C39;
+  --primary-300:#0D6147;
+  --primary-400:#0E7A58;
+  --primary-500:#22BE8D;
+  --primary-600:#0B6E4F;
+  --primary-700:#0A5B42;
+  --primary-800:#09382C;
+  --primary-900:#06261E;
+
+  --accent-100:#111827; --accent-600:#93C5FD;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: #020617;
+  color: #e2e8f0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+

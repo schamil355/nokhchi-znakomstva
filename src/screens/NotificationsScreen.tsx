@@ -49,11 +49,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   en: {
     headerTitle: "Notifications",
     bannerTitle: "Notifications are turned off.",
-    bannerSubtitle: "Enable push notifications to stay updated on likes, matches, and messages.",
+    bannerSubtitle: "Enable push notifications to stay updated on requests, connections, and messages.",
     activate: "Enable now",
     noDetails: "No additional details available.",
     emptyTitle: "No notifications",
-    emptyText: "When you get likes, matches, or updates, they will appear here.",
+    emptyText: "When you get requests, connections, or updates, they will appear here.",
     buttonLabel: "View",
     relative: {
       seconds: "A few seconds ago",
@@ -72,11 +72,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   de: {
     headerTitle: "Benachrichtigungen",
     bannerTitle: "Benachrichtigungen sind ausgeschaltet.",
-    bannerSubtitle: "Schalte Push-Benachrichtigungen ein, um immer informiert zu bleiben.",
+    bannerSubtitle: "Schalte Push-Benachrichtigungen ein, um Anfragen, Verbindungen und Nachrichten zu erhalten.",
     activate: "Jetzt aktivieren",
     noDetails: "Keine weiteren Details verfügbar.",
     emptyTitle: "Keine Benachrichtigungen",
-    emptyText: "Sobald du Likes, Matches oder Hinweise erhältst, erscheinen sie hier.",
+    emptyText: "Sobald du Anfragen, Verbindungen oder Hinweise erhältst, erscheinen sie hier.",
     buttonLabel: "Anzeigen",
     relative: {
       seconds: "Vor wenigen Sekunden",
@@ -95,11 +95,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   fr: {
     headerTitle: "Notifications",
     bannerTitle: "Les notifications sont désactivées.",
-    bannerSubtitle: "Active les notifications push pour rester informé.",
+    bannerSubtitle: "Active les notifications push pour rester informé des demandes, connexions et messages.",
     activate: "Activer maintenant",
     noDetails: "Pas plus de détails.",
     emptyTitle: "Aucune notification",
-    emptyText: "Quand tu recevras des likes ou matches, tu les verras ici.",
+    emptyText: "Quand tu recevras des demandes ou connexions, tu les verras ici.",
     buttonLabel: "Voir",
     relative: {
       seconds: "Il y a quelques secondes",
@@ -118,11 +118,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   ru: {
     headerTitle: "Уведомления",
     bannerTitle: "Уведомления выключены.",
-    bannerSubtitle: "Включи push, чтобы не пропускать лайки и сообщения.",
+    bannerSubtitle: "Включи push, чтобы не пропускать запросы, связи и сообщения.",
     activate: "Включить",
     noDetails: "Нет дополнительных сведений.",
     emptyTitle: "Нет уведомлений",
-    emptyText: "Когда появятся лайки, матчи или подсказки, они появятся здесь.",
+    emptyText: "Когда появятся запросы, связи или подсказки, они появятся здесь.",
     buttonLabel: "Открыть",
     relative: {
       seconds: "Несколько секунд назад",
@@ -147,6 +147,8 @@ const isIncognitoNotification = (entry: NotificationItem): boolean => {
       data.likerIncognito ??
       data.other_incognito ??
       data.otherIncognito ??
+      data.from_user_incognito ??
+      data.fromUserIncognito ??
       false
   );
 };

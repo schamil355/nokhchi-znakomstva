@@ -4,7 +4,7 @@ import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { Database } from "@/lib/types";
 
-const PUBLIC_PATHS = ["/login", "/api/auth/callback"];
+const PUBLIC_PATHS = ["/login", "/api/auth/callback", "/metrics", "/api/metrics", "/api/metrics/mixed-matches"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View, Modal, Linking } from "react-native";
 import SafeAreaView from "../components/SafeAreaView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,24 +6,26 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalizedCopy, useLocale } from "../localization/LocalizationProvider";
 import { PRIVACY_URL, TERMS_URL } from "../lib/legalLinks";
+import { useAuthStore } from "../state/authStore";
+import { useOnboardingStore } from "../state/onboardingStore";
 
-const PRIVACY_TEXT = `Datenschutzerklärung für die App "нохчи знакомства"
+const PRIVACY_TEXT = `Datenschutzerklärung für die App "Нохчийн"
 
 Verantwortlicher: Soul, Mirabellplatz 4, 5020 Salzburg, Österreich, E-Mail: support@nokhchi-znakomstva.com
 
 1. Geltung
-Diese Erklärung gilt für die mobile App "нохчи знакомства".
+Diese Erklärung gilt für die mobile App "Нохчийн".
 
 2. Verarbeitete Daten
 - Konto/Profil: E-Mail/Telefon, Anzeigename, Geschlecht, Geburtsdatum/Alter, Intention, Interessen, Bio.
 - Medien: Profilfotos und Selfies für Verifizierung (Speicherung in Supabase Storage).
 - Standort: Gerätestandort/Region für Vorschläge.
-- Geräte-/Nutzungsdaten: Push-Token, technische Logs, In-App-Ereignisse (z. B. app_open, view_profile, like, match, message_send) für Stabilität und Produktverbesserung.
+- Geräte-/Nutzungsdaten: Push-Token, technische Logs, In-App-Ereignisse (z. B. app_open, view_profile, intro_request, connection, message_send) für Stabilität und Produktverbesserung.
 - Kommunikation: Chats/Nachrichten.
 - Verifizierung: Selfie-Abgleich mit Profilfoto (Serverless-Funktion "face-verify").
 
 3. Zwecke
-Matchmaking, Profil- und Fotoverwaltung, Standortbasierte Vorschläge, Push-Benachrichtigungen, Betrugs- und Missbrauchsvermeidung (inkl. Gesichtsabgleich), Fehleranalyse, Produktverbesserung, gesetzliche Pflichten.
+Community-Einführungen, Profil- und Fotoverwaltung, standortbasierte Vorschläge, Push-Benachrichtigungen, Betrugs- und Missbrauchsvermeidung (inkl. Gesichtsabgleich), Fehleranalyse, Produktverbesserung, gesetzliche Pflichten.
 
 4. Rechtsgrundlagen (DSGVO)
 Art. 6 Abs. 1 lit. b (Nutzungsvertrag), lit. a (Einwilligungen: Push, Standort, Kamera/Fotos), lit. f (berechtigtes Interesse: Sicherheit, Stabilität), ggf. lit. c (rechtliche Pflichten).
@@ -55,13 +57,13 @@ Nutzung ab 18 Jahren; Konten Minderjähriger werden gelöscht.
 12. Kontakt
 Datenschutzanfragen: support@nokhchi-znakomstva.com`;
 
-const TERMS_TEXT = `Allgemeine Geschäftsbedingungen (AGB) – App "нохчи знакомства"
+const TERMS_TEXT = `Allgemeine Geschäftsbedingungen (AGB) – App "Нохчийн"
 
 1. Anbieter
 Soul, Mirabellplatz 4, 5020 Salzburg, Österreich.
 
 2. Vertragsgegenstand
-Dating-/Matchmaking-App mit Profilen, Fotos, Standort-basierten Vorschlägen, Chat und Verifizierungsfunktionen.
+App für Community-Einführungen und verifizierte Verbindungen mit Profilen, Fotos, standortbasierten Vorschlägen, Chat und Verifizierungsfunktionen.
 
 3. Voraussetzungen
 Mindestalter 18 Jahre; wahrheitsgemäße Angaben; funktionsfähiges Gerät/Internet; notwendige Berechtigungen (Kamera/Fotos, Standort, Push optional).
@@ -125,12 +127,12 @@ const translations = {
 
 const LEGAL_CONTENT: Record<string, { privacy: string; terms: string }> = {
   en: {
-    privacy: `Privacy Policy – App "нохчи знакомства"
+    privacy: `Privacy Policy – App "Нохчийн"
 
 Controller: Soul, Mirabellplatz 4, 5020 Salzburg, Austria, E-Mail: support@nokhchi-znakomstva.com
 
-We collect: account/profile data (email/phone, display name, gender, birthday/age, intention, interests, bio), photos/selfies (for verification), location (for matches), device/push token, usage events (app_open, view_profile, like, match, message_send), chats/messages, and selfie-to-profile verification via serverless ("face-verify").
-Purpose: matchmaking, profile/photo management, location-based suggestions, push notifications, fraud/abuse prevention (incl. facial match), diagnostics/product improvement, legal obligations.
+We collect: account/profile data (email/phone, display name, gender, birthday/age, intention, interests, bio), photos/selfies (for verification), location (for suggestions), device/push token, usage events (app_open, view_profile, intro_request, connection, message_send), chats/messages, and selfie-to-profile verification via serverless ("face-verify").
+Purpose: community introductions, profile/photo management, location-based suggestions, push notifications, fraud/abuse prevention (incl. facial match), diagnostics/product improvement, legal obligations.
 Legal bases (GDPR): Art.6(1)(b) contract; Art.6(1)(a) consents (push, location, camera/photos); Art.6(1)(f) legitimate interests (security/stability); Art.6(1)(c) legal duties.
 Processors/services: Supabase (auth/db/storage/realtime/functions), Expo/Apple/Google push, Sentry (crash), App Store/Google Play for payments.
 Transfers: Supabase may process outside EU; protected by SCCs/technical measures.
@@ -138,10 +140,10 @@ Retention: profile data until account deletion; logs/analytics only as needed; p
 Rights: access, rectification, erasure, restriction, portability, objection to legitimate interests, withdraw consent, complain to the Austrian DPA.
 Minors: 18+ only; underage accounts are removed.
 Contact: support@nokhchi-znakomstva.com`,
-    terms: `Terms (AGB) – App "нохчи знакомства"
+    terms: `Terms (AGB) – App "Нохчийн"
 
 1. Provider: Soul, Mirabellplatz 4, 5020 Salzburg, Austria.
-2. Service: dating/matchmaking app with profiles, photos, location-based suggestions, chat, verification.
+2. Service: community introductions app with profiles, photos, location-based suggestions, chat, verification.
 3. Requirements: 18+, truthful data, device+internet, permissions (camera/photos, location, optional push).
 4. User duties: no fake/abusive/illegal content; only own photos; respect IP; report misuse.
 5. Verification: selfie vs profile may be required; failure/misuse can limit access.
@@ -159,12 +161,12 @@ Contact: support@nokhchi-znakomstva.com`,
     terms: TERMS_TEXT
   },
   fr: {
-    privacy: `Politique de confidentialité – App "нохчи знакомства"
+    privacy: `Politique de confidentialité – App "Нохчийн"
 
 Responsable : Soul, Mirabellplatz 4, 5020 Salzburg, Autriche, E-mail : support@nokhchi-znakomstva.com
 
-Données : compte/profil (e-mail/téléphone, nom affiché, genre, date de naissance/âge, intention, centres d’intérêt, bio), photos/selfies (vérification), localisation (suggestions), appareil/token push, événements d’usage (app_open, view_profile, like, match, message_send), chats, vérification selfie/profil (fonction serverless "face-verify").
-Finalités : mise en relation, gestion profil/photos, suggestions basées sur la localisation, notifications push, prévention fraude/abus (incl. vérif. faciale), diagnostics/optimisation, obligations légales.
+Données : compte/profil (e-mail/téléphone, nom affiché, genre, date de naissance/âge, intention, centres d’intérêt, bio), photos/selfies (vérification), localisation (suggestions), appareil/token push, événements d’usage (app_open, view_profile, intro_request, connection, message_send), chats, vérification selfie/profil (fonction serverless "face-verify").
+Finalités : introductions communautaires, gestion profil/photos, suggestions basées sur la localisation, notifications push, prévention fraude/abus (incl. vérif. faciale), diagnostics/optimisation, obligations légales.
 Bases (RGPD) : art.6(1)(b) contrat ; art.6(1)(a) consentements (push, localisation, appareil photo/photos) ; art.6(1)(f) intérêt légitime (sécurité/stabilité) ; art.6(1)(c) obligations légales.
 Prestataires : Supabase (auth/bdd/storage/realtime/functions), Expo/Apple/Google push, Sentry (crash), App Store/Google Play (paiements).
 Transferts : Supabase peut traiter hors UE ; protégés par clauses contractuelles types/mesures techniques.
@@ -172,10 +174,10 @@ Conservation : jusqu’à suppression du compte ; logs/analytics tant que néces
 Droits : accès, rectification, effacement, limitation, portabilité, opposition aux intérêts légitimes, retrait des consentements, plainte auprès de l’autorité autrichienne.
 Mineurs : 18+ seulement ; comptes mineurs supprimés.
 Contact : support@nokhchi-znakomstva.com`,
-    terms: `Conditions – App "нохчи знакомства"
+    terms: `Conditions – App "Нохчийн"
 
 1. Fournisseur : Soul, Mirabellplatz 4, 5020 Salzburg, Autriche.
-2. Service : application de rencontre avec profils, photos, suggestions par localisation, chat, vérification.
+2. Service : application d'introductions communautaires et de connexions vérifiées avec profils, photos, suggestions par localisation, chat, vérification.
 3. Conditions : 18+, données exactes, appareil + internet, autorisations (caméra/photos, localisation, push optionnel).
 4. Devoirs : pas de faux profils, contenus illégaux ou offensants ; photos personnelles ; respect de la propriété intellectuelle ; signaler les abus.
 5. Vérification : selfie vs photo de profil peut être requis ; échec/abus peut limiter l’accès.
@@ -189,12 +191,12 @@ Contact : support@nokhchi-znakomstva.com`,
 13. Contact : support@nokhchi-znakomstva.com`
   },
   ru: {
-    privacy: `Политика конфиденциальности – приложение "нохчи знакомства"
+    privacy: `Политика конфиденциальности – приложение "Нохчийн"
 
 Оператор: Soul, Mirabellplatz 4, 5020 Зальцбург, Австрия, E-mail: support@nokhchi-znakomstva.com
 
-Данные: аккаунт/профиль (email/телефон, имя, пол, дата рождения/возраст, намерения, интересы, био), фото/селфи (верификация), локация (подбор анкет), устройство/push-токен, события использования (app_open, view_profile, like, match, message_send), чаты, сверка селфи с фото профиля (serverless "face-verify").
-Цели: дейтинг, управление профилем/фото, подсказки по локации, push-уведомления, борьба с мошенничеством/абьюзом (в т.ч. сверка лица), диагностика/улучшения, юр. обязанности.
+Данные: аккаунт/профиль (email/телефон, имя, пол, дата рождения/возраст, намерения, интересы, био), фото/селфи (верификация), локация (подбор анкет), устройство/push-токен, события использования (app_open, view_profile, intro_request, connection, message_send), чаты, сверка селфи с фото профиля (serverless "face-verify").
+Цели: сообщественные знакомства и связи, управление профилем/фото, подсказки по локации, push-уведомления, борьба с мошенничеством/абьюзом (в т.ч. сверка лица), диагностика/улучшения, юр. обязанности.
 Правовые основания (GDPR): ст.6(1)(b) договор; ст.6(1)(a) согласия (push, гео, камера/фото); ст.6(1)(f) законный интерес (безопасность/стабильность); ст.6(1)(c) юр. обязательства.
 Сервисы: Supabase (auth/db/storage/realtime/functions), Expo/Apple/Google push, Sentry (crash), App Store/Google Play (платежи).
 Передачи: Supabase может обрабатывать вне ЕС; защита через стандартные договорные положения и техн. меры.
@@ -202,10 +204,10 @@ Contact : support@nokhchi-znakomstva.com`,
 Права: доступ, исправление, удаление, ограничение, переносимость, возражение против законных интересов, отзыв согласий, жалоба в австрийский надзор.
 Несовершеннолетние: 18+; аккаунты младше удаляются.
 Контакт: support@nokhchi-znakomstva.com`,
-    terms: `Условия (AGB) – приложение "нохчи знакомства"
+    terms: `Условия (AGB) – приложение "Нохчийн"
 
 1. Провайдер: Soul, Mirabellplatz 4, 5020 Зальцбург, Австрия.
-2. Сервис: дейтинг/матчмейкинг с профилями, фото, подсказками по локации, чатом и верификацией.
+2. Сервис: приложение для сообщественных знакомств и проверенных связей с профилями, фото, подсказками по локации, чатом и верификацией.
 3. Требования: 18+, правдивые данные, устройство+интернет, разрешения (камера/фото, гео, push опционально).
 4. Обязанности: без фейков/оскорблений/незаконного; только свои фото; уважать авторские права; сообщать о злоупотреблениях.
 5. Верификация: сравнение селфи и фото профиля может быть обязательным; при отказе/злоупотреблении доступ ограничивается.
@@ -225,11 +227,29 @@ const LegalScreen = ({ route }: { route?: any }) => {
   const { locale } = useLocale();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const session = useAuthStore((state) => state.session);
+  const profile = useAuthStore((state) => state.profile);
+  const verifiedOverride = useAuthStore((state) => state.verifiedOverride);
+  const showVerifySuccess = useOnboardingStore((state) => state.showVerifySuccess);
+  const needsOnboarding = !profile || !(profile.verified || verifiedOverride);
+  const shouldStayInOnboarding = !session || needsOnboarding || showVerifySuccess;
   const initialTarget: "privacy" | "terms" | undefined = route?.params?.screen;
   const [showPrivacy, setShowPrivacy] = useState(initialTarget === "privacy");
   const [showTerms, setShowTerms] = useState(initialTarget === "terms");
 
   const legalText = LEGAL_CONTENT[locale] ?? LEGAL_CONTENT.en;
+
+  const navigateFallback = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    if (shouldStayInOnboarding) {
+      navigation.reset({ index: 0, routes: [{ name: "Auth" as never }] });
+    } else {
+      navigation.reset({ index: 0, routes: [{ name: "Main" as never, params: { screen: "Profile" } }] });
+    }
+  }, [navigation, shouldStayInOnboarding]);
 
   const rows: { label: string; onPress: () => void }[] = [
     { label: copy.privacy, onPress: () => setShowPrivacy(true) },
@@ -242,11 +262,7 @@ const LegalScreen = ({ route }: { route?: any }) => {
     // Wenn aus einem direkten Ziel (z. B. Registrierung) aufgerufen, sofort zurück navigieren,
     // damit kein leerer Screen zwischenrendern kann.
     if (initialTarget) {
-      if (navigation.canGoBack()) {
-        navigation.goBack();
-      } else {
-        navigation.navigate("Welcome" as never);
-      }
+      navigateFallback();
       return;
     }
     setShowPrivacy(false);
@@ -261,11 +277,7 @@ const LegalScreen = ({ route }: { route?: any }) => {
             <Pressable
               style={styles.headerButton}
               onPress={() => {
-                if (navigation.canGoBack()) {
-                  navigation.goBack();
-                } else {
-                  navigation.navigate("Profile" as never);
-                }
+                navigateFallback();
               }}
               accessibilityRole="button"
               accessibilityLabel={copy.close}

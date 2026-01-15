@@ -6,7 +6,7 @@ import type { Request } from "express";
 export class AuthRedirectController {
   @Get("callback")
   @Header("Content-Type", "text/html; charset=utf-8")
-  handleCallback(@Req() req: Request, @Query() query: Record<string, string | string[] | undefined>) {
+  handleCallback(@Req() req: Request, @Query() _query: Record<string, string | string[] | undefined>) {
     const originalQuery = req.url.includes("?") ? req.url.slice(req.url.indexOf("?") + 1) : "";
     const deeplink = `meetmate://auth/callback${originalQuery ? `?${originalQuery}` : ""}`;
     const fallback = "https://tschetschenische.app"; // Anpassbar bei Bedarf

@@ -23,6 +23,8 @@ type ProfileCardProps = {
   reportDisabled?: boolean;
   onView?: (profile: Profile) => void;
   showActions?: boolean;
+  compassSummary?: { matches: number; total: number };
+  fillHeight?: boolean;
 };
 
 type CardCopy = {
@@ -33,6 +35,7 @@ type CardCopy = {
   comingSoonSubtitle: string;
   intentionLabels: Record<string, string>;
   noPhoto: string;
+  compassLabel: (matches: number, total: number) => string;
 };
 
 const translations: Record<SupportedLocale, CardCopy> = {
@@ -47,7 +50,8 @@ const translations: Record<SupportedLocale, CardCopy> = {
       casual: "Locker & offen",
       friendship: "Freundschaft"
     },
-    noPhoto: "Kein Foto"
+    noPhoto: "Kein Foto",
+    compassLabel: (matches, total) => `Kompass: ${matches}/${total}`
   },
   en: {
     verified: "Verified",
@@ -60,7 +64,8 @@ const translations: Record<SupportedLocale, CardCopy> = {
       casual: "Open minded",
       friendship: "Friendship"
     },
-    noPhoto: "No photo yet"
+    noPhoto: "No photo yet",
+    compassLabel: (matches, total) => `Compass: ${matches}/${total}`
   },
   fr: {
     verified: "Vérifié",
@@ -73,7 +78,8 @@ const translations: Record<SupportedLocale, CardCopy> = {
       casual: "Ouvert d'esprit",
       friendship: "Amitié"
     },
-    noPhoto: "Pas encore de photo"
+    noPhoto: "Pas encore de photo",
+    compassLabel: (matches, total) => `Compas : ${matches}/${total}`
   },
   ru: {
     verified: "Проверено",
@@ -86,7 +92,8 @@ const translations: Record<SupportedLocale, CardCopy> = {
       casual: "Лёгкое общение",
       friendship: "Дружба"
     },
-    noPhoto: "Нет фото"
+    noPhoto: "Нет фото",
+    compassLabel: (matches, total) => `Компас: ${matches}/${total}`
   }
 };
 
@@ -103,7 +110,9 @@ const ProfileCard = ({
   directChatDisabled,
   reportDisabled,
   onView,
-  showActions = true
+  showActions = true,
+  compassSummary,
+  fillHeight = false
 }: ProfileCardProps) => {
   const copy = useLocalizedCopy(translations);
   const photos = profile.photos?.filter(Boolean) ?? [];
@@ -118,6 +127,10 @@ const ProfileCard = ({
     ? copy.locationChechnya
     : (formatCountryLabel(profile.country) ?? copy.locationUnknown);
   const showChechenBadge = profile.intention === "serious";
+  const compassText =
+    compassSummary && compassSummary.total > 0
+      ? copy.compassLabel(compassSummary.matches, compassSummary.total)
+      : null;
   const isOnline = useMemo(() => {
     if (!profile.lastActiveAt) {
       return false;
@@ -322,8 +335,8 @@ const ProfileCard = ({
   const isIncognito = Boolean((profile as any).isIncognito ?? (profile as any).is_incognito);
   const totalPhotos = photos.length || 1;
   return (
-    <View style={styles.card}>
-      <View style={styles.photoWrapper}>
+    <View style={[styles.card, fillHeight && styles.cardFill]}>
+      <View style={[styles.photoWrapper, fillHeight ? styles.photoWrapperFill : styles.photoWrapperSized]}>
         <Pressable style={styles.mediaPressable} onPress={handleNextPhoto}>
           {isIncognito ? (
             resolvedAssetId ? (
@@ -398,12 +411,20 @@ const ProfileCard = ({
             <Ionicons name="location-outline" size={16} color="#fff" />
             <Text style={styles.locationText}>{locationLabel}</Text>
           </View>
-          {showChechenBadge ? (
+          {(showChechenBadge || compassText) ? (
             <View style={styles.badgesRow}>
-              <View style={styles.chechenBadge}>
-                <Image source={chechenBadgeIcon} style={styles.chechenBadgeIcon} />
-                <Text style={styles.chechenBadgeText}>Нохчи</Text>
-              </View>
+              {compassText ? (
+                <View style={styles.compassBadge}>
+                  <Ionicons name="compass-outline" size={14} color="#f2e7d7" />
+                  <Text style={styles.compassBadgeText}>{compassText}</Text>
+                </View>
+              ) : null}
+              {showChechenBadge ? (
+                <View style={styles.chechenBadge}>
+                  <Image source={chechenBadgeIcon} style={styles.chechenBadgeIcon} />
+                  <Text style={styles.chechenBadgeText}>Нохчи</Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
         </View>
@@ -489,13 +510,22 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 5
   },
+  cardFill: {
+    flex: 1
+  },
   photoWrapper: {
     width: "100%",
-    aspectRatio: 0.6,
     borderRadius: 24,
     overflow: "hidden",
     position: "relative",
     backgroundColor: "#0a0a0a"
+  },
+  photoWrapperSized: {
+    aspectRatio: 0.7
+  },
+  photoWrapperFill: {
+    flex: 1,
+    minHeight: 0
   },
   mediaPressable: {
     width: "100%",
@@ -632,7 +662,25 @@ const styles = StyleSheet.create({
   },
   badgesRow: {
     flexDirection: "row",
-    marginTop: 10
+    marginTop: 10,
+    gap: 8,
+    flexWrap: "wrap"
+  },
+  compassBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "rgba(15,59,44,0.65)",
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.35)"
+  },
+  compassBadgeText: {
+    color: "#f2e7d7",
+    fontSize: 13,
+    fontWeight: "600"
   },
   chechenBadge: {
     flexDirection: "row",
@@ -662,12 +710,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 18
+    gap: 12
   },
   actionCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 61.2,
+    height: 61.2,
+    borderRadius: 30.6,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -693,14 +741,14 @@ const styles = StyleSheet.create({
   filledCircle: {
     width: "100%",
     height: "100%",
-    borderRadius: 34,
+    borderRadius: 30.6,
     alignItems: "center",
     justifyContent: "center"
   },
   smallAction: {
-    width: 60,
-    height: 60,
-    borderRadius: 30
+    width: 54,
+    height: 54,
+    borderRadius: 27
   }
 });
 

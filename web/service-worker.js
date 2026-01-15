@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const CACHE_NAME = `meetmate-shell-${CACHE_VERSION}`;
 const APP_SHELL = [
   "/",
@@ -92,7 +92,12 @@ self.addEventListener("fetch", (event) => {
   }
 
   const destination = request.destination;
-  if (["style", "script", "image", "font"].includes(destination)) {
+  if (["style", "script"].includes(destination)) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  if (["image", "font"].includes(destination)) {
     event.respondWith(cacheFirst(request));
     return;
   }

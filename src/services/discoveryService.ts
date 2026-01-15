@@ -8,7 +8,8 @@ import { track } from "../lib/analytics";
 
 const likeLimiter = createRateLimiter({ intervalMs: 3_000, maxCalls: 5 });
 const fetchLimiter = createRateLimiter({ intervalMs: 10_000, maxCalls: 6 });
-const DISCOVERY_LIMIT = 50;
+const DISCOVERY_PAGE_SIZE = 50;
+const MAX_DISCOVERY_PAGES = 200; // safety guard to prevent unbounded loops (200 * 50 = 10k)
 const RECENT_LIMIT = 100;
 
 type OriginPoint = {
@@ -16,29 +17,60 @@ type OriginPoint = {
   longitude?: number | null;
 } | null;
 
+const fetchPaginated = async <T>(
+  pageSize: number,
+  maxPages: number,
+  fetchPage: (offset: number, limit: number) => Promise<T[]>
+): Promise<T[]> => {
+  const rows: T[] = [];
+  let offset = 0;
+
+  for (let page = 0; page < maxPages; page++) {
+    const batch = await fetchPage(offset, pageSize);
+    rows.push(...batch);
+    if (batch.length < pageSize) {
+      break;
+    }
+    offset += batch.length;
+  }
+
+  return rows;
+};
+
 export const fetchDiscoveryFeed = async (userId: string, filters: DiscoveryFilters, origin: OriginPoint) =>
   fetchLimiter(async () => {
     const supabase = getSupabaseClient();
     const genders = filters.genders?.length ? filters.genders : null;
     const intentions = filters.intentions?.length ? filters.intentions : null;
-    const { data, error } = await supabase.rpc("get_discovery_profiles", {
-      p_limit: DISCOVERY_LIMIT,
-      p_offset: 0,
-      p_genders: genders,
-      p_intentions: intentions,
-      p_min_age: filters.ageRange[0],
-      p_max_age: filters.ageRange[1],
-      p_min_distance_km: filters.minDistanceKm,
-      p_max_distance_km: filters.distanceKm,
-      p_origin_lat: origin?.latitude ?? null,
-      p_origin_lng: origin?.longitude ?? null
-    });
+    const applyDistance = filters.region === "chechnya";
+    const effectiveOrigin = applyDistance ? origin : null;
+    const allRows = await fetchPaginated(
+      DISCOVERY_PAGE_SIZE,
+      MAX_DISCOVERY_PAGES,
+      async (offset, limit) => {
+        const { data, error } = await supabase.rpc("get_discovery_profiles", {
+          p_limit: limit,
+          p_offset: offset,
+          p_genders: genders,
+          p_intentions: intentions,
+          p_min_age: filters.ageRange[0],
+          p_max_age: filters.ageRange[1],
+          p_min_distance_km: filters.minDistanceKm,
+          p_max_distance_km: filters.distanceKm,
+          p_origin_lat: effectiveOrigin?.latitude ?? null,
+          p_origin_lng: effectiveOrigin?.longitude ?? null,
+          p_region: filters.region
+        });
 
-    if (error) {
-      throw error;
-    }
+        if (error) {
+          throw error;
+        }
 
-    const profiles = (data ?? []).map(mapProfile);
+        return data ?? [];
+      }
+    );
+
+    const profiles = allRows.map(mapProfile);
 
     return profiles
       .filter((profile) => profile.userId !== userId)
@@ -48,7 +80,7 @@ export const fetchDiscoveryFeed = async (userId: string, filters: DiscoveryFilte
           ageRange: filters.ageRange, // already enforced server-side, keep for safety
           region: filters.region,
           distanceRange: [filters.minDistanceKm, filters.distanceKm],
-          origin: origin ?? undefined
+          origin: effectiveOrigin ?? undefined
         })
       );
   });
@@ -57,6 +89,8 @@ export const fetchRecentProfiles = async (userId: string, filters: DiscoveryFilt
     const supabase = getSupabaseClient();
     const genders = filters.genders?.length ? filters.genders : null;
     const intentions = filters.intentions?.length ? filters.intentions : null;
+    const applyDistance = filters.region === "chechnya";
+    const effectiveOrigin = applyDistance ? origin : null;
     const { data, error } = await supabase.rpc("get_recent_profiles", {
       p_limit: RECENT_LIMIT,
       p_offset: 0,
@@ -66,8 +100,9 @@ export const fetchRecentProfiles = async (userId: string, filters: DiscoveryFilt
       p_max_age: filters.ageRange[1],
       p_min_distance_km: filters.minDistanceKm,
       p_max_distance_km: filters.distanceKm,
-      p_origin_lat: origin?.latitude ?? null,
-      p_origin_lng: origin?.longitude ?? null
+      p_origin_lat: effectiveOrigin?.latitude ?? null,
+      p_origin_lng: effectiveOrigin?.longitude ?? null,
+      p_region: filters.region
     });
 
     if (error) {
@@ -84,7 +119,7 @@ export const fetchRecentProfiles = async (userId: string, filters: DiscoveryFilt
           ageRange: filters.ageRange, // already enforced server-side, keep for safety
           region: filters.region,
           distanceRange: [filters.minDistanceKm, filters.distanceKm],
-          origin: origin ?? undefined
+          origin: effectiveOrigin ?? undefined
         })
       );
   });

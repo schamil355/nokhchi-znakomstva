@@ -22,12 +22,14 @@ export class SentryExceptionFilter implements ExceptionFilter {
       const response = http.getResponse<Response>();
       const request = http.getRequest<Request>();
       const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+      const exposeDetails =
+        (process.env.DEBUG_ERRORS ?? "").toLowerCase() === "true" || process.env.NODE_ENV !== "production";
       const payload =
         exception instanceof HttpException
           ? exception.getResponse()
           : {
               statusCode: status,
-              message: "Internal server error",
+              message: exposeDetails ? error.message : "Internal server error",
               path: request?.url,
             };
 

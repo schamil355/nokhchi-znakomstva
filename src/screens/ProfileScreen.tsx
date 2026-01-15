@@ -194,9 +194,9 @@ type CopyShape = {
 const baseCopy: CopyShape = {
   visibilityOptions: {
     public: "Public",
-    match_only: "Matches only",
+    match_only: "Connections only",
     whitelist: "Whitelist",
-    blurred_until_match: "Blurred until match",
+    blurred_until_match: "Blurred until connection",
   },
   locationUnknown: "Location unknown",
   locationChechnya: "Chechnya",
@@ -240,14 +240,14 @@ const baseCopy: CopyShape = {
     title: "Confirm your email",
     subtitle: "Verify your address to receive all notifications.",
   },
-    photoManager: {
-      title: "My photos",
-      subtitle: "Manage your gallery. The first tile is your main profile photo.",
-      instructions: "The first photo is your profile photo!",
-      primaryBadge: "Profile photo",
-      addLabel: "Add photo",
-      done: "Done"
-    },
+  photoManager: {
+    title: "My photos",
+    subtitle: "Manage your gallery. The first tile is your main profile photo.",
+    instructions: "The first photo is your profile photo!",
+    primaryBadge: "Profile photo",
+    addLabel: "Add photo",
+    done: "Done"
+  },
   alerts: {
     savedTitle: "Saved",
     savedMessage: "Your profile was updated.",
@@ -283,7 +283,7 @@ const baseCopy: CopyShape = {
     photoActionsTitle: "Photo actions",
     emailSentTitle: "Email sent",
     emailSentMessage: "Check your inbox to confirm your address.",
-    emailErrorMessage: "Could not send the email.",
+    emailErrorMessage: "Could not send the email."
   },
 };
 
@@ -291,12 +291,12 @@ const translations: Record<string, CopyShape> = {
   en: baseCopy,
   de: {
     ...baseCopy,
-    visibilityOptions: {
-      public: "Öffentlich",
-      match_only: "Nur Matches",
-      whitelist: "Whitelist",
-      blurred_until_match: "Blur bis Match",
-    },
+  visibilityOptions: {
+    public: "Öffentlich",
+    match_only: "Nur Verbindungen",
+    whitelist: "Whitelist",
+    blurred_until_match: "Blur bis Verbindung",
+  },
     locationUnknown: "Standort unbekannt",
     locationChechnya: "Tschetschenien",
     defaultProfileName: "Dein Profil",
@@ -382,7 +382,7 @@ const translations: Record<string, CopyShape> = {
       photoActionsTitle: "Foto-Aktionen",
       emailSentTitle: "E-Mail gesendet",
       emailSentMessage: "Bitte prüfe dein Postfach und bestätige deine Adresse.",
-      emailErrorMessage: "E-Mail konnte nicht gesendet werden.",
+      emailErrorMessage: "E-Mail konnte nicht gesendet werden."
     },
   },
   fr: {
@@ -404,6 +404,9 @@ const translations: Record<string, CopyShape> = {
       ...baseCopy.buttons,
       signOutLoading: "Déconnexion...",
       signOut: "Se déconnecter"
+    },
+    alerts: {
+      ...baseCopy.alerts
     }
   },
   ru: {
@@ -445,6 +448,28 @@ const ProfileScreen = () => {
   const { isPro } = useRevenueCat({ loadOfferings: false });
   const hasPremiumAccess = isPremium || isPro;
   const copy = useLocalizedCopy(translations);
+  const compassCopy = useLocalizedCopy({
+    en: {
+      title: "Relationship compass",
+      subtitle: "Optional. Highlight your values and pace.",
+      cta: "Answer compass questions"
+    },
+    de: {
+      title: "Beziehungs-Kompass",
+      subtitle: "Optional. Zeig deine Werte und dein Tempo.",
+      cta: "Kompass-Fragen beantworten"
+    },
+    fr: {
+      title: "Compas relationnel",
+      subtitle: "Optionnel. Affiche tes valeurs et ton rythme.",
+      cta: "Répondre aux questions"
+    },
+    ru: {
+      title: "Компас отношений",
+      subtitle: "Необязательно. Покажи ценности и темп.",
+      cta: "Ответить на вопросы"
+    }
+  });
   const errorCopy = useErrorCopy();
   const profile = useAuthStore((state) => state.profile);
   const setProfile = useAuthStore((state) => state.setProfile);
@@ -456,7 +481,6 @@ const ProfileScreen = () => {
   const onboardingLongitude = useOnboardingStore((state) => state.location.longitude);
   const supabase = useMemo(() => getSupabaseClient(), []);
   const insets = useSafeAreaInsets();
-
   const [bio, setBio] = useState(profile?.bio ?? "");
   const [interests, setInterests] = useState(profile?.interests?.join(", ") ?? "");
   const [isSaving, setIsSaving] = useState(false);
@@ -751,11 +775,21 @@ const ProfileScreen = () => {
     }
   }, [navigation]);
 
+  const openCompass = useCallback(() => {
+    const parentNav: any = (navigation as any).getParent?.() ?? navigation;
+    const rootNav: any = parentNav?.getParent?.() ?? parentNav;
+    if (rootNav?.navigate) {
+      rootNav.navigate("RelationshipCompass" as never);
+    } else {
+      navigation.navigate("RelationshipCompass" as never);
+    }
+  }, [navigation]);
+
   const handleSave = async () => {
-      const currentProfile = profile;
-      if (!session?.user?.id || !currentProfile) {
-        return;
-      }
+    const currentProfile = profile;
+    if (!session?.user?.id || !currentProfile) {
+      return;
+    }
     setIsSaving(true);
     try {
       const updated = await upsertProfile(session.user.id, {
@@ -770,7 +804,8 @@ const ProfileScreen = () => {
           .filter(Boolean),
         photos: currentProfile.photos,
         primaryPhotoPath: currentProfile.primaryPhotoPath ?? null,
-        primaryPhotoId: currentProfile.primaryPhotoId ?? null
+        primaryPhotoId: currentProfile.primaryPhotoId ?? null,
+        relationshipCompass: currentProfile.relationshipCompass ?? null
       });
       const privacyChanged =
         currentProfile.isIncognito !== isIncognito ||
@@ -933,7 +968,8 @@ const ProfileScreen = () => {
         interests: profile.interests,
         photos: profile.photos,
         primaryPhotoId: nextPrimaryId ?? null,
-        primaryPhotoPath: nextPrimaryId ? null : profile.primaryPhotoPath ?? null
+        primaryPhotoPath: nextPrimaryId ? null : profile.primaryPhotoPath ?? null,
+        relationshipCompass: profile.relationshipCompass ?? null
       });
     } catch (error: any) {
       logError(error, "photo-manager");
@@ -1361,6 +1397,14 @@ const ProfileScreen = () => {
         style={styles.input}
         placeholder={copy.placeholders.interests}
       />
+      <View style={styles.section}>
+        <Text style={styles.label}>{compassCopy.title}</Text>
+        <Text style={styles.compassSubtitle}>{compassCopy.subtitle}</Text>
+        <Pressable style={styles.compassButton} onPress={openCompass}>
+          <Text style={styles.compassButtonText}>{compassCopy.cta}</Text>
+          <Ionicons name="chevron-forward" size={18} color="#fff" />
+        </Pressable>
+      </View>
       <View style={styles.section}>
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>{copy.labels.incognito}</Text>
@@ -1906,6 +1950,25 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginTop: 16,
     marginBottom: 8
+  },
+  compassSubtitle: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginBottom: 10
+  },
+  compassButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: BRAND_GREEN,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12
+  },
+  compassButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600"
   },
   input: {
     backgroundColor: "#fff",

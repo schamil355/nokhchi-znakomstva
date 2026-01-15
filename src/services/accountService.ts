@@ -1,7 +1,11 @@
 import Constants from "expo-constants";
 import { useAuthStore } from "../state/authStore";
 
-const rawApiBase = process.env.EXPO_PUBLIC_API_URL ?? Constants.expoConfig?.extra?.apiUrl ?? null;
+const rawApiBase =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_API_URL ??
+  Constants.expoConfig?.extra?.apiUrl ??
+  null;
 const API_BASE = rawApiBase ? rawApiBase.replace(/\/$/, "") : null;
 
 const ensureApiBase = () => {

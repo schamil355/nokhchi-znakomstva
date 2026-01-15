@@ -24,12 +24,18 @@ npm install
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_JWT_SECRET`
 - `ENABLE_PUSH=true` (required for web push endpoints)
+- `WEB_BASE_URL=https://nokhchi-znakomstva.com`
 - `WEB_PUSH_VAPID_PUBLIC_KEY`
 - `WEB_PUSH_VAPID_PRIVATE_KEY`
 - `WEB_PUSH_SUBJECT` (e.g. `mailto:support@yourdomain`)
 - `ENABLE_REDIS=true` (optional, enables rate limiting)
 - `REDIS_URL=redis://localhost:6379`
 - `CORS_ORIGINS=http://localhost:8081,http://localhost:4173,https://nokhchi-znakomstva.com`
+- Stripe (web checkout):
+  - `STRIPE_SECRET_KEY`
+  - `STRIPE_WEBHOOK_SECRET`
+  - `STRIPE_PRICE_ID_EUR_MONTHLY`, `STRIPE_PRICE_ID_EUR_YEARLY`
+  - `STRIPE_PRICE_ID_NOK_MONTHLY`, `STRIPE_PRICE_ID_NOK_YEARLY`
 
 If you do not want Redis locally, set `ENABLE_REDIS=false` to avoid warnings.
 
@@ -80,6 +86,15 @@ Deploy the static `dist/` folder to any static host (Vercel, Netlify, Cloudflare
    - `EXPO_PUBLIC_WEB_PUSH_VAPID_KEY` (optional)
 5) Add the custom domain in Render: `nokhchi-znakomstva.com` (and optional `www.nokhchi-znakomstva.com`).
 6) In Spaceship DNS, create the exact records Render provides and remove conflicting records.
+
+### Stripe webhooks (backend)
+- Create a Stripe webhook pointing to the Nest server:
+  - `https://<your-api-host>/v1/payments/stripe/webhook`
+- Recommended events:
+  - `checkout.session.completed`
+  - `customer.subscription.created`
+  - `customer.subscription.updated`
+  - `customer.subscription.deleted`
 
 ## PWA install test
 - The Expo dev server does not serve the PWA manifest/service worker. Use the static export + `npx serve dist` for install testing.

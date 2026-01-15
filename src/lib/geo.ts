@@ -39,9 +39,6 @@ const matchesChechnyaName = (countryName?: string | null) => {
   return variants.some((key) => normalized.includes(key));
 };
 
-const matchesChechnyaCode = (countryCode?: string | null) =>
-  countryCode?.trim().toUpperCase() === "RU";
-
 const europeCountryNames = new Set(
   [
     "albania",
@@ -161,23 +158,30 @@ export const isWithinChechnyaRadius = (latitude?: number | null, longitude?: num
 type RegionInput = {
   countryName?: string | null;
   countryCode?: string | null;
+  regionCode?: string | null;
   latitude?: number | null;
   longitude?: number | null;
 };
 
 const normalizeCode = (code?: string | null) => code?.trim().toUpperCase() ?? null;
 
-export const resolveGeoRegion = ({ countryName, countryCode, latitude, longitude }: RegionInput): GeoRegion => {
+export const resolveGeoRegion = ({ countryName, countryCode, regionCode, latitude, longitude }: RegionInput): GeoRegion => {
   if (isWithinChechnyaRadius(latitude, longitude)) {
+    return "chechnya";
+  }
+
+  const normalizedRegionCode = normalizeCode(regionCode);
+  if (normalizedRegionCode === "CHECHNYA") {
     return "chechnya";
   }
 
   const normalizedCode = normalizeCode(countryCode);
   const normalizedName = normalize(countryName);
-  if (matchesChechnyaName(normalizedName) || matchesChechnyaCode(normalizedCode)) {
+  if (matchesChechnyaName(normalizedName)) {
     return "chechnya";
   }
-  if (normalizedCode === "RU" || normalizedName.includes("russia")) {
+  // Treat Russia as "russia" unless coordinates/region code put the profile inside Chechnya.
+  if (normalizedCode === "RU" || normalizedRegionCode === "RU" || normalizedName.includes("russia")) {
     return "russia";
   }
   if ((normalizedCode && europeCountryCodes.has(normalizedCode)) || europeCountryNames.has(normalizedName)) {

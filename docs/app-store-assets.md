@@ -2,42 +2,40 @@
 
 ## App-Beschreibung (Deutsch)
 
-**Titel:** meetmate – Genuine Verbindungen in deiner Nähe
+**Titel:** Noxchiin – Verifizierte Community-Verbindungen
 
 **Kurzbeschreibung:**
-Finde Matches, die wirklich zu dir passen. meetmate kombiniert verifizierte Profile, smarte Vorschläge und sichere Kommunikation.
+Verifizierte Community-Einführungen mit Privacy-First-Fotos und sicherem Chat.
 
 **Langbeschreibung:**
-Triff Menschen, die deine Interessen teilen – mit meetmate, der modernen Dating-App für echte Verbindungen.
+Noxchiin ist eine Community-App für verifizierte Verbindungen innerhalb der tschetschenischen Gemeinschaft.
 
-- **Smarte Vorschläge:** Unsere Matching-Heuristik gewichtet Distanz, Aktivität und gemeinsame Interessen.
-- **Profil-Highlights:** Teile Fotos, Bio und Interessen, um dich authentisch zu zeigen.
-- **Swipe & Match:** Entdecke täglich neue Vorschläge, like oder super-like und starte Gespräche.
-- **Sicher chatten:** Melde, blockiere oder teile verdächtige Inhalte – unser Moderationsteam reagiert schnell.
-- **Push-Benachrichtigungen:** Bleib informiert, wenn neue Matches oder Nachrichten eintreffen.
+- **Verifizierte Profile:** Selfie-Scan bestätigt echte Identitäten.
+- **Privacy-First Fotos:** Fotos bleiben verborgen/blurred bis zur Verbindung oder per Whitelist.
+- **Regionale Einführungen:** Vorschläge basieren auf Region und Aktivität.
+- **Sicherer Austausch:** Melden, blockieren, Moderation & Schutzfunktionen.
 
-meetmate setzt auf Datenschutz und Transparenz: Profile lassen sich jederzeit bearbeiten oder löschen, alle Kommunikation erfolgt verschlüsselt.
+Noxchiin setzt auf Datenschutz und Transparenz: Profile lassen sich jederzeit bearbeiten oder löschen, Kommunikation ist geschützt.
 
 ## App Description (English)
 
-**Title:** meetmate – Real Connections Near You
+**Title:** Noxchiin – Verified Community Connections
 
-**Subtitle:** Smart matches and safe messaging for meaningful dating.
+**Subtitle:** Trust-first introductions with verification and privacy-by-default.
 
 **Long Description:**
-meetmate helps you discover people who truly fit your vibe.
+Noxchiin is a community app for verified connections within the Chechen diaspora.
 
-- **Intelligent Discovery:** Personalized recommendations based on distance, recency, shared interests and feedback.
-- **Rich Profiles:** Showcase your story with photos, prompts and interests.
-- **Swipe & Match:** Explore daily suggestions, send likes or super likes and start chatting instantly.
-- **Safe by Design:** Report or block profiles, detect unwanted content and rely on responsive moderation.
-- **Stay Notified:** Push notifications highlight new matches and messages so you never miss a moment.
+- **Verified profiles:** Selfie verification confirms identity.
+- **Privacy-first photos:** Photos stay blurred/locked until connection or whitelist access.
+- **Regional introductions:** Suggestions based on region and activity.
+- **Safety & moderation:** Report, block, and proactive protection.
 
-meetmate respects your privacy – edit or delete your data anytime, encrypted messaging included.
+Noxchiin respects privacy and transparency: edit or delete your data anytime; secure messaging included.
 
 ## Keywords
 
-- Dating, Match, Liebe, Beziehung, Freundschaft, Singles, Chat, Sicherheit, Nearby, Swipe
+- Community, Vertrauen, Verifizierung, Kontakte, Begegnung, Beziehung, Chat, Sicherheit, Nearby, Intro
 
 ## Altersfreigabe (Hinweise)
 
@@ -53,21 +51,21 @@ meetmate respects your privacy – edit or delete your data anytime, encrypted m
 | Kategorie | Datenpunkte | Zweck |
 | --- | --- | --- |
 | Kontaktinfo | E-Mail-Adresse | Authentifizierung, Support |
-| Benutzerinhalt | Fotos, Profilangaben, Chatnachrichten | Profilanzeige, Matching, Kommunikation |
+| Benutzerinhalt | Fotos, Profilangaben, Chatnachrichten | Profilanzeige, Einführung, Kommunikation |
 | Standort | Stadt / Geopunkt (optional) | Vorschläge in der Nähe |
-| Nutzungsdaten | Likes, Matches, Interaktionen | Matching-Heuristik, Missbrauchserkennung |
+| Nutzungsdaten | Interaktionen, Einführungen, Nachrichten | Vorschläge, Missbrauchserkennung |
 | Kennungen | Supabase User-ID, Device Push Token | Accountverwaltung, Push-Benachrichtigungen |
 
 **Nicht erhobene Daten:** Finanzdaten, Gesundheitsdaten, Browser-Historie.
 
-**Datenweitergabe:** Keine Weitergabe an Drittvermarkter; Nutzung innerhalb von meetmate Services (Supabase, RevenueCat, Expo Push).
+**Datenweitergabe:** Keine Weitergabe an Drittvermarkter; Nutzung innerhalb von Noxchiin-Services (Supabase, RevenueCat, Expo Push).
 
 ## Support- & Privacy-Links (Placeholder)
 
 - Support URL: https://meetmate.example.com/support
 - Privacy Policy: https://meetmate.example.com/privacy
 
-## Review-Checkliste (Dating-spezifisch)
+## Review-Checkliste (Community & Trust)
 
 1. **Melden & Blockieren:** Funktion klar erreichbar (Profil/Chat/Discovery) und dokumentiert.
 2. **Moderation:** Team / automatisierte Prüfungen + Edge-Funktion `abuse-check` zur doppelten Absicherung.

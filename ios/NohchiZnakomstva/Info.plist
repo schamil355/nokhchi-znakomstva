@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>Нохчи Знакомства</string>
+    <string>Нохчийн</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -55,10 +55,6 @@
     <string>Доступ к камере нужен, чтобы сделать или обновить твои профильные фото.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Доступ к Face ID нужен, чтобы быстро входить в приложение и подтверждать действия.</string>
-    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>Мы используем местоположение только во время активной работы приложения для поиска анкет поблизости.</string>
-    <key>NSLocationAlwaysUsageDescription</key>
-    <string>Геолокация используется только для подбора анкет поблизости и функции "Невидимка рядом".</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Доступ к геолокации нужен, чтобы показывать профили поблизости и работать "Невидимка рядом".</string>
 	<key>NSMicrophoneUsageDescription</key>

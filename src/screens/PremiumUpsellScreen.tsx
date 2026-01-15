@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import SafeAreaView from "../components/SafeAreaView";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
@@ -8,6 +8,9 @@ import { useRevenueCat } from "../hooks/useRevenueCat";
 import type { PurchasesPackage } from "react-native-purchases";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { PRIVACY_URL, TERMS_URL } from "../lib/legalLinks";
+import { useAuthStore } from "../state/authStore";
+import { refetchProfile } from "../services/profileService";
+import { createStripeCheckoutSession, fetchStripePlanAvailability } from "../services/stripeCheckoutService";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -20,15 +23,15 @@ const PALETTE = {
 const translations = {
   de: {
     title: "Premium freischalten",
-    subtitle: "Mehr sehen, mehr schicken, anonym bleiben.",
-    benefitSeeLikes: "Sieh, wer dich geliket hat",
-    benefitSeeLikesDesc: "Alle Likes sofort sichtbar",
-    benefitInstachats: "Direktchat senden",
-    benefitInstachatsDesc: "Direkt anschreiben und den ersten Schritt machen.",
+    subtitle: "Mehr sehen, zuerst vorstellen, anonym bleiben.",
+    benefitSeeLikes: "Sieh wer dich geliket hat",
+    benefitSeeLikesDesc: "Alle Likes sofort sichtbar.",
+    benefitInstachats: "Direktnachricht senden",
+    benefitInstachatsDesc: "Warte nicht bis zum Match – schreib direkt.",
     benefitHideNearby: "Unsichtbar in der Nähe",
     benefitHideNearbyDesc: "Wähle deinen Schutzradius, damit Nachbarn/Freunde dich nicht sehen.",
-    benefitAnon: "Anonym stöbern & liken",
-    benefitAnonDesc: "Bleib unsichtbar und sende trotzdem Likes, die beim Gegenüber ankommen.",
+    benefitAnon: "Anonym stöbern",
+    benefitAnonDesc: "Anonym bleiben – nur wer von dir geliket wurde, sieht dein Foto.",
     choosePlan: "Wähle deinen Plan",
     planMonthly: "Monatlich",
     planAnnual: "Jährlich",
@@ -71,21 +74,25 @@ const translations = {
     alreadyPremium: "Du hast bereits Premium.",
     cta: "Premium holen",
     ctaHint: "Bitte wähle ein Paket aus.",
+    webCta: "Weiter zur Zahlung",
+    webUnavailable: "Web-Zahlung ist in deinem Land aktuell nicht verfügbar.",
+    webSuccess: "Zahlung abgeschlossen. Premium wird gleich aktiviert.",
+    webCancel: "Zahlung abgebrochen.",
     later: "Später",
     badge: "Premium",
     soon: "Bald verfügbar"
   },
   fr: {
     title: "Débloque Premium",
-    subtitle: "Vois plus, écris en premier, reste discret.",
-    benefitSeeLikes: "Voir qui t'a liké",
+    subtitle: "Voir plus, initier l'intro, rester discret.",
+    benefitSeeLikes: "Voir qui t’a liké",
     benefitSeeLikesDesc: "Tous les likes visibles immédiatement.",
-    benefitInstachats: "Envoyer un Directchat",
-    benefitInstachatsDesc: "Écris en premier et lance la discussion.",
+    benefitInstachats: "Envoyer un message direct",
+    benefitInstachatsDesc: "N’attends pas le match — écris directement.",
     benefitHideNearby: "Invisible à proximité",
     benefitHideNearbyDesc: "Choisis ton rayon pour rester introuvable par les voisins/amis.",
-    benefitAnon: "Parcourir et liker en anonyme",
-    benefitAnonDesc: "Reste invisible mais tes likes apparaissent chez l'autre.",
+    benefitAnon: "Parcourir en privé",
+    benefitAnonDesc: "Reste anonyme — seule la personne que tu as likée voit ta photo.",
     choosePlan: "Choisis ton plan",
     planMonthly: "Mensuel",
     planAnnual: "Annuel",
@@ -128,21 +135,25 @@ const translations = {
     alreadyPremium: "Tu as déjà Premium.",
     cta: "Obtenir Premium",
     ctaHint: "Choisis d'abord un plan.",
+    webCta: "Continuer vers le paiement",
+    webUnavailable: "Le paiement web n'est pas disponible dans votre pays pour le moment.",
+    webSuccess: "Paiement effectué. Premium sera activé sous peu.",
+    webCancel: "Paiement annulé.",
     later: "Plus tard",
     badge: "Premium",
     soon: "Bientôt"
   },
   en: {
     title: "Unlock Premium",
-    subtitle: "See more, message first, stay hidden.",
+    subtitle: "See more, introduce first, stay hidden.",
     benefitSeeLikes: "See who liked you",
-    benefitSeeLikesDesc: "Unlock every like instantly—no guessing.",
-    benefitInstachats: "Send Direktchat",
-    benefitInstachatsDesc: "Reach out first and spark the convo.",
+    benefitSeeLikesDesc: "All likes visible instantly.",
+    benefitInstachats: "Send a direct message",
+    benefitInstachatsDesc: "Don’t wait for a match — message directly.",
     benefitHideNearby: "Invisible to nearby users",
     benefitHideNearbyDesc: "Pick your safety radius so neighbors/friends won't see you.",
-    benefitAnon: "Browse & like anonymously",
-    benefitAnonDesc: "Stay invisible but your likes still show up for others.",
+    benefitAnon: "Browse privately",
+    benefitAnonDesc: "Stay anonymous — only the person you liked sees your photo.",
     choosePlan: "Choose your plan",
     planMonthly: "Monthly",
     planAnnual: "Annual",
@@ -185,21 +196,25 @@ const translations = {
     alreadyPremium: "You already have Premium.",
     cta: "Get Premium",
     ctaHint: "Please select a plan first.",
+    webCta: "Continue to payment",
+    webUnavailable: "Web payments are not available in your country yet.",
+    webSuccess: "Payment completed. Premium will activate shortly.",
+    webCancel: "Payment cancelled.",
     later: "Later",
     badge: "Premium",
     soon: "Coming soon"
   },
   ru: {
     title: "Открыть Premium",
-    subtitle: "Видеть больше, писать первым, оставаться скрытым.",
-    benefitSeeLikes: "Смотреть, кто лайкнул тебя",
-    benefitSeeLikesDesc: "Все лайки сразу, без ожидания.",
-    benefitInstachats: "Отправить Direktchat",
-    benefitInstachatsDesc: "Пиши первым и начинай диалог.",
+    subtitle: "Видеть больше, делать первый шаг, оставаться скрытым.",
+    benefitSeeLikes: "Смотри, кто тебя лайкнул",
+    benefitSeeLikesDesc: "Все лайки сразу видны.",
+    benefitInstachats: "Отправить прямое сообщение",
+    benefitInstachatsDesc: "Не жди матча — пиши напрямую.",
     benefitHideNearby: "Невидимка рядом",
     benefitHideNearbyDesc: "Выбери радиус защиты, чтобы соседи и знакомые не видели тебя.",
-    benefitAnon: "Браузить и лайкать анонимно",
-    benefitAnonDesc: "Оставайся невидимым, но твои лайки видны другим.",
+    benefitAnon: "Просмотр анонимно",
+    benefitAnonDesc: "Оставайся анонимным — фото увидит только тот, кому ты поставил лайк.",
     choosePlan: "Выбери план",
     planMonthly: "Ежемесячно",
     planAnnual: "Ежегодно",
@@ -242,6 +257,10 @@ const translations = {
     alreadyPremium: "У тебя уже есть Premium.",
     cta: "Получить Premium",
     ctaHint: "Сначала выбери план.",
+    webCta: "Перейти к оплате",
+    webUnavailable: "Оплата через веб недоступна в вашей стране.",
+    webSuccess: "Оплата прошла. Premium будет активирован в ближайшее время.",
+    webCancel: "Оплата отменена.",
     later: "Позже",
     badge: "Premium",
     soon: "Скоро"
@@ -252,9 +271,17 @@ const PremiumUpsellScreen = () => {
   const copy = useLocalizedCopy(translations);
   const errorCopy = useErrorCopy();
   const navigation = useNavigation<any>();
+  const profile = useAuthStore((state) => state.profile);
+  const session = useAuthStore((state) => state.session);
+  const isWeb = Platform.OS === "web";
   const { currentOffering, status, error, isPro, purchasePackage, restore, refresh } = useRevenueCat();
   const packages = useMemo(() => currentOffering?.availablePackages ?? [], [currentOffering]);
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+  const [webPlanId, setWebPlanId] = useState<"monthly" | "yearly">("monthly");
+  const [webLoading, setWebLoading] = useState(false);
+  const [webError, setWebError] = useState<string | null>(null);
+  const [webNotice, setWebNotice] = useState<string | null>(null);
+  const [webPlanIds, setWebPlanIds] = useState<Array<"monthly" | "yearly"> | null>(null);
   const didAutoCloseRef = useRef(false);
 
   const benefits = [
@@ -264,23 +291,118 @@ const PremiumUpsellScreen = () => {
     { title: copy.benefitAnon, desc: copy.benefitAnonDesc }
   ];
 
+  const isPremium = isWeb ? Boolean(profile?.isPremium) : isPro;
+  const currency = useMemo(() => {
+    const country =
+      profile?.country ??
+      session?.user?.user_metadata?.country ??
+      null;
+    if (typeof country === "string" && country.toUpperCase() === "NO") {
+      return "NOK" as const;
+    }
+    if (typeof country === "string" && country.toUpperCase() === "RU") {
+      return "RUB" as const;
+    }
+    return "EUR" as const;
+  }, [profile?.country, session?.user?.user_metadata?.country]);
+
+  const webPlans = useMemo(() => {
+    if (currency === "RUB") {
+      return [];
+    }
+    const amounts =
+      currency === "NOK"
+        ? { monthly: 15900, yearly: 99900 }
+        : { monthly: 1499, yearly: 9999 };
+    const plans = [
+      {
+        id: "monthly" as const,
+        label: copy.planMonthly,
+        periodLabel: copy.perMonth,
+        durationLabel: copy.durationMonth,
+        amountMinor: amounts.monthly
+      },
+      {
+        id: "yearly" as const,
+        label: copy.planAnnual,
+        periodLabel: copy.perYear,
+        durationLabel: copy.durationYear,
+        amountMinor: amounts.yearly
+      }
+    ];
+    if (webPlanIds) {
+      return plans.filter((plan) => webPlanIds.includes(plan.id));
+    }
+    return plans;
+  }, [
+    currency,
+    copy.planMonthly,
+    copy.planAnnual,
+    copy.perMonth,
+    copy.perYear,
+    copy.durationMonth,
+    copy.durationYear,
+    webPlanIds
+  ]);
+
   useEffect(() => {
     if (!packages.length) return;
     setSelectedPackageId((prev) => (packages.some((pkg) => pkg.identifier === prev) ? prev : packages[0].identifier));
   }, [packages]);
 
   useEffect(() => {
-    if (!isPro || didAutoCloseRef.current) return;
+    if (!isWeb) return;
+    if (!webPlans.length) return;
+    setWebPlanId((prev) => (webPlans.some((plan) => plan.id === prev) ? prev : webPlans[0].id));
+  }, [isWeb, webPlans]);
+
+  useEffect(() => {
+    if (!isWeb || currency === "RUB") {
+      setWebPlanIds([]);
+      return;
+    }
+    let active = true;
+    setWebPlanIds(null);
+    fetchStripePlanAvailability(currency === "NOK" ? "NOK" : "EUR")
+      .then((data) => {
+        if (!active) return;
+        setWebPlanIds(data.plans ?? []);
+      })
+      .catch(() => {
+        if (!active) return;
+        setWebPlanIds([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [currency, isWeb]);
+
+  useEffect(() => {
+    if (!isPremium || didAutoCloseRef.current) return;
     didAutoCloseRef.current = true;
     if (navigation?.canGoBack?.()) {
       navigation.goBack();
     } else if (typeof navigation?.navigate === "function") {
       navigation.navigate("Main");
     }
-  }, [isPro, navigation]);
+  }, [isPremium, navigation]);
 
   const selectedPackage = packages.find((pkg) => pkg.identifier === selectedPackageId) ?? packages[0] ?? null;
+  const webSelectedPlan = webPlans.find((plan) => plan.id === webPlanId) ?? webPlans[0] ?? null;
   const isLoading = status === "loading";
+  const errorMessage = error ? getErrorMessage(error, errorCopy, copy.purchaseFailed) : null;
+
+  useEffect(() => {
+    if (!isWeb || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get("checkout");
+    if (checkout === "success") {
+      setWebNotice(copy.webSuccess);
+      void refetchProfile();
+    } else if (checkout === "cancel") {
+      setWebNotice(copy.webCancel);
+    }
+  }, [copy.webCancel, copy.webSuccess, isWeb]);
 
   const getPlanLabel = (pkg: PurchasesPackage) => {
     switch (pkg.packageType) {
@@ -347,6 +469,50 @@ const PremiumUpsellScreen = () => {
 
   const formatTotalPrice = (pkg: PurchasesPackage) => pkg.product?.priceString ?? "";
 
+  const formatWebPrice = (amountMinor: number) => {
+    const amount = amountMinor / 100;
+    if (typeof Intl === "undefined") {
+      return `${amount.toFixed(2)} ${currency}`;
+    }
+    try {
+      return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amount);
+    } catch {
+      return `${amount.toFixed(2)} ${currency}`;
+    }
+  };
+
+  const handleWebCheckout = async () => {
+    if (currency === "RUB") {
+      setWebError(copy.webUnavailable);
+      return;
+    }
+    if (!webSelectedPlan) {
+      setWebError(copy.ctaHint);
+      return;
+    }
+    setWebLoading(true);
+    setWebError(null);
+    try {
+      const { url } = await createStripeCheckoutSession({
+        planId: webSelectedPlan.id,
+        currency: currency === "NOK" ? "NOK" : "EUR",
+      });
+      if (typeof window !== "undefined") {
+        window.location.assign(url);
+      } else {
+        await Linking.openURL(url);
+      }
+    } catch (checkoutError) {
+      setWebError(getErrorMessage(checkoutError, errorCopy, copy.purchaseFailed));
+    } finally {
+      setWebLoading(false);
+    }
+  };
+
+  const primaryDisabled = isWeb
+    ? webLoading || !webSelectedPlan || isPremium || currency === "RUB"
+    : isLoading || !selectedPackage || isPremium;
+
   const handleUpgrade = async () => {
     if (!selectedPackage) {
       Alert.alert(copy.title, copy.ctaHint);
@@ -403,91 +569,169 @@ const PremiumUpsellScreen = () => {
 
           <View style={styles.planSection}>
             <Text style={styles.sectionTitle}>{copy.choosePlan}</Text>
-            {isPro ? <Text style={styles.planHint}>{copy.alreadyPremium}</Text> : null}
-            {isLoading && !packages.length ? (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator color={PALETTE.gold} />
-                <Text style={styles.loadingText}>{copy.loadingOffers}</Text>
-              </View>
-            ) : null}
-            {!packages.length && !isLoading ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>{copy.noOffers}</Text>
-                <Pressable style={styles.retryButton} onPress={refresh}>
-                  <Text style={styles.retryText}>{copy.retry}</Text>
-                </Pressable>
-              </View>
-            ) : null}
-            {packages.length ? (
-              <View style={styles.planList}>
-                {packages.map((pkg) => {
-                  const isSelected = pkg.identifier === selectedPackage?.identifier;
-                  return (
-                    <Pressable
-                      key={pkg.identifier}
-                      style={[styles.planCard, isSelected && styles.planCardActive]}
-                      onPress={() => setSelectedPackageId(pkg.identifier)}
-                    >
-                      <View style={styles.planHeader}>
-                        <Text style={styles.planTitle}>{getPlanLabel(pkg)}</Text>
-                        <View style={[styles.planCheck, isSelected && styles.planCheckActive]}>
-                          {isSelected ? <View style={styles.planCheckDot} /> : null}
-                        </View>
-                      </View>
-                      <Text style={styles.planPrice}>{formatTotalPrice(pkg)}</Text>
-                      {getPeriodLabel(pkg) ? (
-                        <Text style={styles.planPeriod}>{getPeriodLabel(pkg)}</Text>
-                      ) : null}
-                      {pkg.product?.description ? (
-                        <Text style={styles.planSub} numberOfLines={2}>
-                          {pkg.product.description}
-                        </Text>
-                      ) : null}
+            {isPremium ? <Text style={styles.planHint}>{copy.alreadyPremium}</Text> : null}
+            {isWeb ? (
+              <>
+                {webNotice ? <Text style={styles.noticeText}>{webNotice}</Text> : null}
+                {currency === "RUB" ? <Text style={styles.emptyText}>{copy.webUnavailable}</Text> : null}
+                {currency !== "RUB" && webPlanIds === null ? (
+                  <View style={styles.loadingRow}>
+                    <ActivityIndicator color={PALETTE.gold} />
+                    <Text style={styles.loadingText}>{copy.loadingOffers}</Text>
+                  </View>
+                ) : null}
+                {currency !== "RUB" && webPlanIds !== null && !webPlans.length ? (
+                  <Text style={styles.emptyText}>{copy.webUnavailable}</Text>
+                ) : null}
+                {currency !== "RUB" && webPlans.length ? (
+                  <View style={styles.planList}>
+                    {webPlans.map((plan) => {
+                      const isSelected = plan.id === webSelectedPlan?.id;
+                      return (
+                        <Pressable
+                          key={plan.id}
+                          style={[styles.planCard, isSelected && styles.planCardActive]}
+                          onPress={() => setWebPlanId(plan.id)}
+                        >
+                          <View style={styles.planHeader}>
+                            <Text style={styles.planTitle}>{plan.label}</Text>
+                            <View style={[styles.planCheck, isSelected && styles.planCheckActive]}>
+                              {isSelected ? <View style={styles.planCheckDot} /> : null}
+                            </View>
+                          </View>
+                          <Text style={styles.planPrice}>{formatWebPrice(plan.amountMinor)}</Text>
+                          {plan.periodLabel ? <Text style={styles.planPeriod}>{plan.periodLabel}</Text> : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
+                {webError ? <Text style={styles.errorText}>{webError}</Text> : null}
+                {webSelectedPlan ? (
+                  <View style={styles.subInfoCard}>
+                    <Text style={styles.subInfoTitle}>{copy.subscriptionInfoTitle}</Text>
+                    <View style={styles.subInfoRow}>
+                      <Text style={styles.subInfoLabel}>{copy.subInfoPlan}</Text>
+                      <Text style={styles.subInfoValue}>{webSelectedPlan.label}</Text>
+                    </View>
+                    <View style={styles.subInfoRow}>
+                      <Text style={styles.subInfoLabel}>{copy.subInfoDuration}</Text>
+                      <Text style={styles.subInfoValue}>{webSelectedPlan.durationLabel}</Text>
+                    </View>
+                    <View style={styles.subInfoRow}>
+                      <Text style={styles.subInfoLabel}>{copy.subInfoPrice}</Text>
+                      <Text style={styles.subInfoValue}>{formatWebPrice(webSelectedPlan.amountMinor)}</Text>
+                    </View>
+                    <Text style={styles.subInfoNote}>{copy.subInfoAutoRenew}</Text>
+                  </View>
+                ) : null}
+              </>
+            ) : (
+              <>
+                {isLoading && !packages.length ? (
+                  <View style={styles.loadingRow}>
+                    <ActivityIndicator color={PALETTE.gold} />
+                    <Text style={styles.loadingText}>{copy.loadingOffers}</Text>
+                  </View>
+                ) : null}
+                {!packages.length && !isLoading ? (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyText}>{copy.noOffers}</Text>
+                    <Pressable style={styles.retryButton} onPress={refresh}>
+                      <Text style={styles.retryText}>{copy.retry}</Text>
                     </Pressable>
-                  );
-                })}
-              </View>
-            ) : null}
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            {selectedPackage ? (
-              <View style={styles.subInfoCard}>
-                <Text style={styles.subInfoTitle}>{copy.subscriptionInfoTitle}</Text>
-                <View style={styles.subInfoRow}>
-                  <Text style={styles.subInfoLabel}>{copy.subInfoPlan}</Text>
-                  <Text style={styles.subInfoValue}>{getPlanLabel(selectedPackage)}</Text>
-                </View>
-                <View style={styles.subInfoRow}>
-                  <Text style={styles.subInfoLabel}>{copy.subInfoDuration}</Text>
-                  <Text style={styles.subInfoValue}>{getDurationLabel(selectedPackage)}</Text>
-                </View>
-                <View style={styles.subInfoRow}>
-                  <Text style={styles.subInfoLabel}>{copy.subInfoPrice}</Text>
-                  <Text style={styles.subInfoValue}>{formatTotalPrice(selectedPackage)}</Text>
-                </View>
-                <Text style={styles.subInfoNote}>
-                  {selectedPackage.packageType === "LIFETIME" ? copy.subInfoOneTime : copy.subInfoAutoRenew}
-                </Text>
-              </View>
-            ) : null}
+                  </View>
+                ) : null}
+                {packages.length ? (
+                  <View style={styles.planList}>
+                    {packages.map((pkg) => {
+                      const isSelected = pkg.identifier === selectedPackage?.identifier;
+                      return (
+                        <Pressable
+                          key={pkg.identifier}
+                          style={[styles.planCard, isSelected && styles.planCardActive]}
+                          onPress={() => setSelectedPackageId(pkg.identifier)}
+                        >
+                          <View style={styles.planHeader}>
+                            <Text style={styles.planTitle}>{getPlanLabel(pkg)}</Text>
+                            <View style={[styles.planCheck, isSelected && styles.planCheckActive]}>
+                              {isSelected ? <View style={styles.planCheckDot} /> : null}
+                            </View>
+                          </View>
+                          <Text style={styles.planPrice}>{formatTotalPrice(pkg)}</Text>
+                          {getPeriodLabel(pkg) ? (
+                            <Text style={styles.planPeriod}>{getPeriodLabel(pkg)}</Text>
+                          ) : null}
+                          {pkg.product?.description ? (
+                            <Text style={styles.planSub} numberOfLines={2}>
+                              {pkg.product.description}
+                            </Text>
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
+                {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+                {selectedPackage ? (
+                  <View style={styles.subInfoCard}>
+                    <Text style={styles.subInfoTitle}>{copy.subscriptionInfoTitle}</Text>
+                    <View style={styles.subInfoRow}>
+                      <Text style={styles.subInfoLabel}>{copy.subInfoPlan}</Text>
+                      <Text style={styles.subInfoValue}>{getPlanLabel(selectedPackage)}</Text>
+                    </View>
+                    <View style={styles.subInfoRow}>
+                      <Text style={styles.subInfoLabel}>{copy.subInfoDuration}</Text>
+                      <Text style={styles.subInfoValue}>{getDurationLabel(selectedPackage)}</Text>
+                    </View>
+                    <View style={styles.subInfoRow}>
+                      <Text style={styles.subInfoLabel}>{copy.subInfoPrice}</Text>
+                      <Text style={styles.subInfoValue}>{formatTotalPrice(selectedPackage)}</Text>
+                    </View>
+                    <Text style={styles.subInfoNote}>
+                      {selectedPackage.packageType === "LIFETIME" ? copy.subInfoOneTime : copy.subInfoAutoRenew}
+                    </Text>
+                  </View>
+                ) : null}
+              </>
+            )}
           </View>
         </ScrollView>
 
         <View style={styles.footer}>
-          <Pressable style={[styles.primary, (isLoading || !selectedPackage || isPro) && styles.primaryDisabled]} onPress={handleUpgrade} disabled={isLoading || !selectedPackage || isPro}>
+          <Pressable
+            style={[styles.primary, primaryDisabled && styles.primaryDisabled]}
+            onPress={isWeb ? handleWebCheckout : handleUpgrade}
+            disabled={primaryDisabled}
+          >
             <LinearGradient
               colors={[PALETTE.gold, "#8b6c2a"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[styles.primaryInner, (isLoading || !selectedPackage || isPro) && styles.primaryInnerDisabled]}
+              style={[styles.primaryInner, primaryDisabled && styles.primaryInnerDisabled]}
             >
-              {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>{copy.cta}</Text>}
+              {isWeb ? (
+                webLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryText}>{copy.webCta}</Text>
+                )
+              ) : isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.primaryText}>{copy.cta}</Text>
+              )}
             </LinearGradient>
           </Pressable>
           <View style={styles.footerLinks}>
-            <Pressable style={styles.linkButton} onPress={restore} disabled={isLoading}>
-              <Text style={styles.linkText}>{copy.restore}</Text>
-            </Pressable>
-            <Text style={styles.linkDivider}>•</Text>
+            {!isWeb ? (
+              <>
+                <Pressable style={styles.linkButton} onPress={restore} disabled={isLoading}>
+                  <Text style={styles.linkText}>{copy.restore}</Text>
+                </Pressable>
+                <Text style={styles.linkDivider}>•</Text>
+              </>
+            ) : null}
             <Pressable style={styles.linkButton} onPress={() => navigation.goBack()}>
               <Text style={styles.linkText}>{copy.later}</Text>
             </Pressable>
@@ -623,6 +867,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "#ffb4a2",
+    fontSize: 12
+  },
+  noticeText: {
+    color: "rgba(217,192,143,0.9)",
     fontSize: 12
   },
   subInfoCard: {

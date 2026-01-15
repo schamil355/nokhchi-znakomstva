@@ -490,7 +490,13 @@ export class PushService {
   private async composeMessage(token: string, job: PushQueueRow) {
     const payload: Record<string, any> = (job.payload ?? {}) as Record<string, any>;
     const likerIncognito = Boolean(
-      payload.liker_incognito ?? payload.likerIncognito ?? payload.other_incognito ?? payload.otherIncognito
+      payload.liker_incognito ??
+        payload.likerIncognito ??
+        payload.other_incognito ??
+        payload.otherIncognito ??
+        payload.from_user_incognito ??
+        payload.fromUserIncognito ??
+        false
     );
     const rawAvatar =
       payload.avatarUrl ??

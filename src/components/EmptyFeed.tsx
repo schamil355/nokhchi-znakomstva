@@ -23,32 +23,36 @@ const RADAR_PULSE_COUNT = 3;
 
 const translations = {
   en: {
-    tabForYou: "For you",
-    tabRecent: "Recently active",
-    title: "Searching for people...",
-    subtitle: "If no profiles appear within a few seconds, try adjusting your filters.",
-    filters: "Filter settings"
+    tabForYou: "Verified",
+    tabRecent: "New members",
+    title: "Searching for users...",
+    subtitle: "If no profiles appear within a few seconds, please adjust your filter settings.",
+    filters: "Edit filters",
+    showNew: "Include new members"
   },
   de: {
-    tabForYou: "Für dich",
-    tabRecent: "Zuletzt aktiv",
+    tabForYou: "Verifiziert",
+    tabRecent: "Neue Mitglieder",
     title: "Suche nach Nutzern...",
     subtitle: "Wenn innerhalb weniger Sekunden keine Profile erscheinen, ändere bitte deine Filtereinstellungen.",
-    filters: "Filtereinstellungen"
+    filters: "Filter anpassen",
+    showNew: "Neue Mitglieder anzeigen"
   },
   fr: {
-    tabForYou: "Pour toi",
-    tabRecent: "Récemment actifs",
-    title: "Recherche de profils...",
-    subtitle: "Si aucun profil n'apparaît, essaie d'ajuster tes filtres.",
-    filters: "Réglages des filtres"
+    tabForYou: "Vérifiés",
+    tabRecent: "Nouveaux membres",
+    title: "Recherche d'utilisateurs...",
+    subtitle: "Si aucun profil n'apparaît en quelques secondes, ajuste tes paramètres de filtre.",
+    filters: "Modifier les filtres",
+    showNew: "Afficher les nouveaux membres"
   },
   ru: {
-    tabForYou: "Для тебя",
-    tabRecent: "Недавно активны",
-    title: "Ищу анкеты...",
-    subtitle: "Если анкеты не появляются, попробуй изменить фильтры.",
-    filters: "Настройки фильтров"
+    tabForYou: "Проверенные",
+    tabRecent: "Новые участники",
+    title: "Поиск пользователей...",
+    subtitle: "Если в течение нескольких секунд не появляются профили, измените настройки фильтров.",
+    filters: "Настройки фильтров",
+    showNew: "Показать новых участников"
   }
 };
 
@@ -446,6 +450,19 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "700"
+  },
+  secondaryCta: {
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(242,231,215,0.45)"
+  },
+  secondaryCtaText: {
+    color: "rgba(242,231,215,0.85)",
+    fontSize: 14,
+    fontWeight: "600"
   }
 });
 

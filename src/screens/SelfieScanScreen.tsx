@@ -100,6 +100,8 @@ const SelfieScanScreen = ({ navigation, route }: Props) => {
     }
   }, [cameraPermission, navigation, profilePath, requestPermission]);
 
+  const supportsFaceDetector = Boolean((FaceDetector as any)?.FaceDetectorMode);
+
   const onFacesDetected = useCallback(({ faces: detectedFaces }: { faces: FaceDetector.FaceFeature[] }) => {
     setFaces(detectedFaces);
   }, []);
@@ -153,7 +155,12 @@ const SelfieScanScreen = ({ navigation, route }: Props) => {
       }
     } catch (error) {
       console.error("[SelfieScan]", error);
-      Alert.alert(copy.error);
+      const message = error instanceof Error ? error.message : "";
+      if (__DEV__ && message && message !== copy.error) {
+        Alert.alert(copy.error, message);
+      } else {
+        Alert.alert(copy.error);
+      }
     } finally {
       setBusy(false);
     }
@@ -204,7 +211,7 @@ const SelfieScanScreen = ({ navigation, route }: Props) => {
   }
 
   // Allow capture as long as there aren't multiple faces (detector can miss a single face on some devices).
-  const hasMultipleFaces = faces.length > 1;
+  const hasMultipleFaces = supportsFaceDetector ? faces.length > 1 : false;
   const canCapture = !busy && !hasMultipleFaces;
 
   return (
@@ -233,7 +240,7 @@ const SelfieScanScreen = ({ navigation, route }: Props) => {
 
           <Text style={styles.title}>{copy.title}</Text>
           <Text style={styles.subtitle}>{copy.instructions}</Text>
-          {hasMultipleFaces && <Text style={styles.faceHint}>{copy.faceHint}</Text>}
+          {supportsFaceDetector && hasMultipleFaces && <Text style={styles.faceHint}>{copy.faceHint}</Text>}
 
           <View style={styles.cameraCard}>
             <View style={styles.panelHeader}>
@@ -257,15 +264,19 @@ const SelfieScanScreen = ({ navigation, route }: Props) => {
                 }}
                 style={styles.camera}
                 facing="front"
-                onFacesDetected={onFacesDetected}
-                faceDetectorSettings={{
-                  mode: FaceDetector.FaceDetectorMode.fast,
-                  detectLandmarks: FaceDetector.FaceDetectorLandmarks.none,
-                  runClassifications: FaceDetector.FaceDetectorClassifications.none,
-                  minDetectionInterval: 300,
-                  tracking: true,
-                  trackingId: true
-                }}
+                onFacesDetected={supportsFaceDetector ? onFacesDetected : undefined}
+                faceDetectorSettings={
+                  supportsFaceDetector
+                    ? {
+                        mode: FaceDetector.FaceDetectorMode.fast,
+                        detectLandmarks: FaceDetector.FaceDetectorLandmarks.none,
+                        runClassifications: FaceDetector.FaceDetectorClassifications.none,
+                        minDetectionInterval: 300,
+                        tracking: true,
+                        trackingId: true
+                      }
+                    : undefined
+                }
               />
             </View>
           </View>

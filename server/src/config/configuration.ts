@@ -31,5 +31,8 @@ export default () => ({
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean),
+    webPushPublicKey: process.env.WEB_PUSH_VAPID_PUBLIC_KEY ?? "",
+    webPushPrivateKey: process.env.WEB_PUSH_VAPID_PRIVATE_KEY ?? "",
+    webPushSubject: process.env.WEB_PUSH_SUBJECT ?? "mailto:support@nokhchi-znakomstva.com",
   },
 });

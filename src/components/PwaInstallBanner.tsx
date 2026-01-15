@@ -15,7 +15,7 @@ const translations = {
   en: {
     title: "Install the app",
     body: "Add Нохчи Знакомства to your home screen for faster access.",
-    iosBody: "On iOS: tap \"Install\" and then \"Add to Home Screen\".",
+    iosBody: "On iOS: tap the Share icon in Safari, then \"Add to Home Screen\".",
     install: "Install",
     dismiss: "Not now",
     share: "Install"
@@ -23,7 +23,7 @@ const translations = {
   de: {
     title: "App installieren",
     body: "Füge Нохчи Знакомства zum Homescreen hinzu für schnellen Zugriff.",
-    iosBody: "Auf iOS: Tippe auf \"Installieren\" und dann \"Zum Home-Bildschirm\".",
+    iosBody: "Auf iOS: Tippe in Safari auf das Teilen-Icon und dann \"Zum Home-Bildschirm\".",
     install: "Installieren",
     dismiss: "Später",
     share: "Installieren"
@@ -31,7 +31,7 @@ const translations = {
   fr: {
     title: "Installer l'app",
     body: "Ajoute Нохчи Знакомства à l'écran d'accueil pour un accès rapide.",
-    iosBody: "Sur iOS : touche \"Installer\" puis \"Sur l'écran d'accueil\".",
+    iosBody: "Sur iOS : touche l'icône Partager dans Safari puis \"Sur l'écran d'accueil\".",
     install: "Installer",
     dismiss: "Plus tard",
     share: "Installer"
@@ -39,7 +39,7 @@ const translations = {
   ru: {
     title: "Установить приложение",
     body: "Добавьте Нохчи Знакомства на главный экран для быстрого доступа.",
-    iosBody: "На iOS: нажмите «Установить», затем «На экран Домой».",
+    iosBody: "На iOS: нажмите значок «Поделиться» в Safari, затем «На экран Домой».",
     install: "Установить",
     dismiss: "Позже",
     share: "Установить"
@@ -101,24 +101,6 @@ const PwaInstallBanner = () => {
     }
   };
 
-  const handleShare = async () => {
-    if (Platform.OS !== "web") {
-      return;
-    }
-    if (!("share" in navigator)) {
-      return;
-    }
-    try {
-      await navigator.share({
-        title: copy.title,
-        text: copy.body,
-        url: window.location.href
-      });
-    } catch (error) {
-      // User cancelled or share not available; ignore.
-    }
-  };
-
   return (
     <View style={styles.wrapper} pointerEvents="box-none">
       <View style={styles.banner}>
@@ -133,15 +115,11 @@ const PwaInstallBanner = () => {
               <Text style={styles.primaryText}>{copy.install}</Text>
             </Pressable>
           ) : (
-            <Pressable
-              onPress={handleShare}
-              style={({ pressed }) => [styles.iosShare, pressed && styles.iosSharePressed]}
-              accessibilityRole="button"
-              accessibilityLabel={copy.iosBody}
-            >
+            <View style={styles.iosShare} accessibilityRole="text" accessibilityLabel={copy.iosBody}>
               <Ionicons name="share-outline" size={16} color={PALETTE.gold} />
+              <Ionicons name="arrow-up" size={14} color={PALETTE.gold} />
               <Text style={styles.iosShareText}>{copy.share}</Text>
-            </Pressable>
+            </View>
           )}
           <Pressable onPress={() => setDismissed(true)} style={({ pressed }) => [styles.secondary, pressed && styles.secondaryPressed]}>
             <Text style={styles.secondaryText}>{copy.dismiss}</Text>
@@ -235,9 +213,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: "rgba(217, 192, 143, 0.4)"
-  },
-  iosSharePressed: {
-    opacity: 0.7
   },
   iosShareText: {
     color: PALETTE.sand,

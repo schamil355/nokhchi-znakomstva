@@ -21,6 +21,9 @@ import LikesYouScreen from "../screens/LikesYouScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import ChatScreen from "../screens/ChatScreen";
 import DirectChatScreen from "../screens/DirectChatScreen";
+import PlansScreen from "../screens/PlansScreen";
+import PlanDetailScreen from "../screens/PlanDetailScreen";
+import PlanCreateScreen from "../screens/PlanCreateScreen";
 import LegalScreen from "../screens/LegalScreen";
 import PremiumUpsellScreen from "../screens/PremiumUpsellScreen";
 import FiltersScreen from "../screens/FiltersScreen";
@@ -40,6 +43,7 @@ import OnboardingNextScreen from "../screens/OnboardingNextScreen";
 import CreateAccountScreen from "../screens/CreateAccountScreen";
 import RegisterChoiceScreen from "../screens/RegisterChoiceScreen";
 import EmailPendingScreen from "../screens/EmailPendingScreen";
+import RelationshipCompassScreen from "../screens/RelationshipCompassScreen";
 
 type AppNavigatorProps = {
   isAuthenticated: boolean;
@@ -50,16 +54,20 @@ type RootStackParamList = {
   Main: undefined;
   Chat: { matchId: string; participantId: string };
   DirectChat: { conversationId: string; otherUserId: string };
+  PlanDetail: { planId: string };
+  PlanCreate: undefined;
   Notifications: undefined;
   Legal: { screen?: "terms" | "privacy" } | undefined;
   Settings: undefined;
   Filters: { isModal?: boolean } | undefined;
   PremiumUpsell: undefined;
+  RelationshipCompass: undefined;
 };
 
 type TabParamList = {
   Discovery: undefined;
   Matches: undefined;
+  Plans: undefined;
   Likes: undefined;
   Filters: undefined;
   Profile: undefined;
@@ -111,9 +119,10 @@ type TabConfig = {
   icon?: React.ComponentType<SvgProps>;
   ioniconName?: keyof typeof Ionicons.glyphMap;
   imageSource?: ImageSourcePropType;
+  label?: string;
 };
 
-const tabsConfig: TabConfig[] = [
+const baseTabsConfig: TabConfig[] = [
   {
     name: "Discovery",
     component: DiscoveryScreen,
@@ -123,6 +132,11 @@ const tabsConfig: TabConfig[] = [
     name: "Matches",
     component: MatchesScreen,
     imageSource: MatchesPng
+  },
+  {
+    name: "Plans",
+    component: PlansScreen,
+    ioniconName: "calendar-outline"
   },
   {
     name: "Likes",
@@ -141,6 +155,7 @@ const tabsConfig: TabConfig[] = [
   }
 ];
 
+const tabsConfig: TabConfig[] = baseTabsConfig;
 
 const MainTabs = () => {
   return (
@@ -177,9 +192,17 @@ const MainTabs = () => {
         }
       })}
       tabBarBackground={() => <View style={tabStyles.background} />}
+      initialRouteName="Discovery"
     >
       {tabsConfig.map((tab) => {
-        return <Tab.Screen key={tab.name} name={tab.name} component={tab.component} />;
+        return (
+          <Tab.Screen
+            key={tab.name}
+            name={tab.name}
+            component={tab.component}
+            options={tab.label ? { tabBarLabel: tab.label } : undefined}
+          />
+        );
       })}
     </Tab.Navigator>
   );
@@ -203,6 +226,16 @@ const AppNavigator = ({ isAuthenticated }: AppNavigatorProps) => {
           <RootStack.Screen name="Chat" component={ChatScreen} />
           <RootStack.Screen name="DirectChat" component={DirectChatScreen} />
           <RootStack.Screen
+            name="PlanDetail"
+            component={PlanDetailScreen}
+            options={{ presentation: "fullScreenModal", animation: "slide_from_right" }}
+          />
+          <RootStack.Screen
+            name="PlanCreate"
+            component={PlanCreateScreen}
+            options={{ presentation: "fullScreenModal", animation: "slide_from_right" }}
+          />
+          <RootStack.Screen
             name="Filters"
             component={FiltersScreen}
             options={{ presentation: "fullScreenModal", animation: "slide_from_right" }}
@@ -215,6 +248,11 @@ const AppNavigator = ({ isAuthenticated }: AppNavigatorProps) => {
           <RootStack.Screen
             name="PremiumUpsell"
             component={PremiumUpsellScreen}
+            options={{ presentation: "fullScreenModal", animation: "slide_from_right" }}
+          />
+          <RootStack.Screen
+            name="RelationshipCompass"
+            component={RelationshipCompassScreen}
             options={{ presentation: "fullScreenModal", animation: "slide_from_right" }}
           />
         </>

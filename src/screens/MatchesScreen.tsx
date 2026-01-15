@@ -56,11 +56,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     lastActive: (timestamp) => `Last active ${timestamp}`,
     justNow: "just now",
     emptyTitle: "No matches yet!",
-    emptySubtitle: "Expand your filters to discover more people near you.",
+    emptySubtitle: "Update your filters to see more compatible profiles.",
     ctaFilters: "Adjust filters",
     messagesEmpty: "No conversations yet.",
-    directChatLabel: "Direct chat",
-    directChatHint: "No direct chats yet.",
+    directChatLabel: "Direct messages",
+    directChatHint: "No direct messages yet.",
     likesTitle: "",
     statusRead: "read",
     statusNew: "new",
@@ -74,32 +74,31 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     matchLabel: (id) => `Match #${id}`,
     lastActive: (timestamp) => `Zuletzt aktiv ${timestamp}`,
     justNow: "gerade eben",
-    emptyTitle: "Keine Matches bis jetzt!",
-    emptySubtitle:
-      "Erweitere deine Suche in den Filtereinstellungen, um einen potenziellen Match in deiner Nähe zu finden!",
+    emptyTitle: "Noch keine Matches!",
+    emptySubtitle: "Aktualisiere deine Filter, um mehr passende Profile zu sehen.",
     ctaFilters: "Filtereinstellungen",
     messagesEmpty: "Noch keine Nachrichten vorhanden.",
-    directChatLabel: "DirektChat",
-    directChatHint: "Noch keine Direktchats.",
+    directChatLabel: "Direktnachrichten",
+    directChatHint: "Noch keine Direktnachrichten.",
     likesTitle: "",
     statusRead: "gelesen",
     statusNew: "neu",
-    messageLabel: "Message",
+    messageLabel: "Nachricht",
     statusSent: "gesendet",
   },
   fr: {
-    tabLabel: "Matches",
-    cardTitle: "Tes matches",
+    tabLabel: "Matchs",
+    cardTitle: "Tes matchs",
     sectionTitle: "Messages",
     matchLabel: (id) => `Match #${id}`,
     lastActive: (timestamp) => `Dernière activité ${timestamp}`,
     justNow: "à l'instant",
-    emptyTitle: "Pas encore de match !",
-    emptySubtitle: "Étends ta recherche dans les filtres pour trouver des matches proches.",
+    emptyTitle: "Pas encore de matchs !",
+    emptySubtitle: "Mets à jour tes filtres pour voir plus de profils compatibles.",
     ctaFilters: "Filtres",
     messagesEmpty: "Aucune conversation pour le moment.",
-    directChatLabel: "Direct chat",
-    directChatHint: "Aucun direct chat pour le moment.",
+    directChatLabel: "Messages directs",
+    directChatHint: "Aucun message direct pour le moment.",
     likesTitle: "",
     statusRead: "lu",
     statusNew: "nouveau",
@@ -107,22 +106,22 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     statusSent: "envoyé",
   },
   ru: {
-    tabLabel: "Матчи",
-    cardTitle: "Твои матчи",
+    tabLabel: "Совпадения",
+    cardTitle: "Твои совпадения",
     sectionTitle: "Сообщения",
-    matchLabel: (id) => `Матч #${id}`,
+    matchLabel: (id) => `Совпадение #${id}`,
     lastActive: (timestamp) => `Активен ${timestamp}`,
     justNow: "только что",
-    emptyTitle: "Пока нет матчей!",
-    emptySubtitle: "Расширь поиск в фильтрах, чтобы найти подходящих людей рядом.",
+    emptyTitle: "Пока нет совпадений!",
+    emptySubtitle: "Обнови фильтры, чтобы увидеть больше подходящих профилей.",
     ctaFilters: "Настроить фильтры",
     messagesEmpty: "Пока нет переписок.",
-    directChatLabel: "Direct chat",
-    directChatHint: "Пока нет прямых чатов.",
+    directChatLabel: "Личные сообщения",
+    directChatHint: "Пока нет личных сообщений.",
     likesTitle: "",
     statusRead: "прочитано",
     statusNew: "новое",
-    messageLabel: "Message",
+    messageLabel: "Сообщение",
     statusSent: "отправлено",
   },
 };
@@ -174,7 +173,6 @@ const MatchesScreen = () => {
         item.participants.find((participant) => participant !== session?.user.id) ?? item.participants[0];
       return Boolean(
         item.otherIsIncognito ||
-          !item.previewPhotoUrl ||
           incognitoMatchIds.has(item.id) ||
           (otherParticipant && incognitoLikerIds.has(otherParticipant))
       );
@@ -185,16 +183,7 @@ const MatchesScreen = () => {
     Record<string, { content: string; senderId: string; createdAt: string; readAt?: string | null } | null>
   >({});
   const matchIdsKey = matches.map((m) => m.id).join(",");
-  const regularMatches = useMemo(
-    () =>
-      matches.filter((m) => {
-        if (typeof isIncognitoMatch !== "function") {
-          return Boolean(m.previewPhotoUrl);
-        }
-        return !isIncognitoMatch(m) && m.previewPhotoUrl;
-      }),
-    [isIncognitoMatch, matches]
-  );
+  const regularMatches = useMemo(() => matches, [matches]);
 
   useFocusEffect(
     useCallback(() => {
@@ -336,7 +325,7 @@ const MatchesScreen = () => {
     const cachedEntry = Object.prototype.hasOwnProperty.call(avatarCache, item.id) ? avatarCache[item.id] : undefined;
     const isIncognito = isIncognitoMatch(item);
     const avatarUri = isIncognito ? null : cachedEntry?.url ?? item.previewPhotoUrl ?? null;
-    const title = item.otherDisplayName || "Match";
+    const title = item.otherDisplayName || "Connection";
     const lastMessage = lastMessages[item.id];
     const snippet = lastMessage?.content?.trim() || copy.messagesEmpty;
     const isUnread =
@@ -969,11 +958,12 @@ const styles = StyleSheet.create({
   segmentText: {
     color: "rgba(242,231,215,0.7)",
     fontWeight: "700",
-    fontSize: 14,
+    fontSize: 13,
     letterSpacing: 0.2
   },
   segmentTextActive: {
-    color: PALETTE.sand
+    color: PALETTE.sand,
+    fontSize: 13
   },
   segmentInner: {
     flex: 1,

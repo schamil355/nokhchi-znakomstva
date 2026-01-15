@@ -25,7 +25,7 @@ EXPO_PUBLIC_API_URL=https://app.meetmate.com
 ### Manual SQL checks
 
 ```sql
--- Incognito profile visible after like
+-- Incognito profiles appear in discovery (client should blur/lock)
 select * from public.discovery_profiles where auth.uid() = '<viewer>';
 
 -- Grant whitelist access for a photo
@@ -58,9 +58,10 @@ values (123, '<viewer>') on conflict do nothing;
 - Originals never leave `photos_private` without a short-lived signed URL (120s by default).
 - Blurred assets are heavily downscaled (`200px`, blur radius `50`) before landing in `photos_blurred`.
 - Sign endpoint ships with a simple in-memory, per-user+photo rate limiter (30 req/min) and server logs.
-- Incognito view ensures:
-  - `is_incognito=false` ⇒ normal
-  - `is_incognito=true` ⇒ profile is hidden unless **(a)** you liked the viewer, or **(b)** you already matched.
+- Incognito discovery ensures:
+  - `is_incognito=false` => normal
+  - `is_incognito=true` => profile is returned in discovery, client must blur/lock it
+  - Photo access is still enforced by `/photos/view` (match_only/whitelist/blurred_until_match).
   - Additional toggles (`show_distance`, `show_last_seen`) are persisted for UI gating.
 
 ## Face-Verify / Buckets / Functions

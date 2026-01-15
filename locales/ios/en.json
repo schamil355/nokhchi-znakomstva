@@ -1,7 +1,7 @@
 {
   "NSCameraUsageDescription": "We need the camera for profile photos.",
-  "NSPhotoLibraryUsageDescription": "We use your photos so you can upload profile pictures and verify yourself for matches.",
+  "NSPhotoLibraryUsageDescription": "We use your photos so you can upload profile pictures and verify yourself for trusted connections.",
   "NSLocationWhenInUseUsageDescription": "We use your location to show nearby profiles and apply your distance/visibility settings.",
-  "NSLocationAlwaysUsageDescription": "We use your location only to show relevant matches nearby and respect your radius settings.",
+  "NSLocationAlwaysUsageDescription": "We use your location only to show relevant connections nearby and respect your radius settings.",
   "NSLocationAlwaysAndWhenInUseUsageDescription": "We use your location only while the app is active to show nearby profiles and apply your radius/visibility settings."
 }

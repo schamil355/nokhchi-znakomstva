@@ -1,4 +1,4 @@
-import { Like, Profile } from "../types";
+import { Like, Profile, RELATIONSHIP_COMPASS_KEYS, RelationshipCompassKey } from "../types";
 import { GeoRegion } from "../state/preferencesStore";
 import { resolveGeoRegion, haversineDistance } from "./geo";
 
@@ -14,6 +14,7 @@ const calculateAge = (value: string | Date) => {
   return age;
 };
 
+
 export const shouldCreateMatch = (likeA: Like, likeB: Like): boolean => {
   return likeA.likerId === likeB.likedId && likeA.likedId === likeB.likerId;
 };
@@ -24,12 +25,16 @@ export const calculateCompatibilityScore = (profileA: Profile, profileB: Profile
   const ageDelta = Math.abs(ageA - ageB);
   const sharedInterests = profileA.interests.filter((interest) => profileB.interests.includes(interest));
   const intentionMatch = profileA.intention === profileB.intention;
+  const compassAlignment = calculateCompassAlignment(profileA, profileB);
 
   let score = 50;
   score -= ageDelta * 1.5;
   score += sharedInterests.length * 10;
   if (intentionMatch) {
     score += 15;
+  }
+  if (compassAlignment.total > 0) {
+    score += compassAlignment.matches * 5;
   }
 
   if (profileA.isPremium || profileB.isPremium) {
@@ -40,10 +45,10 @@ export const calculateCompatibilityScore = (profileA: Profile, profileB: Profile
 };
 
 const resolveRegion = (candidate: Profile): GeoRegion => {
-  const country = candidate.country ?? null;
   return resolveGeoRegion({
-    countryName: country,
-    countryCode: country,
+    countryName: candidate.country,
+    countryCode: candidate.country,
+    regionCode: candidate.regionCode,
     latitude: candidate.latitude,
     longitude: candidate.longitude
   });
@@ -65,6 +70,9 @@ export const isProfileEligible = (candidate: Profile, filters: EligibilityFilter
   const ageMatches = !hasBirthday || (age !== null && age >= minAge && age <= maxAge);
   const matchesBasic = filters.genders.includes(candidate.gender) && ageMatches;
   if (!matchesBasic) {
+    return false;
+  }
+  if (!candidate.verified) {
     return false;
   }
   if (filters.distanceRange && filters.origin) {
@@ -89,4 +97,28 @@ export const isProfileEligible = (candidate: Profile, filters: EligibilityFilter
     return true;
   }
   return candidateRegion === filters.region;
+};
+
+export const calculateCompassAlignment = (profileA: Profile, profileB: Profile) => {
+  const answersA = profileA.relationshipCompass ?? {};
+  const answersB = profileB.relationshipCompass ?? {};
+  let matches = 0;
+  let total = 0;
+  const matchedKeys: RelationshipCompassKey[] = [];
+
+  for (const key of RELATIONSHIP_COMPASS_KEYS) {
+    const valueA = answersA[key];
+    const valueB = answersB[key];
+    if (!valueA || !valueB) {
+      continue;
+    }
+    total += 1;
+    if (valueA === valueB) {
+      matches += 1;
+      matchedKeys.push(key);
+    }
+  }
+
+  const score = total > 0 ? Math.round((matches / total) * 100) : null;
+  return { matches, total, score, matchedKeys };
 };

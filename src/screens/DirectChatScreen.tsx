@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { getPhotoUrl } from "../lib/storage";
 import { LinearGradient } from "expo-linear-gradient";
-import { blockUser } from "../services/moderationService";
+import { blockUser, reportUser } from "../services/moderationService";
 import SafeAreaView from "../components/SafeAreaView";
 
 type Props = NativeStackScreenProps<any>;
@@ -263,6 +263,7 @@ const DirectChatScreen = ({ route, navigation }: Props) => {
           const run = async () => {
             setIsBlocking(true);
             try {
+              await reportUser(viewerId, otherUserId, "abuse");
               await blockUser(viewerId, otherUserId);
               Alert.alert(copy.blockSuccess);
               navigation.goBack();

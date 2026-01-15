@@ -1,6 +1,35 @@
 export type Gender = "male" | "female" | "nonbinary";
 export type Intention = "serious" | "casual" | "friendship";
 
+export const RELATIONSHIP_COMPASS_KEYS = [
+  "timeline",
+  "familyCloseness",
+  "religiousPractice",
+  "relocation",
+  "familyIntro",
+  "roles",
+  "lifestyle"
+] as const;
+
+export type RelationshipCompassKey = typeof RELATIONSHIP_COMPASS_KEYS[number];
+export type RelationshipTimeline = "fast" | "steady" | "slow" | "no_timeline";
+export type FamilyCloseness = "very_close" | "close" | "neutral" | "independent";
+export type ReligiousPractice = "practicing" | "occasional" | "cultural" | "not_religious" | "private";
+export type Relocation = "stay" | "open_national" | "open_international" | "flexible";
+export type FamilyIntro = "early" | "some_months" | "when_sure" | "private";
+export type RolesOutlook = "traditional" | "mixed" | "modern" | "depends";
+export type LifestyleRhythm = "homebody" | "balanced" | "active" | "career_focus";
+
+export type RelationshipCompass = {
+  timeline?: RelationshipTimeline;
+  familyCloseness?: FamilyCloseness;
+  religiousPractice?: ReligiousPractice;
+  relocation?: Relocation;
+  familyIntro?: FamilyIntro;
+  roles?: RolesOutlook;
+  lifestyle?: LifestyleRhythm;
+};
+
 export type Photo = {
   id: string;
   url?: string;
@@ -33,7 +62,9 @@ export type Profile = {
   primaryPhotoPath?: string | null;
   primaryPhotoId?: number | null;
   verifiedFaceScore?: number | null;
+  relationshipCompass?: RelationshipCompass | null;
   country?: string | null;
+  regionCode?: string | null;
   latitude?: number | null;
   longitude?: number | null;
 };
@@ -103,4 +134,33 @@ export type DirectConversation = {
   lastMessage?: DirectMessage | null;
   otherProfile?: Profile | null;
   otherProfilePhoto?: string | null;
+};
+
+export type PlanStatus = "draft" | "published" | "cancelled" | "completed";
+export type PlanInviteStatus = "pending" | "accepted" | "passed" | "cancelled";
+
+export type DatePlan = {
+  id: string;
+  creatorId: string;
+  status: PlanStatus;
+  dateType: string;
+  startTime: string;
+  endTime: string;
+  areaLabel: string;
+  vibeTags?: string[] | null;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PlanInvite = {
+  id: string;
+  planId: string;
+  fromUserId: string;
+  toUserId: string;
+  status: PlanInviteStatus;
+  createdAt: string;
+  updatedAt: string;
 };

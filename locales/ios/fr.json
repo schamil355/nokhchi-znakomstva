@@ -1,7 +1,7 @@
 {
   "NSCameraUsageDescription": "Nous avons besoin de la caméra pour les photos de profil.",
-  "NSPhotoLibraryUsageDescription": "Nous utilisons tes photos pour que tu puisses ajouter des photos de profil et te vérifier pour les matches.",
+  "NSPhotoLibraryUsageDescription": "Nous utilisons tes photos pour que tu puisses ajouter des photos de profil et te vérifier pour les connexions.",
   "NSLocationWhenInUseUsageDescription": "Nous utilisons ta localisation pour montrer des profils proches et appliquer tes réglages de distance/visibilité.",
-  "NSLocationAlwaysUsageDescription": "Nous utilisons ta localisation uniquement pour te montrer des matches pertinents à proximité et respecter ton rayon.",
+  "NSLocationAlwaysUsageDescription": "Nous utilisons ta localisation uniquement pour te montrer des connexions pertinentes à proximité et respecter ton rayon.",
   "NSLocationAlwaysAndWhenInUseUsageDescription": "Nous utilisons ta localisation uniquement quand l'app est active pour afficher des profils proches et appliquer ton rayon/visibilité."
 }

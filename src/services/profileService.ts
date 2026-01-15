@@ -2,8 +2,22 @@ import { z } from "zod";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { createRateLimiter } from "../lib/rateLimiter";
 import { PROFILE_BUCKET } from "../lib/storage";
-import { Profile, Intention, Gender } from "../types";
+import { Profile, Intention, Gender, RelationshipCompass } from "../types";
 import { useAuthStore } from "../state/authStore";
+
+const relationshipCompassSchema = z
+  .object({
+    timeline: z.enum(["fast", "steady", "slow", "no_timeline"]),
+    familyCloseness: z.enum(["very_close", "close", "neutral", "independent"]),
+    religiousPractice: z.enum(["practicing", "occasional", "cultural", "not_religious", "private"]),
+    relocation: z.enum(["stay", "open_national", "open_international", "flexible"]),
+    familyIntro: z.enum(["early", "some_months", "when_sure", "private"]),
+    roles: z.enum(["traditional", "mixed", "modern", "depends"]),
+    lifestyle: z.enum(["homebody", "balanced", "active", "career_focus"])
+  })
+  .partial()
+  .optional()
+  .nullable();
 
 const profileSchema = z.object({
   displayName: z.string().min(2).max(32),
@@ -22,7 +36,8 @@ const profileSchema = z.object({
     })
   ),
   primaryPhotoPath: z.string().optional().nullable(),
-  primaryPhotoId: z.number().optional().nullable()
+  primaryPhotoId: z.number().optional().nullable(),
+  relationshipCompass: relationshipCompassSchema
 });
 
 const updateLimiter = createRateLimiter({ intervalMs: 5_000, maxCalls: 3 });
@@ -54,7 +69,9 @@ export const fetchProfile = async (userId: string): Promise<Profile | null> => {
       verified,
       verified_at,
       verified_face_score,
+      relationship_compass,
       primary_photo_path,
+      region_code,
       country,
       latitude,
       longitude
@@ -83,13 +100,13 @@ export const upsertProfile = async (userId: string, input: ProfileInput): Promis
   updateLimiter(async () => {
     const supabase = getSupabaseClient();
     const parsed = profileSchema.parse(input);
-  const payload = {
-    id: userId,
-    user_id: userId,
-    display_name: parsed.displayName,
-    birthday: parsed.birthday,
-    bio: parsed.bio,
-    gender: parsed.gender,
+    const payload: Record<string, unknown> = {
+      id: userId,
+      user_id: userId,
+      display_name: parsed.displayName,
+      birthday: parsed.birthday,
+      bio: parsed.bio,
+      gender: parsed.gender,
       intention: parsed.intention,
       interests: parsed.interests,
       photos: parsed.photos,
@@ -98,6 +115,9 @@ export const upsertProfile = async (userId: string, input: ProfileInput): Promis
       is_premium: parsed.photos.length >= 3 ? true : parsed.photos.some((photo) => photo.url.includes("premium")),
       updated_at: new Date().toISOString()
     };
+    if (parsed.relationshipCompass !== undefined) {
+      payload.relationship_compass = parsed.relationshipCompass ?? null;
+    }
 
     const { data, error } = await supabase
       .from("profiles")
@@ -198,6 +218,23 @@ const dedupePhotos = (photos: any[]) => {
   return result;
 };
 
+const parseRelationshipCompass = (value: unknown): RelationshipCompass | null => {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as RelationshipCompass;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof value === "object") {
+    return value as RelationshipCompass;
+  }
+  return null;
+};
+
 export const mapProfile = (row: any): Profile => {
   const mappedPhotos = (row.photos ?? [])
     .map((photo: any) => {
@@ -220,6 +257,9 @@ export const mapProfile = (row: any): Profile => {
     );
 
   const deduped = dedupePhotos(mappedPhotos);
+  const relationshipCompass = parseRelationshipCompass(
+    row.relationship_compass ?? row.relationshipCompass ?? null
+  );
 
   return {
     id: row.id,
@@ -248,6 +288,8 @@ export const mapProfile = (row: any): Profile => {
     primaryPhotoPath: row.primary_photo_path ?? null,
     primaryPhotoId: typeof row.primary_photo_id === "number" ? row.primary_photo_id : null,
     verifiedFaceScore: typeof row.verified_face_score === "number" ? row.verified_face_score : null,
+    relationshipCompass,
+    regionCode: row.region_code ?? null,
     country: row.country ?? null,
     latitude: typeof row.latitude === "number" ? row.latitude : null,
     longitude: typeof row.longitude === "number" ? row.longitude : null
