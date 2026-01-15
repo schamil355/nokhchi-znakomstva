@@ -140,9 +140,8 @@ export class StripePaymentService {
 
     const status = subscription.status ?? "unknown";
     const isPremium = status === "active" || status === "trialing";
-    const expiresAt = subscription.current_period_end
-      ? new Date(subscription.current_period_end * 1000).toISOString()
-      : null;
+    const periodEnd = (subscription as { current_period_end?: number | null }).current_period_end ?? null;
+    const expiresAt = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
     const updatedAt = new Date().toISOString();
 
     const { error: profileError } = await this.supabase
