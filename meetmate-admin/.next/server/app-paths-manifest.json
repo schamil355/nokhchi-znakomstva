@@ -1,6 +1,0 @@
-{
-  "/login/page": "app/login/page.js",
-  "/metrics/page": "app/metrics/page.js",
-  "/api/metrics/route": "app/api/metrics/route.js",
-  "/api/metrics/mixed-matches/route": "app/api/metrics/mixed-matches/route.js"
-}
