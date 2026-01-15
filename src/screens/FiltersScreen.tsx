@@ -16,6 +16,7 @@ import SafeAreaView from "../components/SafeAreaView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { GeoRegion, usePreferencesStore } from "../state/preferencesStore";
 import { useAuthStore } from "../state/authStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
@@ -181,6 +182,7 @@ const FiltersScreen = () => {
   const copy = useLocalizedCopy(translations);
   const errorCopy = useErrorCopy();
   const queryClient = useQueryClient();
+  const tabBarHeight = React.useContext(BottomTabBarHeightContext) ?? 0;
   const regionOptions = React.useMemo(
     () =>
       REGION_BASE.map((value) => ({
@@ -226,14 +228,15 @@ const FiltersScreen = () => {
   }, [region]);
 
   const isModal = Boolean(route?.params?.isModal);
+  const tabBarOffset = isModal ? 0 : tabBarHeight;
   const contentBottomSpacing = React.useMemo(
-    () => (isModal ? 60 + Math.max(insets.bottom, 0) : 48),
-    [insets.bottom, isModal]
+    () => (isModal ? 60 + Math.max(insets.bottom, 0) : 48 + tabBarOffset),
+    [insets.bottom, isModal, tabBarOffset]
   );
   const contentTopSpacing = React.useMemo(() => (isModal ? 64 : 12), [isModal]);
   const footerBottomSpacing = React.useMemo(
-    () => Math.max(insets.bottom + 8, 20),
-    [insets.bottom]
+    () => Math.max(insets.bottom + 8, 20) + tabBarOffset,
+    [insets.bottom, tabBarOffset]
   );
   const privacyRadiusDisabled = searchDisabled || !hideNearby;
 
