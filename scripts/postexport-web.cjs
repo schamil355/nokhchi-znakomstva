@@ -70,6 +70,7 @@ const headTags = [
   `    <meta name="apple-mobile-web-app-title" content="${appName}" />`,
   '    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />',
   '    <meta name="mobile-web-app-capable" content="yes" />',
+  '    <style>html, body, #root { background-color: #0b1f16; }</style>',
   '    <link rel="manifest" href="/manifest.json" />',
   '    <link rel="icon" href="/favicon.png" />',
   '    <link rel="icon" sizes="192x192" href="/icons/icon-192.png" />',

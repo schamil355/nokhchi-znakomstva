@@ -508,7 +508,7 @@ const App = (): JSX.Element => {
         <SafeAreaProvider>
           <ErrorBoundary>
             <QueryClientProvider client={queryClient}>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, backgroundColor: "#0b1f16" }}>
                 <NavigationContainer ref={navigationRef} onReady={() => setNavReady(true)} onStateChange={handleNavStateChange}>
                   <StatusBar style="light" />
                   <AppNavigator isAuthenticated={Boolean(session)} />
