@@ -1,6 +1,7 @@
 import { Session } from "@supabase/supabase-js";
 import Constants from "expo-constants";
 import { z } from "zod";
+import { Platform } from "react-native";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { createRateLimiter } from "../lib/rateLimiter";
 import { useAuthStore } from "../state/authStore";
@@ -54,6 +55,11 @@ const tAuth = (key: keyof typeof authCopy.en) => {
 const withCode = (code: string, message?: string) => Object.assign(new Error(message ?? code), { code });
 
 export const getEmailRedirectUrl = (): string => {
+  if (Platform.OS === "web") {
+    if (typeof window !== "undefined" && window.location?.origin) {
+      return `${window.location.origin}/auth/callback`;
+    }
+  }
   const fromEnv = process.env.EXPO_PUBLIC_EMAIL_REDIRECT_URL;
   const fromConfig = (Constants.expoConfig as any)?.extra?.emailRedirectUrl;
   return fromEnv || fromConfig || "meetmate://auth/callback";
