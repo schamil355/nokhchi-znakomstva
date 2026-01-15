@@ -77,7 +77,7 @@
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",
     "react-server-dom-webpack": "^19.0.3",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.10"
   },
   "devDependencies": {
     "@expo/ngrok": "^4.1.3",
