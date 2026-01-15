@@ -31,6 +31,7 @@ server/supabase/.temp/
 my-app/
 meetmate/
 supabase/supabase.tar.gz
+.next/
 
 # Logs
 npm-debug.log*
