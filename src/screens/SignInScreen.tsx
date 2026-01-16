@@ -170,7 +170,7 @@ const SignInScreen = ({ navigation }: Props) => {
                 autoCapitalize="none"
                 keyboardType="phone-pad"
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={(value) => setPhone(value.replace(/\s+/g, ""))}
               />
               <Pressable
                 style={[styles.button, sending && styles.buttonDisabled]}
