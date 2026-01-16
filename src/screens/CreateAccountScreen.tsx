@@ -140,7 +140,6 @@ const CreateAccountScreen = ({ navigation }: Props) => {
 
   const handleNext = async () => {
     if (!consent || loading) return;
-    const supabase = getSupabaseClient();
     const phoneTrimmed = phone.trim();
     const normalizedPhone = phoneTrimmed.replace(/\s+/g, "");
 
