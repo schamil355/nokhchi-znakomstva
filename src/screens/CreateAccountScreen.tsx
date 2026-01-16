@@ -173,7 +173,10 @@ const CreateAccountScreen = ({ navigation }: Props) => {
           ? copy.configMissing
           : getErrorMessage(err, errorCopy, copy.tryAgain);
       const detailedMessage = Platform.OS === "web" ? getErrorDetails(err) : null;
-      const message = err?.code === "CONFIG_MISSING" ? baseMessage : detailedMessage ?? baseMessage;
+      const useDetails =
+        Boolean(detailedMessage) &&
+        (baseMessage === copy.tryAgain || baseMessage === errorCopy.unknown);
+      const message = err?.code === "CONFIG_MISSING" ? baseMessage : useDetails ? detailedMessage! : baseMessage;
       showError(copy.signupFailed, message);
     } finally {
       setLoading(false);

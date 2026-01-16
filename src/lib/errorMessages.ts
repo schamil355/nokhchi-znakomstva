@@ -13,6 +13,7 @@ export type ErrorCopy = {
   sessionExpired: string;
   notFound: string;
   permissionDenied: string;
+  smsSendFailed: string;
   purchaseCancelled: string;
   purchaseNotAllowed: string;
   purchaseFailed: string;
@@ -34,6 +35,7 @@ export const errorTranslations: Record<SupportedLocale, ErrorCopy> = {
     sessionExpired: "Your session expired. Please sign in again.",
     notFound: "We couldn't find what you requested.",
     permissionDenied: "You don't have permission to do that.",
+    smsSendFailed: "SMS provider rejected the request. Please check the SMS access key in Supabase.",
     purchaseCancelled: "Purchase cancelled.",
     purchaseNotAllowed: "Purchases are not allowed on this device.",
     purchaseFailed: "Purchase failed. Please try again.",
@@ -53,6 +55,7 @@ export const errorTranslations: Record<SupportedLocale, ErrorCopy> = {
     sessionExpired: "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
     notFound: "Das wurde nicht gefunden.",
     permissionDenied: "Dafür hast du keine Berechtigung.",
+    smsSendFailed: "SMS-Provider lehnt die Anfrage ab. Bitte den Access-Key in Supabase prüfen.",
     purchaseCancelled: "Kauf abgebrochen.",
     purchaseNotAllowed: "Käufe sind auf diesem Gerät nicht erlaubt.",
     purchaseFailed: "Kauf fehlgeschlagen. Bitte erneut versuchen.",
@@ -72,6 +75,7 @@ export const errorTranslations: Record<SupportedLocale, ErrorCopy> = {
     sessionExpired: "Ta session a expiré. Reconnecte-toi.",
     notFound: "Élément introuvable.",
     permissionDenied: "Tu n'as pas l'autorisation.",
+    smsSendFailed: "Le fournisseur SMS a refusé la requête. Vérifie la clé d'accès dans Supabase.",
     purchaseCancelled: "Achat annulé.",
     purchaseNotAllowed: "Les achats ne sont pas autorisés sur cet appareil.",
     purchaseFailed: "Échec de l'achat. Réessaie.",
@@ -91,6 +95,7 @@ export const errorTranslations: Record<SupportedLocale, ErrorCopy> = {
     sessionExpired: "Сессия истекла. Войдите снова.",
     notFound: "Ничего не найдено.",
     permissionDenied: "Нет прав для этого действия.",
+    smsSendFailed: "SMS-провайдер отклонил запрос. Проверьте ключ доступа в Supabase.",
     purchaseCancelled: "Покупка отменена.",
     purchaseNotAllowed: "Покупки на этом устройстве недоступны.",
     purchaseFailed: "Покупка не удалась. Попробуйте снова.",
@@ -182,6 +187,12 @@ export const getErrorKey = (error: unknown): keyof ErrorCopy | null => {
   }
   if (matchesCode(normalized, ["FORBIDDEN", "PERMISSION_DENIED", "NOT_OWNER", "BLOCKED", "INSUFFICIENT_PERMISSIONS_ERROR"])) {
     return "permissionDenied";
+  }
+  if (matchesCode(normalized, ["SMS_SEND_FAILED", "SMS_PROVIDER_FAILED", "SMS_PROVIDER_ERROR"])) {
+    return "smsSendFailed";
+  }
+  if (normalized.includes("INCORRECT_ACCESS_KEY")) {
+    return "smsSendFailed";
   }
   if (matchesCode(normalized, ["UPLOAD_FAILED", "PHOTO_ASSET_INSERT_FAILED", "BLURRED_UPLOAD_FAILED", "PHOTO_PERMISSION_FAILED", "PHOTO_LIST_FAILED", "INVALID_STORAGE_PATH", "CANNOT_REGISTER_FOREIGN_PHOTO"])) {
     return "uploadFailed";

@@ -154,9 +154,11 @@ const SignInScreen = ({ navigation }: Props) => {
         error?.code === "CONFIG_MISSING"
           ? copy.configMissing
           : getErrorMessage(error, errorCopy, copy.signInFailedMessage);
-      const detailedMessage =
-        Platform.OS === "web" ? getErrorDetails(error) : null;
-      const message = error?.code === "CONFIG_MISSING" ? baseMessage : detailedMessage ?? baseMessage;
+      const detailedMessage = Platform.OS === "web" ? getErrorDetails(error) : null;
+      const useDetails =
+        Boolean(detailedMessage) &&
+        (baseMessage === copy.signInFailedMessage || baseMessage === errorCopy.unknown);
+      const message = error?.code === "CONFIG_MISSING" ? baseMessage : useDetails ? detailedMessage! : baseMessage;
       showError(copy.signInFailedTitle, message);
     } finally {
       setSending(false);
