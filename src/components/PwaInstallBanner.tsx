@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
-import { BeforeInstallPromptEvent, isAndroidDevice, isIOSDevice, isStandaloneMode } from "../lib/pwa";
+import { isAndroidDevice, isIOSDevice, isStandaloneMode } from "../lib/pwa";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -17,7 +17,6 @@ const translations = {
     body: "Save it as an icon and open it like an app.",
     iosBody: "⋯ → Share → Add to Home Screen.",
     androidBody: "⋮ → Add to Home screen.",
-    install: "Install",
     dismiss: "Not now"
   },
   de: {
@@ -25,7 +24,6 @@ const translations = {
     body: "Als Icon speichern und direkt starten.",
     iosBody: "⋯ → Teilen → Zum Home-Bildschirm.",
     androidBody: "⋮ → Zum Startbildschirm hinzufügen.",
-    install: "Installieren",
     dismiss: "Später"
   },
   fr: {
@@ -33,7 +31,6 @@ const translations = {
     body: "Enregistre l'icône et ouvre-la comme une app.",
     iosBody: "⋯ → Partager → Sur l'écran d'accueil.",
     androidBody: "⋮ → Ajouter à l'écran d'accueil.",
-    install: "Installer",
     dismiss: "Plus tard"
   },
   ru: {
@@ -41,14 +38,12 @@ const translations = {
     body: "Сохраните как значок и открывайте как приложение.",
     iosBody: "⋯ → Поделиться → На экран «Домой».",
     androidBody: "⋮ → Добавить на главный экран.",
-    install: "Установить",
     dismiss: "Позже"
   }
 };
 
 const PwaInstallBanner = () => {
   const copy = useLocalizedCopy(translations);
-  const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [standalone, setStandalone] = useState(false);
   const isIOS = useMemo(() => (Platform.OS === "web" ? isIOSDevice() : false), []);
@@ -71,10 +66,8 @@ const PwaInstallBanner = () => {
     setStandalone(isStandaloneMode());
     const handler = (event: Event) => {
       event.preventDefault();
-      setPromptEvent(event as BeforeInstallPromptEvent);
     };
     const installedHandler = () => {
-      setPromptEvent(null);
       setStandalone(true);
     };
 
@@ -91,26 +84,9 @@ const PwaInstallBanner = () => {
     return null;
   }
 
-  if (!promptEvent && !isIOS && !isAndroid) {
+  if (!isIOS && !isAndroid) {
     return null;
   }
-
-  const handleInstall = async () => {
-    if (!promptEvent) {
-      return;
-    }
-    try {
-      await promptEvent.prompt();
-      const choice = await promptEvent.userChoice;
-      if (choice.outcome === "accepted") {
-        setStandalone(true);
-      }
-    } catch (error) {
-      console.warn("[PWA] install prompt failed", error);
-    } finally {
-      setPromptEvent(null);
-    }
-  };
 
   return (
     <View style={styles.wrapper} pointerEvents="box-none">
@@ -134,12 +110,6 @@ const PwaInstallBanner = () => {
           )}
         </View>
         <View style={styles.actions}>
-          {promptEvent ? (
-            <Pressable onPress={handleInstall} style={({ pressed }) => [styles.primary, pressed && styles.primaryPressed]}>
-              <Ionicons name="download-outline" size={16} color={PALETTE.deep} />
-              <Text style={styles.primaryText}>{copy.install}</Text>
-            </Pressable>
-          ) : null}
           <Pressable onPress={() => setDismissed(true)} style={({ pressed }) => [styles.secondary, pressed && styles.secondaryPressed]}>
             <Text style={styles.secondaryText}>{copy.dismiss}</Text>
           </Pressable>
@@ -189,23 +159,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-end",
     gap: 10
-  },
-  primary: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: PALETTE.gold
-  },
-  primaryPressed: {
-    opacity: 0.8
-  },
-  primaryText: {
-    color: PALETTE.deep,
-    fontWeight: "700",
-    fontSize: 13
   },
   secondary: {
     paddingHorizontal: 12,
