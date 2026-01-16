@@ -18,8 +18,7 @@ const translations = {
     iosBody: "⋯ → Share → Add to Home Screen.",
     androidBody: "⋮ → Add to Home screen.",
     install: "Install",
-    dismiss: "Not now",
-    share: "Share"
+    dismiss: "Not now"
   },
   de: {
     title: "App installieren",
@@ -27,8 +26,7 @@ const translations = {
     iosBody: "⋯ → Teilen → Zum Home-Bildschirm.",
     androidBody: "⋮ → Zum Startbildschirm hinzufügen.",
     install: "Installieren",
-    dismiss: "Später",
-    share: "Teilen"
+    dismiss: "Später"
   },
   fr: {
     title: "Installer l'app",
@@ -36,8 +34,7 @@ const translations = {
     iosBody: "⋯ → Partager → Sur l'écran d'accueil.",
     androidBody: "⋮ → Ajouter à l'écran d'accueil.",
     install: "Installer",
-    dismiss: "Plus tard",
-    share: "Partager"
+    dismiss: "Plus tard"
   },
   ru: {
     title: "Установить приложение",
@@ -45,8 +42,7 @@ const translations = {
     iosBody: "⋯ → Поделиться → На экран «Домой».",
     androidBody: "⋮ → Добавить на главный экран.",
     install: "Установить",
-    dismiss: "Позже",
-    share: "Поделиться"
+    dismiss: "Позже"
   }
 };
 
@@ -143,12 +139,6 @@ const PwaInstallBanner = () => {
               <Ionicons name="download-outline" size={16} color={PALETTE.deep} />
               <Text style={styles.primaryText}>{copy.install}</Text>
             </Pressable>
-          ) : isIOS ? (
-            <View style={styles.iosShare} accessibilityRole="text" accessibilityLabel={copy.iosBody}>
-              <Ionicons name="share-outline" size={16} color={PALETTE.gold} />
-              <Ionicons name="arrow-up" size={14} color={PALETTE.gold} />
-              <Text style={styles.iosShareText}>{copy.share}</Text>
-            </View>
           ) : null}
           <Pressable onPress={() => setDismissed(true)} style={({ pressed }) => [styles.secondary, pressed && styles.secondaryPressed]}>
             <Text style={styles.secondaryText}>{copy.dismiss}</Text>
@@ -228,22 +218,6 @@ const styles = StyleSheet.create({
     opacity: 0.7
   },
   secondaryText: {
-    color: PALETTE.sand,
-    fontWeight: "600",
-    fontSize: 13
-  },
-  iosShare: {
-    height: 34,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "rgba(217, 192, 143, 0.4)"
-  },
-  iosShareText: {
     color: PALETTE.sand,
     fontWeight: "600",
     fontSize: 13
