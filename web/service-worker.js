@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const CACHE_NAME = `meetmate-shell-${CACHE_VERSION}`;
 const APP_SHELL = [
   "/",
@@ -25,6 +25,12 @@ self.addEventListener("install", (event) => {
       .then((cache) => cache.addAll(APP_SHELL))
       .then(() => self.skipWaiting())
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event?.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {
@@ -54,7 +60,8 @@ const cacheFirst = async (request) => {
 const networkFirst = async (request) => {
   const cache = await caches.open(CACHE_NAME);
   try {
-    const response = await fetch(request);
+    const networkRequest = request.mode === "navigate" ? new Request(request, { cache: "no-store" }) : request;
+    const response = await fetch(networkRequest);
     if (response && response.ok) {
       cache.put(request, response.clone());
     }
