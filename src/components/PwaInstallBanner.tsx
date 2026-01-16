@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
-import { BeforeInstallPromptEvent, isIOSDevice, isStandaloneMode } from "../lib/pwa";
+import { BeforeInstallPromptEvent, isAndroidDevice, isIOSDevice, isStandaloneMode } from "../lib/pwa";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -14,35 +14,39 @@ const PALETTE = {
 const translations = {
   en: {
     title: "Install the app",
-    body: "Add Нохчи Знакомства to your home screen for faster access.",
-    iosBody: "On iOS: tap the Share icon in Safari, then \"Add to Home Screen\".",
+    body: "Save it as an icon and open it like an app.",
+    iosBody: "⋯ → Share → Add to Home Screen.",
+    androidBody: "⋮ → Add to Home screen.",
     install: "Install",
     dismiss: "Not now",
-    share: "Install"
+    share: "Share"
   },
   de: {
     title: "App installieren",
-    body: "Füge Нохчи Знакомства zum Homescreen hinzu für schnellen Zugriff.",
-    iosBody: "Auf iOS: Tippe in Safari auf das Teilen-Icon und dann \"Zum Home-Bildschirm\".",
+    body: "Als Icon speichern und direkt starten.",
+    iosBody: "⋯ → Teilen → Zum Home-Bildschirm.",
+    androidBody: "⋮ → Zum Startbildschirm hinzufügen.",
     install: "Installieren",
     dismiss: "Später",
-    share: "Installieren"
+    share: "Teilen"
   },
   fr: {
     title: "Installer l'app",
-    body: "Ajoute Нохчи Знакомства à l'écran d'accueil pour un accès rapide.",
-    iosBody: "Sur iOS : touche l'icône Partager dans Safari puis \"Sur l'écran d'accueil\".",
+    body: "Enregistre l'icône et ouvre-la comme une app.",
+    iosBody: "⋯ → Partager → Sur l'écran d'accueil.",
+    androidBody: "⋮ → Ajouter à l'écran d'accueil.",
     install: "Installer",
     dismiss: "Plus tard",
-    share: "Installer"
+    share: "Partager"
   },
   ru: {
     title: "Установить приложение",
-    body: "Добавьте Нохчи Знакомства на главный экран для быстрого доступа.",
-    iosBody: "На iOS: нажмите значок «Поделиться» в Safari, затем «На экран Домой».",
+    body: "Сохраните как значок и открывайте как приложение.",
+    iosBody: "⋯ → Поделиться → На экран «Домой».",
+    androidBody: "⋮ → Добавить на главный экран.",
     install: "Установить",
     dismiss: "Позже",
-    share: "Установить"
+    share: "Поделиться"
   }
 };
 
@@ -52,6 +56,17 @@ const PwaInstallBanner = () => {
   const [dismissed, setDismissed] = useState(false);
   const [standalone, setStandalone] = useState(false);
   const isIOS = useMemo(() => (Platform.OS === "web" ? isIOSDevice() : false), []);
+  const isAndroid = useMemo(() => (Platform.OS === "web" ? isAndroidDevice() : false), []);
+  const bodyText = isIOS ? copy.iosBody : isAndroid ? copy.androidBody : copy.body;
+  const guideSteps = useMemo<Array<keyof typeof Ionicons.glyphMap>>(() => {
+    if (isIOS) {
+      return ["ellipsis-horizontal", "share-outline", "home-outline"];
+    }
+    if (isAndroid) {
+      return ["ellipsis-vertical", "home-outline"];
+    }
+    return [];
+  }, [isAndroid, isIOS]);
 
   useEffect(() => {
     if (Platform.OS !== "web") {
@@ -80,7 +95,7 @@ const PwaInstallBanner = () => {
     return null;
   }
 
-  if (!promptEvent && !isIOS) {
+  if (!promptEvent && !isIOS && !isAndroid) {
     return null;
   }
 
@@ -106,7 +121,21 @@ const PwaInstallBanner = () => {
       <View style={styles.banner}>
         <View style={styles.textBlock}>
           <Text style={styles.title}>{copy.title}</Text>
-          <Text style={styles.body}>{isIOS ? copy.iosBody : copy.body}</Text>
+          <Text style={styles.body}>{bodyText}</Text>
+          {guideSteps.length > 0 && (
+            <View style={styles.guideRow} accessibilityRole="text" accessibilityLabel={bodyText}>
+              {guideSteps.map((iconName, index) => (
+                <React.Fragment key={`${iconName}-${index}`}>
+                  <View style={styles.guideChip}>
+                    <Ionicons name={iconName} size={16} color={PALETTE.sand} />
+                  </View>
+                  {index < guideSteps.length - 1 && (
+                    <Ionicons name="chevron-forward" size={14} color="rgba(242, 231, 215, 0.6)" style={styles.guideArrow} />
+                  )}
+                </React.Fragment>
+              ))}
+            </View>
+          )}
         </View>
         <View style={styles.actions}>
           {promptEvent ? (
@@ -114,13 +143,13 @@ const PwaInstallBanner = () => {
               <Ionicons name="download-outline" size={16} color={PALETTE.deep} />
               <Text style={styles.primaryText}>{copy.install}</Text>
             </Pressable>
-          ) : (
+          ) : isIOS ? (
             <View style={styles.iosShare} accessibilityRole="text" accessibilityLabel={copy.iosBody}>
               <Ionicons name="share-outline" size={16} color={PALETTE.gold} />
               <Ionicons name="arrow-up" size={14} color={PALETTE.gold} />
               <Text style={styles.iosShareText}>{copy.share}</Text>
             </View>
-          )}
+          ) : null}
           <Pressable onPress={() => setDismissed(true)} style={({ pressed }) => [styles.secondary, pressed && styles.secondaryPressed]}>
             <Text style={styles.secondaryText}>{copy.dismiss}</Text>
           </Pressable>
@@ -218,6 +247,25 @@ const styles = StyleSheet.create({
     color: PALETTE.sand,
     fontWeight: "600",
     fontSize: 13
+  },
+  guideRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingTop: 4
+  },
+  guideChip: {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(217, 192, 143, 0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.05)"
+  },
+  guideArrow: {
+    opacity: 0.7
   }
 });
 

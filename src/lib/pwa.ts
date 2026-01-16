@@ -36,4 +36,11 @@ export const isIOSDevice = () => {
   return /iphone|ipad|ipod/i.test(navigator.userAgent ?? "");
 };
 
+export const isAndroidDevice = () => {
+  if (Platform.OS !== "web") {
+    return false;
+  }
+  return /android/i.test(navigator.userAgent ?? "");
+};
+
 export type { BeforeInstallPromptEvent };
