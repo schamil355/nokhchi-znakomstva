@@ -7,7 +7,7 @@ type HookPayload = {
 
 function normalizeHookSecret(raw: string) {
   // Supabase Hook Secret kommt oft als "v1,whsec_<...>" -> wir extrahieren den base64-Teil
-  return raw.replace(/^v\\d+,whsec_/, "").replace(/^whsec_/, "").trim();
+  return raw.replace(/^v\d+,whsec_/, "").replace(/^whsec_/, "").trim();
 }
 
 Deno.serve(async (req) => {
@@ -15,8 +15,10 @@ Deno.serve(async (req) => {
 
   // 1) Supabase Hook Signatur verifizieren
   const rawSecret = Deno.env.get("SEND_SMS_HOOK_SECRET") ?? "";
-  const hookSecret = normalizeHookSecret(rawSecret);
-  if (!hookSecret) {
+  const trimmedSecret = rawSecret.trim();
+  const normalizedSecret = normalizeHookSecret(trimmedSecret);
+  const hookSecrets = new Set([trimmedSecret, normalizedSecret].filter(Boolean));
+  if (hookSecrets.size === 0) {
     return new Response(JSON.stringify({ error: { http_code: 500, message: "Missing SEND_SMS_HOOK_SECRET" } }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
@@ -26,11 +28,19 @@ Deno.serve(async (req) => {
   const payload = await req.text(); // wichtig: text(), nicht json()
   const headers = Object.fromEntries(req.headers);
 
-  let event: HookPayload;
-  try {
-    const wh = new Webhook(hookSecret);
-    event = wh.verify(payload, headers) as HookPayload;
-  } catch {
+  let event: HookPayload | null = null;
+  let verifyError: unknown = null;
+  for (const secret of hookSecrets) {
+    try {
+      const wh = new Webhook(secret);
+      event = wh.verify(payload, headers) as HookPayload;
+      break;
+    } catch (err) {
+      verifyError = err;
+    }
+  }
+  if (!event) {
+    console.error("Invalid hook signature", verifyError);
     return new Response(JSON.stringify({ error: { http_code: 401, message: "Invalid hook signature" } }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
