@@ -92,18 +92,33 @@ Deno.serve(async (req) => {
     }
   );
 
+  const birdBody = await birdRes.text();
   if (!birdRes.ok) {
-    const err = await birdRes.text();
     console.error("Bird SMS send failed", {
       status: birdRes.status,
       statusText: birdRes.statusText,
-      bodyPreview: err.slice(0, 500),
+      bodyPreview: birdBody.slice(0, 500),
     });
-    return new Response(JSON.stringify({ error: { http_code: 502, message: `Bird error: ${err}` } }), {
+    return new Response(JSON.stringify({ error: { http_code: 502, message: `Bird error: ${birdBody}` } }), {
       status: 502,
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  let birdMessageId = "unknown";
+  let birdMessageStatus = "unknown";
+  try {
+    const parsed = JSON.parse(birdBody);
+    birdMessageId = parsed?.id ?? parsed?.message?.id ?? parsed?.data?.id ?? birdMessageId;
+    birdMessageStatus = parsed?.status ?? parsed?.state ?? parsed?.message?.status ?? birdMessageStatus;
+  } catch {
+    // ignore parse errors
+  }
+  console.log("Bird SMS accepted", {
+    status: birdRes.status,
+    messageId: birdMessageId,
+    messageStatus: birdMessageStatus,
+  });
 
   return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
 });
