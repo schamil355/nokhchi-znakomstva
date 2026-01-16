@@ -39,7 +39,6 @@ import SelfieScanScreen from "../screens/SelfieScanScreen";
 import OnboardingNextScreen from "../screens/OnboardingNextScreen";
 import CreateAccountScreen from "../screens/CreateAccountScreen";
 import RegisterChoiceScreen from "../screens/RegisterChoiceScreen";
-import EmailPendingScreen from "../screens/EmailPendingScreen";
 import RelationshipCompassScreen from "../screens/RelationshipCompassScreen";
 
 type AppNavigatorProps = {
@@ -97,7 +96,6 @@ const AuthNavigator = () => {
       <AuthStack.Screen name="OnboardingVerifySuccess" component={OnboardingVerifySuccessScreen} />
       <AuthStack.Screen name="SelfieScan" component={SelfieScanScreen} />
       <AuthStack.Screen name="OnboardingNext" component={OnboardingNextScreen} />
-      <AuthStack.Screen name="EmailPending" component={EmailPendingScreen} />
     </AuthStack.Navigator>
   );
 };

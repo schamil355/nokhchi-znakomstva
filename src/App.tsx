@@ -7,7 +7,6 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
-import * as Linking from "expo-linking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ErrorBoundary from "./components/ErrorBoundary";
 import * as Notifications from "expo-notifications";
@@ -104,8 +103,7 @@ const ONBOARDING_ROUTES = new Set<string>([
   "OnboardingVerify",
   "OnboardingVerifySuccess",
   "SelfieScan",
-  "OnboardingNext",
-  "EmailPending"
+  "OnboardingNext"
 ]);
 
 const LAST_ONBOARDING_KEY = "onboarding:lastRoute";
@@ -151,18 +149,6 @@ const App = (): JSX.Element => {
   const needsOnboarding = !profile || !isVerified;
   const shouldStayInOnboarding = !session || needsOnboarding || showVerifySuccess;
 
-  const navigateToOnboardingGender = useCallback(() => {
-    const target = { name: "OnboardingGender" };
-    if (navigationRef.isReady()) {
-      navigationRef.reset({
-        index: 0,
-        routes: [target as any]
-      });
-      pendingNavigationRef.current = null;
-      return;
-    }
-    pendingNavigationRef.current = target;
-  }, []);
 
   useEffect(() => {
     if (!ONBOARDING_RESUME_ENABLED) {
@@ -314,52 +300,6 @@ const App = (): JSX.Element => {
       hasAppliedOnboardingRouteRef.current = true;
     }
   }, [lastOnboardingRoute, navReady, shouldStayInOnboarding]);
-
-  const handleAuthRedirect = useCallback(
-    async (url: string) => {
-      if (!url || !url.includes("auth/callback")) return;
-      try {
-        const fragment = url.includes("#") ? url.split("#")[1] : url.split("?")[1] ?? "";
-        const params = new URLSearchParams(fragment);
-        const accessToken = params.get("access_token");
-        const refreshToken = params.get("refresh_token");
-        if (!accessToken || !refreshToken) {
-          return;
-        }
-        const { data, error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken
-        });
-        if (error) {
-          console.warn("Failed to set session from redirect", error);
-          return;
-        }
-        if (data.session) {
-          setSession(data.session);
-          navigateToOnboardingGender();
-        }
-      } catch (error) {
-        console.warn("Failed to handle auth redirect", error);
-      }
-    },
-    [navigateToOnboardingGender, setSession, supabase]
-  );
-
-  useEffect(() => {
-    let active = true;
-    void Linking.getInitialURL().then((initial) => {
-      if (active && initial) {
-        void handleAuthRedirect(initial);
-      }
-    });
-    const subscription = Linking.addEventListener("url", ({ url }) => {
-      void handleAuthRedirect(url);
-    });
-    return () => {
-      active = false;
-      subscription.remove();
-    };
-  }, [handleAuthRedirect]);
 
   useEffect(() => {
     if (!session?.user?.id) {

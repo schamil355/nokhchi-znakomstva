@@ -14,10 +14,8 @@ import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { getSupabaseClient } from "../lib/supabaseClient";
-import { useAuthStore } from "../state/authStore";
+import { requestPhoneOtp, verifyPhoneOtp } from "../services/authService";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
-import { getEmailRedirectUrl } from "../services/authService";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
 type Props = NativeStackScreenProps<any>;
@@ -30,24 +28,20 @@ const PALETTE = {
   sand: "#f2e7d7"
 };
 
-  const translations = {
-    de: {
+const translations = {
+  de: {
     title: "Registrieren",
-    back: "Zur Auswahl zurück",
-    emailPlaceholder: "Gültige E-Mail",
     phonePlaceholder: "Telefonnummer",
-    passwordPlaceholder: "Passwort",
     consentText: "Mit dem Häkchen stimmst du unseren",
     consentSuffix: " zu.",
     terms: "Bedingungen",
     conditions: "Datenschutz",
     and: "und",
     loading: "Lädt...",
-    next: "Weiter",
+    next: "SMS-Code senden",
     member: "Schon Mitglied?",
     login: "Einloggen",
-    hintMissingEmail: "Bitte E-Mail und Passwort eingeben.",
-    hintMissingPhone: "Bitte Telefonnummer und Passwort eingeben.",
+    hintMissingPhone: "Bitte Telefonnummer eingeben.",
     signupFailed: "Registrierung fehlgeschlagen",
     tryAgain: "Bitte versuche es erneut.",
     phoneFormatTitle: "Format",
@@ -61,21 +55,17 @@ const PALETTE = {
   },
   en: {
     title: "Create account",
-    back: "Back to choice",
-    emailPlaceholder: "Valid email",
     phonePlaceholder: "Phone number",
-    passwordPlaceholder: "Password",
     consentText: "By checking the box you agree to our",
     consentSuffix: ".",
     terms: "Terms",
     conditions: "Conditions",
     and: "and",
     loading: "Loading...",
-    next: "Next",
+    next: "Send SMS code",
     member: "Already a member?",
     login: "Log In",
-    hintMissingEmail: "Please enter email and password.",
-    hintMissingPhone: "Please enter phone number and password.",
+    hintMissingPhone: "Please enter your phone number.",
     signupFailed: "Registration failed",
     tryAgain: "Please try again.",
     phoneFormatTitle: "Format",
@@ -89,21 +79,17 @@ const PALETTE = {
   },
   fr: {
     title: "Créer un compte",
-    back: "Retour au choix",
-    emailPlaceholder: "Email valide",
     phonePlaceholder: "Numéro de téléphone",
-    passwordPlaceholder: "Mot de passe",
     consentText: "En cochant la case, tu acceptes nos",
     consentSuffix: ".",
     terms: "Conditions",
     conditions: "Confidentialité",
     and: "et",
     loading: "Chargement...",
-    next: "Suivant",
+    next: "Envoyer le code SMS",
     member: "Déjà membre ?",
     login: "Connexion",
-    hintMissingEmail: "Merci de saisir email et mot de passe.",
-    hintMissingPhone: "Merci de saisir téléphone et mot de passe.",
+    hintMissingPhone: "Merci de saisir ton numéro de téléphone.",
     signupFailed: "Échec de l'inscription",
     tryAgain: "Réessaie.",
     phoneFormatTitle: "Format",
@@ -117,21 +103,17 @@ const PALETTE = {
   },
   ru: {
     title: "Регистрация",
-    back: "Назад к выбору",
-    emailPlaceholder: "Введите e-mail",
     phonePlaceholder: "Номер телефона",
-    passwordPlaceholder: "Пароль",
     consentText: "Отмечая, вы соглашаетесь с нашими",
     consentSuffix: ".",
     terms: "Условиями",
     conditions: "Политикой",
     and: "и",
     loading: "Загрузка...",
-    next: "Далее",
+    next: "Отправить SMS-код",
     member: "Уже есть аккаунт?",
     login: "Войти",
-    hintMissingEmail: "Введите e-mail и пароль.",
-    hintMissingPhone: "Введите телефон и пароль.",
+    hintMissingPhone: "Введите номер телефона.",
     signupFailed: "Не удалось зарегистрироваться",
     tryAgain: "Попробуйте еще раз.",
     phoneFormatTitle: "Формат",
@@ -145,70 +127,36 @@ const PALETTE = {
   }
 };
 
-const CreateAccountScreen = ({ navigation, route }: Props) => {
-  const mode: "email" | "phone" = route?.params?.mode ?? "email";
+const CreateAccountScreen = ({ navigation }: Props) => {
   const copy = useLocalizedCopy(translations);
-  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const setSession = useAuthStore((state) => state.setSession);
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otp, setOtp] = useState("");
+  const [otpPhone, setOtpPhone] = useState("");
+  const [verifying, setVerifying] = useState(false);
   const errorCopy = useErrorCopy();
 
   const handleNext = async () => {
     if (!consent || loading) return;
     const supabase = getSupabaseClient();
-    const emailTrimmed = email.trim().toLowerCase();
     const phoneTrimmed = phone.trim();
     const normalizedPhone = phoneTrimmed.replace(/\s+/g, "");
 
-    if (mode === "email" && (!emailTrimmed || !password)) {
-      RNAlert.alert(copy.hintMissingEmail);
+    if (!normalizedPhone) {
+      RNAlert.alert(copy.hintMissingPhone);
       return;
     }
-    if (mode === "phone") {
-      if (!normalizedPhone || !password) {
-        RNAlert.alert(copy.hintMissingPhone);
-        return;
-      }
-      if (!normalizedPhone.startsWith("+")) {
-        RNAlert.alert(copy.phoneFormatTitle, copy.phoneFormatMessage);
-        return;
-      }
+    if (!normalizedPhone.startsWith("+")) {
+      RNAlert.alert(copy.phoneFormatTitle, copy.phoneFormatMessage);
+      return;
     }
 
     setLoading(true);
     try {
-      if (mode === "email") {
-        const { data, error } = await supabase.auth.signUp({
-          email: emailTrimmed,
-          password,
-          options: { emailRedirectTo: getEmailRedirectUrl() }
-        });
-        if (error) {
-          throw error;
-        }
-        if (data.session) {
-          setSession(data.session);
-          navigation.navigate("OnboardingGender");
-          return;
-        }
-        if (data.user?.email) {
-          navigation.navigate("EmailPending", { email: data.user.email });
-          return;
-        }
-        RNAlert.alert(copy.signupFailed, copy.tryAgain);
-        return;
-      }
-
-      const { error } = await supabase.auth.signUp({ phone: normalizedPhone, password });
-      if (error) {
-        throw error;
-      }
-
+      await requestPhoneOtp(normalizedPhone);
+      setOtpPhone(normalizedPhone);
       setShowOtpModal(true);
     } catch (err: any) {
       logError(err, "sign-up");
@@ -239,44 +187,15 @@ const CreateAccountScreen = ({ navigation, route }: Props) => {
               <Text style={styles.title}>{copy.title}</Text>
             </View>
 
-            {mode === "email" && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>{copy.emailPlaceholder}</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder={copy.emailPlaceholder}
-                  placeholderTextColor="rgba(242,231,215,0.65)"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-            )}
-
-            {mode === "phone" && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>{copy.phonePlaceholder}</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder={copy.phonePlaceholder}
-                  placeholderTextColor="rgba(242,231,215,0.65)"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                />
-              </View>
-            )}
-
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{copy.passwordPlaceholder}</Text>
+              <Text style={styles.label}>{copy.phonePlaceholder}</Text>
               <TextInput
                 style={styles.input}
-                placeholder={copy.passwordPlaceholder}
+                placeholder={copy.phonePlaceholder}
                 placeholderTextColor="rgba(242,231,215,0.65)"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
               />
             </View>
 
@@ -335,30 +254,20 @@ const CreateAccountScreen = ({ navigation, route }: Props) => {
                   maxLength={6}
                 />
                 <Pressable
-                  style={[styles.cta, otp.length < 4 && styles.ctaDisabled]}
+                  style={[styles.cta, (otp.length < 4 || verifying) && styles.ctaDisabled]}
                   onPress={async () => {
-                    if (otp.length < 4) return;
+                    if (otp.length < 4 || verifying) return;
+                    setVerifying(true);
                     try {
-                      const supabase = getSupabaseClient();
-                      const { error } = await supabase.auth.verifyOtp({
-                        phone: phone.trim().replace(/\s+/g, ""),
-                        token: otp,
-                        type: "sms"
-                      });
-                      if (error) {
-                        throw error;
-                      }
-                      const {
-                        data: { session }
-                      } = await supabase.auth.getSession();
-                      if (session) {
-                        setSession(session);
-                      }
+                      await verifyPhoneOtp(otpPhone || phone.trim().replace(/\s+/g, ""), otp);
                       setShowOtpModal(false);
+                      setOtp("");
                       navigation.navigate("OnboardingGender");
                     } catch (verifyError: any) {
                       logError(verifyError, "verify-otp");
                       RNAlert.alert(copy.otpInvalidTitle, getErrorMessage(verifyError, errorCopy, copy.otpInvalidBody));
+                    } finally {
+                      setVerifying(false);
                     }
                   }}
                 >
@@ -368,7 +277,7 @@ const CreateAccountScreen = ({ navigation, route }: Props) => {
                     end={{ x: 1, y: 1 }}
                     style={styles.ctaInner}
                   >
-                    <Text style={styles.ctaText}>{copy.otpSubmit}</Text>
+                    <Text style={styles.ctaText}>{verifying ? copy.loading : copy.otpSubmit}</Text>
                   </LinearGradient>
                 </Pressable>
               </View>

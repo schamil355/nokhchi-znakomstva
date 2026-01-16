@@ -11,33 +11,29 @@ const ACCENT = "#0d6e4f";
 
 const translations = {
   de: {
-    title: "Wie möchtest du dich registrieren?",
-    subtitle: "Wähle E-Mail oder Telefonnummer.",
-    email: "Mit E-Mail fortfahren",
+    title: "Mit Telefonnummer registrieren",
+    subtitle: "Wir senden dir einen SMS-Code zur Bestätigung.",
     phone: "Mit Telefonnummer fortfahren",
     member: "Schon Mitglied?",
     login: "Einloggen"
   },
   en: {
-    title: "How would you like to register?",
-    subtitle: "Choose email or phone number.",
-    email: "Continue with Email",
-    phone: "Continue with Phone number",
+    title: "Register with your phone",
+    subtitle: "We'll send you an SMS code to verify.",
+    phone: "Continue with phone number",
     member: "Already a member?",
     login: "Log In"
   },
   fr: {
-    title: "Comment veux-tu t'inscrire ?",
-    subtitle: "Choisis e-mail ou numéro de téléphone.",
-    email: "Continuer avec l'e-mail",
+    title: "S'inscrire avec le téléphone",
+    subtitle: "Nous enverrons un code SMS de vérification.",
     phone: "Continuer avec le numéro de téléphone",
     member: "Déjà membre ?",
     login: "Connexion"
   },
   ru: {
-    title: "Как ты хочешь зарегистрироваться?",
-    subtitle: "Выбери e-mail или номер телефона.",
-    email: "Продолжить с e-mail",
+    title: "Регистрация по телефону",
+    subtitle: "Мы отправим SMS-код для подтверждения.",
     phone: "Продолжить с номером телефона",
     member: "Уже есть аккаунт?",
     login: "Войти"
@@ -52,14 +48,6 @@ const RegisterChoiceScreen = ({ navigation }: Props) => {
       <View style={styles.container}>
         <Text style={styles.title}>{copy.title}</Text>
         <Text style={styles.subtitle}>{copy.subtitle}</Text>
-
-        <Pressable
-          style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
-          onPress={() => navigation.navigate("CreateAccount", { mode: "email" })}
-        >
-          <Ionicons name="mail-outline" size={20} color={ACCENT} />
-          <Text style={styles.optionText}>{copy.email}</Text>
-        </Pressable>
 
         <Pressable
           style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}

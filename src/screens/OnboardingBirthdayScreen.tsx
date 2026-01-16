@@ -209,11 +209,11 @@ const OnboardingBirthdayScreen = ({ navigation }: Props) => {
       if (profile) {
         return;
       }
+      const phoneSuffix = session.user.phone?.replace(/\D/g, "").slice(-4);
       const fallbackName =
         name.trim() ||
         session.user.user_metadata?.display_name ||
-        session.user.email?.split("@")[0] ||
-        "Neues Profil";
+        (phoneSuffix ? `User ${phoneSuffix}` : "Neues Profil");
       const resolvedGender = selectedGender ?? "male";
       try {
         await upsertProfile(session.user.id, {

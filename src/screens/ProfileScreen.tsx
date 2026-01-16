@@ -121,8 +121,6 @@ type CopyShape = {
     save: string;
     signOutLoading: string;
     signOut: string;
-    resendEmailLoading: string;
-    resendEmail: string;
   };
   labels: {
     visibility: string;
@@ -139,10 +137,6 @@ type CopyShape = {
   hints: {
     logoutPrimary: string;
     logoutSecondary: string;
-  };
-  verification: {
-    title: string;
-    subtitle: string;
   };
   photoManager: {
     title: string;
@@ -185,9 +179,6 @@ type CopyShape = {
     revokeShares: string;
     deletePhoto: string;
     photoActionsTitle: string;
-    emailSentTitle: string;
-    emailSentMessage: string;
-    emailErrorMessage: string;
   };
 };
 
@@ -217,8 +208,6 @@ const baseCopy: CopyShape = {
     save: "Save profile",
     signOutLoading: "Signing out…",
     signOut: "Sign out",
-    resendEmailLoading: "Sending…",
-    resendEmail: "Resend email",
   },
   labels: {
     visibility: "Default visibility for new photos",
@@ -235,10 +224,6 @@ const baseCopy: CopyShape = {
   hints: {
     logoutPrimary: "Would you like to sign out and return to the start?",
     logoutSecondary: "Want to sign in with a different account?",
-  },
-  verification: {
-    title: "Confirm your email",
-    subtitle: "Verify your address to receive all notifications.",
   },
   photoManager: {
     title: "My photos",
@@ -280,10 +265,7 @@ const baseCopy: CopyShape = {
     changeVisibility: "Change visibility",
     revokeShares: "Revoke access",
     deletePhoto: "Delete photo",
-    photoActionsTitle: "Photo actions",
-    emailSentTitle: "Email sent",
-    emailSentMessage: "Check your inbox to confirm your address.",
-    emailErrorMessage: "Could not send the email."
+    photoActionsTitle: "Photo actions"
   },
 };
 
@@ -315,9 +297,7 @@ const translations: Record<string, CopyShape> = {
       saveLoading: "Speichern...",
       save: "Profil speichern",
       signOutLoading: "Melde ab...",
-      signOut: "Abmelden",
-      resendEmailLoading: "Sendet...",
-      resendEmail: "E-Mail erneut senden",
+      signOut: "Abmelden"
     },
     labels: {
       visibility: "Sichtbarkeit neuer Fotos",
@@ -334,10 +314,6 @@ const translations: Record<string, CopyShape> = {
     hints: {
       logoutPrimary: "Möchtest du dich abmelden und zur Startseite zurückkehren?",
       logoutSecondary: "Du möchtest dich mit einem anderen Account anmelden?",
-    },
-    verification: {
-      title: "E-Mail bestätigen",
-      subtitle: "Bestätige deine Adresse, um sämtliche Benachrichtigungen zu erhalten.",
     },
     photoManager: {
       title: "Meine Fotos",
@@ -379,10 +355,7 @@ const translations: Record<string, CopyShape> = {
       changeVisibility: "Sichtbarkeit ändern",
       revokeShares: "Freigaben widerrufen",
       deletePhoto: "Foto löschen",
-      photoActionsTitle: "Foto-Aktionen",
-      emailSentTitle: "E-Mail gesendet",
-      emailSentMessage: "Bitte prüfe dein Postfach und bestätige deine Adresse.",
-      emailErrorMessage: "E-Mail konnte nicht gesendet werden."
+      photoActionsTitle: "Foto-Aktionen"
     },
   },
   fr: {
@@ -2018,36 +1991,6 @@ const styles = StyleSheet.create({
     color: "#6a6f7a",
     textAlign: "left",
     flex: 1
-  },
-  verificationCard: {
-    width: "100%",
-    backgroundColor: "#f3f6fb",
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 16
-  },
-  verificationTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#0f172a",
-    marginBottom: 4,
-    textAlign: "center"
-  },
-  verificationSubtitle: {
-    fontSize: 14,
-    color: "#475467",
-    marginBottom: 12,
-    textAlign: "center"
-  },
-  verificationButton: {
-    backgroundColor: "#0d6e4f",
-    paddingVertical: 12,
-    borderRadius: 10
-  },
-  verificationButtonText: {
-    color: "#fff",
-    fontWeight: "600",
-    textAlign: "center"
   },
   logoutButton: {
     backgroundColor: "#0f172a",

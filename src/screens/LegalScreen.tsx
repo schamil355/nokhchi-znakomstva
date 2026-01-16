@@ -17,7 +17,7 @@ Verantwortlicher: Soul, Mirabellplatz 4, 5020 Salzburg, Österreich, E-Mail: sup
 Diese Erklärung gilt für die mobile App "Нохчийн".
 
 2. Verarbeitete Daten
-- Konto/Profil: E-Mail/Telefon, Anzeigename, Geschlecht, Geburtsdatum/Alter, Intention, Interessen, Bio.
+- Konto/Profil: Telefonnummer, Anzeigename, Geschlecht, Geburtsdatum/Alter, Intention, Interessen, Bio.
 - Medien: Profilfotos und Selfies für Verifizierung (Speicherung in Supabase Storage).
 - Standort: Gerätestandort/Region für Vorschläge.
 - Geräte-/Nutzungsdaten: Push-Token, technische Logs, In-App-Ereignisse (z. B. app_open, view_profile, intro_request, connection, message_send) für Stabilität und Produktverbesserung.
@@ -131,7 +131,7 @@ const LEGAL_CONTENT: Record<string, { privacy: string; terms: string }> = {
 
 Controller: Soul, Mirabellplatz 4, 5020 Salzburg, Austria, E-Mail: support@nokhchi-znakomstva.com
 
-We collect: account/profile data (email/phone, display name, gender, birthday/age, intention, interests, bio), photos/selfies (for verification), location (for suggestions), device/push token, usage events (app_open, view_profile, intro_request, connection, message_send), chats/messages, and selfie-to-profile verification via serverless ("face-verify").
+We collect: account/profile data (phone number, display name, gender, birthday/age, intention, interests, bio), photos/selfies (for verification), location (for suggestions), device/push token, usage events (app_open, view_profile, intro_request, connection, message_send), chats/messages, and selfie-to-profile verification via serverless ("face-verify").
 Purpose: community introductions, profile/photo management, location-based suggestions, push notifications, fraud/abuse prevention (incl. facial match), diagnostics/product improvement, legal obligations.
 Legal bases (GDPR): Art.6(1)(b) contract; Art.6(1)(a) consents (push, location, camera/photos); Art.6(1)(f) legitimate interests (security/stability); Art.6(1)(c) legal duties.
 Processors/services: Supabase (auth/db/storage/realtime/functions), Expo/Apple/Google push, Sentry (crash), App Store/Google Play for payments.
@@ -165,7 +165,7 @@ Contact: support@nokhchi-znakomstva.com`,
 
 Responsable : Soul, Mirabellplatz 4, 5020 Salzburg, Autriche, E-mail : support@nokhchi-znakomstva.com
 
-Données : compte/profil (e-mail/téléphone, nom affiché, genre, date de naissance/âge, intention, centres d’intérêt, bio), photos/selfies (vérification), localisation (suggestions), appareil/token push, événements d’usage (app_open, view_profile, intro_request, connection, message_send), chats, vérification selfie/profil (fonction serverless "face-verify").
+Données : compte/profil (téléphone, nom affiché, genre, date de naissance/âge, intention, centres d’intérêt, bio), photos/selfies (vérification), localisation (suggestions), appareil/token push, événements d’usage (app_open, view_profile, intro_request, connection, message_send), chats, vérification selfie/profil (fonction serverless "face-verify").
 Finalités : introductions communautaires, gestion profil/photos, suggestions basées sur la localisation, notifications push, prévention fraude/abus (incl. vérif. faciale), diagnostics/optimisation, obligations légales.
 Bases (RGPD) : art.6(1)(b) contrat ; art.6(1)(a) consentements (push, localisation, appareil photo/photos) ; art.6(1)(f) intérêt légitime (sécurité/stabilité) ; art.6(1)(c) obligations légales.
 Prestataires : Supabase (auth/bdd/storage/realtime/functions), Expo/Apple/Google push, Sentry (crash), App Store/Google Play (paiements).
@@ -195,7 +195,7 @@ Contact : support@nokhchi-znakomstva.com`,
 
 Оператор: Soul, Mirabellplatz 4, 5020 Зальцбург, Австрия, E-mail: support@nokhchi-znakomstva.com
 
-Данные: аккаунт/профиль (email/телефон, имя, пол, дата рождения/возраст, намерения, интересы, био), фото/селфи (верификация), локация (подбор анкет), устройство/push-токен, события использования (app_open, view_profile, intro_request, connection, message_send), чаты, сверка селфи с фото профиля (serverless "face-verify").
+Данные: аккаунт/профиль (телефон, имя, пол, дата рождения/возраст, намерения, интересы, био), фото/селфи (верификация), локация (подбор анкет), устройство/push-токен, события использования (app_open, view_profile, intro_request, connection, message_send), чаты, сверка селфи с фото профиля (serverless "face-verify").
 Цели: сообщественные знакомства и связи, управление профилем/фото, подсказки по локации, push-уведомления, борьба с мошенничеством/абьюзом (в т.ч. сверка лица), диагностика/улучшения, юр. обязанности.
 Правовые основания (GDPR): ст.6(1)(b) договор; ст.6(1)(a) согласия (push, гео, камера/фото); ст.6(1)(f) законный интерес (безопасность/стабильность); ст.6(1)(c) юр. обязательства.
 Сервисы: Supabase (auth/db/storage/realtime/functions), Expo/Apple/Google push, Sentry (crash), App Store/Google Play (платежи).

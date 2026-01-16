@@ -1,17 +1,17 @@
-import { signInWithPassword, signOut } from "../src/services/authService";
+import { verifyPhoneOtp, signOut } from "../src/services/authService";
 import { upsertProfile, fetchProfile, type ProfileInput } from "../src/services/profileService";
 
 jest.setTimeout(60_000);
 
-const email = process.env.SUPABASE_DIAG_EMAIL;
-const password = process.env.SUPABASE_DIAG_PASSWORD;
+const phone = process.env.SUPABASE_DIAG_PHONE;
+const otp = process.env.SUPABASE_DIAG_OTP;
 
-const describeIfCreds = email && password ? describe : describe.skip;
+const describeIfCreds = phone && otp ? describe : describe.skip;
 
 describeIfCreds("Supabase auth + profile integration", () => {
   it("signs in with Supabase and performs profile CRUD", async () => {
-    const session = await signInWithPassword(email!, password!);
-    expect(session.user.email?.toLowerCase()).toBe(email!.toLowerCase());
+    const { session } = await verifyPhoneOtp(phone!, otp!, { createProfileIfMissing: true });
+    expect(session.user.phone).toBeTruthy();
 
     const profileInput: ProfileInput = {
       displayName: "Diag Integration",
@@ -40,6 +40,6 @@ describeIfCreds("Supabase auth + profile integration", () => {
   });
 });
 
-if (!email || !password) {
+if (!phone || !otp) {
   test.skip("Supabase integration diagnostics (credentials missing)", () => undefined);
 }
