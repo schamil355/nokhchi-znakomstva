@@ -119,7 +119,7 @@ const translations = {
   },
   de: {
     titleAccent: "Standort aktivieren,",
-    title: "vertrauensvolle Verbindungen könnten ganz nah sein.",
+    title: "Dein Match könnte ganz nah bei dir sein.",
     statusGranted: "Standort wurde aktiviert. Wir zeigen dir passende Profile in deiner Nähe.",
     statusDenied: "Standort wurde abgelehnt. Du kannst ihn jederzeit in den Einstellungen aktivieren.",
     statusBlocked: "Standort ist blockiert. Bitte öffne die Einstellungen, um ihn freizugeben.",
