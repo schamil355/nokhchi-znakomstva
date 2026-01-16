@@ -47,7 +47,6 @@ const translations = {
     tryAgain: "Bitte versuche es erneut.",
     phoneFormatTitle: "Format",
     phoneFormatMessage: "Bitte gib die Telefonnummer im internationalen Format (z. B. +49123...) ein.",
-    phoneNoSpaces: "Bitte ohne Leerzeichen eingeben.",
     otpTitle: "SMS-Code eingeben",
     otpSubtitle: "Wir haben dir einen Bestätigungscode gesendet.",
     otpPlaceholder: "123456",
@@ -72,7 +71,6 @@ const translations = {
     tryAgain: "Please try again.",
     phoneFormatTitle: "Format",
     phoneFormatMessage: "Please enter the phone number in international format (e.g. +49123...).",
-    phoneNoSpaces: "Please enter without spaces.",
     otpTitle: "Enter SMS code",
     otpSubtitle: "We sent you a verification code.",
     otpPlaceholder: "123456",
@@ -97,7 +95,6 @@ const translations = {
     tryAgain: "Réessaie.",
     phoneFormatTitle: "Format",
     phoneFormatMessage: "Merci de saisir le numéro au format international (ex. +49123…).",
-    phoneNoSpaces: "Merci de saisir sans espaces.",
     otpTitle: "Saisis le code SMS",
     otpSubtitle: "Nous t'avons envoyé un code de vérification.",
     otpPlaceholder: "123456",
@@ -122,7 +119,6 @@ const translations = {
     tryAgain: "Попробуйте еще раз.",
     phoneFormatTitle: "Формат",
     phoneFormatMessage: "Введи номер в международном формате (например, +49123...).",
-    phoneNoSpaces: "Введите номер без пробелов.",
     otpTitle: "Введите SMS-код",
     otpSubtitle: "Мы отправили проверочный код.",
     otpPlaceholder: "123456",
@@ -138,7 +134,6 @@ const CreateAccountScreen = ({ navigation }: Props) => {
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const errorCopy = useErrorCopy();
-  const hasWhitespace = /\s/.test(phone);
 
   const handleNext = async () => {
     if (!consent || loading) return;
@@ -150,9 +145,6 @@ const CreateAccountScreen = ({ navigation }: Props) => {
     }
     if (!normalizedPhone.startsWith("+")) {
       RNAlert.alert(copy.phoneFormatTitle, copy.phoneFormatMessage);
-      return;
-    }
-    if (hasWhitespace) {
       return;
     }
 
@@ -196,10 +188,9 @@ const CreateAccountScreen = ({ navigation }: Props) => {
                 placeholder={copy.phonePlaceholder}
                 placeholderTextColor="rgba(242,231,215,0.65)"
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={(value) => setPhone(value.replace(/\s+/g, ""))}
                 keyboardType="phone-pad"
               />
-              {hasWhitespace && <Text style={styles.inputError}>{copy.phoneNoSpaces}</Text>}
             </View>
 
             <View style={styles.checkboxRow}>
@@ -220,9 +211,9 @@ const CreateAccountScreen = ({ navigation }: Props) => {
             </View>
 
             <Pressable
-              style={[styles.cta, (!consent || loading || hasWhitespace) && styles.ctaDisabled]}
+              style={[styles.cta, (!consent || loading) && styles.ctaDisabled]}
               onPress={handleNext}
-              disabled={!consent || loading || hasWhitespace}
+              disabled={!consent || loading}
             >
               <LinearGradient
                 colors={[PALETTE.gold, "#8b6c2a"]}
@@ -285,11 +276,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(217,192,143,0.5)",
     color: PALETTE.sand,
     fontSize: 16
-  },
-  inputError: {
-    color: "#f2b8b5",
-    fontSize: 12,
-    paddingLeft: 4
   },
   checkboxRow: {
     flexDirection: "row",
