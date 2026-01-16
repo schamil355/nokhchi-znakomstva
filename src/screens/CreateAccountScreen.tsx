@@ -14,7 +14,7 @@ import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { requestPhoneOtp, verifyPhoneOtp } from "../services/authService";
+import { requestPhoneOtp } from "../services/authService";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
@@ -132,10 +132,6 @@ const CreateAccountScreen = ({ navigation }: Props) => {
   const [phone, setPhone] = useState("");
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showOtpModal, setShowOtpModal] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [otpPhone, setOtpPhone] = useState("");
-  const [verifying, setVerifying] = useState(false);
   const errorCopy = useErrorCopy();
 
   const handleNext = async () => {
@@ -155,8 +151,7 @@ const CreateAccountScreen = ({ navigation }: Props) => {
     setLoading(true);
     try {
       await requestPhoneOtp(normalizedPhone);
-      setOtpPhone(normalizedPhone);
-      setShowOtpModal(true);
+      navigation.navigate("PhoneOtp", { phone: normalizedPhone });
     } catch (err: any) {
       logError(err, "sign-up");
       RNAlert.alert(copy.signupFailed, getErrorMessage(err, errorCopy, copy.tryAgain));
@@ -238,50 +233,6 @@ const CreateAccountScreen = ({ navigation }: Props) => {
             </Text>
           </ScrollView>
 
-          {showOtpModal && (
-            <Pressable style={styles.modalBackdrop} onPress={() => setShowOtpModal(false)}>
-              <View style={styles.modalCard}>
-                <Text style={styles.modalTitle}>{copy.otpTitle}</Text>
-                <Text style={styles.modalSubtitle}>{copy.otpSubtitle}</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  value={otp}
-                  onChangeText={setOtp}
-                  placeholder={copy.otpPlaceholder}
-                  placeholderTextColor="rgba(0,0,0,0.4)"
-                  keyboardType="number-pad"
-                  maxLength={6}
-                />
-                <Pressable
-                  style={[styles.cta, (otp.length < 4 || verifying) && styles.ctaDisabled]}
-                  onPress={async () => {
-                    if (otp.length < 4 || verifying) return;
-                    setVerifying(true);
-                    try {
-                      await verifyPhoneOtp(otpPhone || phone.trim().replace(/\s+/g, ""), otp);
-                      setShowOtpModal(false);
-                      setOtp("");
-                      navigation.navigate("OnboardingGender");
-                    } catch (verifyError: any) {
-                      logError(verifyError, "verify-otp");
-                      RNAlert.alert(copy.otpInvalidTitle, getErrorMessage(verifyError, errorCopy, copy.otpInvalidBody));
-                    } finally {
-                      setVerifying(false);
-                    }
-                  }}
-                >
-                  <LinearGradient
-                    colors={[PALETTE.gold, "#8b6c2a"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.ctaInner}
-                  >
-                    <Text style={styles.ctaText}>{verifying ? copy.loading : copy.otpSubmit}</Text>
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            </Pressable>
-          )}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>
