@@ -8,6 +8,7 @@ import { requestPhoneOtp, verifyPhoneOtp } from "../services/authService";
 import { useAuthStore } from "../state/authStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
+import { normalizePhone } from "../lib/phone";
 
 type Props = NativeStackScreenProps<any>;
 
@@ -118,7 +119,7 @@ const SignInScreen = ({ navigation }: Props) => {
       return;
     }
 
-    const normalizedPhone = phone.trim().replace(/\s+/g, "");
+    const normalizedPhone = normalizePhone(phone);
     if (!normalizedPhone) {
       Alert.alert(copy.missingPhone);
       return;
@@ -214,7 +215,7 @@ const SignInScreen = ({ navigation }: Props) => {
                     setVerifying(true);
                     setLoadingState(true);
                     try {
-                      const { profile } = await verifyPhoneOtp(otpPhone || phone.trim().replace(/\s+/g, ""), otp);
+                      const { profile } = await verifyPhoneOtp(normalizePhone(otpPhone || phone), otp);
                       setShowOtpModal(false);
                       setOtp("");
                       if (!profile || !profile.verified) {

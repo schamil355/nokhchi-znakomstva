@@ -8,6 +8,7 @@ import { useAuthStore } from "../state/authStore";
 import { upsertProfile } from "../services/profileService";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
+import { normalizePhone } from "../lib/phone";
 
 type Props = NativeStackScreenProps<any>;
 
@@ -60,7 +61,7 @@ const PhoneOtpScreen = ({ navigation, route }: Props) => {
   const setSession = useAuthStore((state) => state.setSession);
   const errorCopy = useErrorCopy();
 
-  const normalizedPhone = useMemo(() => phoneParam?.trim().replace(/\s+/g, "") ?? "", [phoneParam]);
+  const normalizedPhone = useMemo(() => (phoneParam ? normalizePhone(phoneParam) : ""), [phoneParam]);
 
   useEffect(() => {
     if (!phoneParam) {

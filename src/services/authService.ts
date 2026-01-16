@@ -1,6 +1,7 @@
 import { Session } from "@supabase/supabase-js";
 import { z } from "zod";
 import { getSupabaseClient } from "../lib/supabaseClient";
+import { normalizePhone } from "../lib/phone";
 import { createRateLimiter } from "../lib/rateLimiter";
 import { useAuthStore } from "../state/authStore";
 import { upsertProfile, fetchProfile } from "./profileService";
@@ -39,8 +40,6 @@ const tAuth = (key: keyof typeof authCopy.en) => {
 };
 
 const withCode = (code: string, message?: string) => Object.assign(new Error(message ?? code), { code });
-
-const normalizePhone = (value: string) => value.replace(/\s+/g, "");
 
 const getFallbackDisplayName = (user: Session["user"]) => {
   const userMeta = user.user_metadata ?? {};

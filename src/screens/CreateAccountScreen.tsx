@@ -15,6 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { requestPhoneOtp } from "../services/authService";
+import { normalizePhone } from "../lib/phone";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
@@ -136,8 +137,7 @@ const CreateAccountScreen = ({ navigation }: Props) => {
 
   const handleNext = async () => {
     if (!consent || loading) return;
-    const phoneTrimmed = phone.trim();
-    const normalizedPhone = phoneTrimmed.replace(/\s+/g, "");
+    const normalizedPhone = normalizePhone(phone);
 
     if (!normalizedPhone) {
       RNAlert.alert(copy.hintMissingPhone);
