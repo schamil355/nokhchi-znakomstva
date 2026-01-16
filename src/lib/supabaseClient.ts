@@ -11,8 +11,14 @@ const expoConfig = Constants.expoConfig?.extra ?? {};
 
 const isTestEnv = process.env.NODE_ENV === "test" || Boolean(process.env.JEST_WORKER_ID);
 
-const supabaseUrl = expoConfig.supabaseUrl ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = expoConfig.supabaseAnonKey ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl =
+  expoConfig.supabaseUrl ??
+  expoConfig.EXPO_PUBLIC_SUPABASE_URL ??
+  process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey =
+  expoConfig.supabaseAnonKey ??
+  expoConfig.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 // Allow enough time for slower uploads (e.g., photos).
 const REQUEST_TIMEOUT_MS = 300_000;
