@@ -16,8 +16,8 @@ import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
-import * as FileSystem from "expo-file-system";
+import type * as ImageManipulatorType from "expo-image-manipulator";
+import type * as FileSystemType from "expo-file-system";
 import { decode as decodeBase64 } from "base64-arraybuffer";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useOnboardingStore } from "../state/onboardingStore";
@@ -38,6 +38,15 @@ const PALETTE = {
 };
 const MAX_FILE_SIZE = 700 * 1024; // ~700KB to keep uploads fast on mobile
 const MAX_DIMENSION = 1280; // downscale to speed up uploads
+const ImageManipulator =
+  Platform.OS === "web"
+    ? null
+    : (require("expo-image-manipulator") as typeof ImageManipulatorType);
+const FileSystem =
+  Platform.OS === "web"
+    ? null
+    : (require("expo-file-system") as typeof FileSystemType);
+const DEFAULT_SAVE_FORMAT = (ImageManipulator?.SaveFormat?.JPEG ?? "jpeg") as string;
 
 type Props = NativeStackScreenProps<any>;
 
@@ -45,7 +54,7 @@ type PhotoTile = {
   uri: string;
   width: number;
   height: number;
-  type: ImageManipulator.SaveFormat;
+  type: string;
   remoteKey: string | null;
   photoId: number | null;
   uploading: boolean;
@@ -298,7 +307,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
   };
 
   const queueTileUpload = useCallback(
-    (index: number, manipulated: ImageManipulator.ImageResult, previousPhotoId: number | null) => {
+    (index: number, manipulated: ImageManipulatorType.ImageResult, previousPhotoId: number | null) => {
       const token = `${index}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       uploadTokens.current[index] = token;
 
@@ -308,7 +317,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
           uri: manipulated.uri,
           width: manipulated.width ?? 0,
           height: manipulated.height ?? 0,
-          type: manipulated.format ?? ImageManipulator.SaveFormat.JPEG,
+          type: manipulated.format ?? DEFAULT_SAVE_FORMAT,
           remoteKey: null,
           photoId: null,
           uploading: true,
@@ -480,7 +489,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
       }
 
       const asset = pickerResult.assets[0];
-      const manipulated = await compressImage(asset.uri, asset.width ?? MAX_DIMENSION);
+      const manipulated = await compressImage(asset.uri, asset.width ?? null, asset.height ?? null);
       if (!manipulated) {
         return;
       }
@@ -492,8 +501,16 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
     }
   };
 
-  const compressImage = async (uri: string, width: number) => {
+  const compressImage = async (uri: string, width: number | null, height: number | null) => {
     try {
+      if (!ImageManipulator || !FileSystem) {
+        return {
+          uri,
+          width: width ?? 0,
+          height: height ?? 0,
+          format: DEFAULT_SAVE_FORMAT
+        } as ImageManipulatorType.ImageResult;
+      }
       const resized = await ImageManipulator.manipulateAsync(
         uri,
         width ? [{ resize: { width: Math.min(width, MAX_DIMENSION) } }] : [],
@@ -549,6 +566,9 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
       }
       return await response.arrayBuffer();
     } catch (error) {
+      if (!FileSystem) {
+        throw error;
+      }
       console.warn("[Photos] blob read failed, falling back to base64", error);
       try {
         const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
