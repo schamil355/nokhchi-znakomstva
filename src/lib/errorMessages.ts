@@ -209,6 +209,39 @@ export const getErrorMessage = (error: unknown, copy: ErrorCopy, fallback?: stri
   return fallback ?? copy.unknown;
 };
 
+export const getErrorDetails = (error: unknown): string | null => {
+  if (!error || typeof error !== "object") return null;
+  const anyError = error as {
+    message?: unknown;
+    error_description?: unknown;
+    details?: unknown;
+    hint?: unknown;
+    code?: unknown;
+    errorCode?: unknown;
+    status?: unknown;
+  };
+  const rawDetails = [
+    typeof anyError.message === "string" ? anyError.message : null,
+    typeof anyError.error_description === "string" ? anyError.error_description : null,
+    typeof anyError.details === "string" ? anyError.details : null,
+    typeof anyError.hint === "string" ? anyError.hint : null
+  ].filter((value): value is string => Boolean(value));
+
+  const uniqueDetails = Array.from(new Set(rawDetails));
+  const code =
+    typeof anyError.code === "string" || typeof anyError.code === "number"
+      ? String(anyError.code)
+      : typeof anyError.errorCode === "string" || typeof anyError.errorCode === "number"
+        ? String(anyError.errorCode)
+        : typeof anyError.status === "string" || typeof anyError.status === "number"
+          ? String(anyError.status)
+          : null;
+
+  if (!uniqueDetails.length && !code) return null;
+  const detailText = uniqueDetails.join(" • ");
+  return code ? [detailText, `Code: ${code}`].filter(Boolean).join(" • ") : detailText;
+};
+
 export const logError = (error: unknown, context?: string) => {
   if (!error) return;
   const label = context ? `[${context}]` : "[error]";

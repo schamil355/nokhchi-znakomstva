@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { requestPhoneOtp, verifyPhoneOtp } from "../services/authService";
 import { useAuthStore } from "../state/authStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
-import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
+import { getErrorDetails, getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { normalizePhone } from "../lib/phone";
 
 type Props = NativeStackScreenProps<any>;
@@ -150,10 +150,13 @@ const SignInScreen = ({ navigation }: Props) => {
       setShowOtpModal(true);
     } catch (error: any) {
       logError(error, "sign-in-otp-request");
-      const message =
+      const baseMessage =
         error?.code === "CONFIG_MISSING"
           ? copy.configMissing
           : getErrorMessage(error, errorCopy, copy.signInFailedMessage);
+      const detailedMessage =
+        Platform.OS === "web" ? getErrorDetails(error) : null;
+      const message = error?.code === "CONFIG_MISSING" ? baseMessage : detailedMessage ?? baseMessage;
       showError(copy.signInFailedTitle, message);
     } finally {
       setSending(false);

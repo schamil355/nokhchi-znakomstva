@@ -17,7 +17,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { requestPhoneOtp } from "../services/authService";
 import { normalizePhone } from "../lib/phone";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
-import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
+import { getErrorDetails, getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
 type Props = NativeStackScreenProps<any>;
 
@@ -168,10 +168,12 @@ const CreateAccountScreen = ({ navigation }: Props) => {
       navigation.navigate("PhoneOtp", { phone: normalizedPhone });
     } catch (err: any) {
       logError(err, "sign-up");
-      const message =
+      const baseMessage =
         err?.code === "CONFIG_MISSING"
           ? copy.configMissing
           : getErrorMessage(err, errorCopy, copy.tryAgain);
+      const detailedMessage = Platform.OS === "web" ? getErrorDetails(err) : null;
+      const message = err?.code === "CONFIG_MISSING" ? baseMessage : detailedMessage ?? baseMessage;
       showError(copy.signupFailed, message);
     } finally {
       setLoading(false);
