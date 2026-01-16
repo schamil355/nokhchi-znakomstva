@@ -62,7 +62,7 @@ const ensureSupabaseConfig = () => {
 export const getEmailRedirectUrl = (): string => {
   if (Platform.OS === "web") {
     if (typeof window !== "undefined" && window.location?.origin) {
-      return `${window.location.origin}/auth/callback`;
+      return window.location.origin;
     }
   }
   const fromEnv = process.env.EXPO_PUBLIC_EMAIL_REDIRECT_URL;

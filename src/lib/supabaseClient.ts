@@ -83,7 +83,7 @@ export const getSupabaseClient = (): SupabaseClient => {
         storage,
         storageKey: isTestEnv ? undefined : SECURE_KEY,
         autoRefreshToken: true,
-        detectSessionInUrl: false
+        detectSessionInUrl: Platform.OS === "web"
       },
       global: {
         headers: {

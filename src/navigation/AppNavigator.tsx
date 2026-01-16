@@ -75,13 +75,15 @@ const AuthNavigator = () => {
   const session = useAuthStore((state) => state.session);
   const profile = useAuthStore((state) => state.profile);
   const verifiedOverride = useAuthStore((state) => state.verifiedOverride);
-  const startOnboarding = Boolean(
-    session && profile && !(profile.verified || verifiedOverride)
-  );
+  const isVerified = Boolean(profile?.verified) || verifiedOverride;
+  const needsOnboarding = !profile || !isVerified;
+  const startOnboarding = Boolean(session) && needsOnboarding;
+  const navigatorKey = session ? "auth-session" : "auth-guest";
   return (
     <AuthStack.Navigator
       screenOptions={{ headerShown: false }}
-      initialRouteName={startOnboarding ? "OnboardingPhotos" : "Welcome"}
+      initialRouteName={startOnboarding ? "OnboardingGender" : "Welcome"}
+      key={navigatorKey}
     >
       <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
       <AuthStack.Screen name="SignIn" component={SignInScreen} />
