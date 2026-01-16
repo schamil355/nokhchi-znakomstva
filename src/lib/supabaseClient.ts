@@ -96,6 +96,11 @@ export const getSupabaseClient = (): SupabaseClient => {
   return cachedClient;
 };
 
+export const getSupabaseConfig = () => ({
+  supabaseUrl,
+  supabaseAnonKey
+});
+
 /**
  * Ensures we have a valid Supabase session.
  * Returns { session, error } where session can be null if the user is not authenticated.

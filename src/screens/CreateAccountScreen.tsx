@@ -45,6 +45,7 @@ const translations = {
     hintMissingPhone: "Bitte Telefonnummer eingeben.",
     signupFailed: "Registrierung fehlgeschlagen",
     tryAgain: "Bitte versuche es erneut.",
+    configMissing: "SMS-Versand ist gerade nicht verfügbar. Bitte später erneut versuchen.",
     phoneFormatTitle: "Format",
     phoneFormatMessage: "Bitte gib die Telefonnummer im internationalen Format (z. B. +49123...) ein.",
     otpTitle: "SMS-Code eingeben",
@@ -69,6 +70,7 @@ const translations = {
     hintMissingPhone: "Please enter your phone number.",
     signupFailed: "Registration failed",
     tryAgain: "Please try again.",
+    configMissing: "SMS sign-in is not available right now. Please try again later.",
     phoneFormatTitle: "Format",
     phoneFormatMessage: "Please enter the phone number in international format (e.g. +49123...).",
     otpTitle: "Enter SMS code",
@@ -93,6 +95,7 @@ const translations = {
     hintMissingPhone: "Merci de saisir ton numéro de téléphone.",
     signupFailed: "Échec de l'inscription",
     tryAgain: "Réessaie.",
+    configMissing: "La connexion SMS n'est pas disponible pour le moment. Réessaie plus tard.",
     phoneFormatTitle: "Format",
     phoneFormatMessage: "Merci de saisir le numéro au format international (ex. +49123…).",
     otpTitle: "Saisis le code SMS",
@@ -117,6 +120,7 @@ const translations = {
     hintMissingPhone: "Введите номер телефона.",
     signupFailed: "Не удалось зарегистрироваться",
     tryAgain: "Попробуйте еще раз.",
+    configMissing: "Вход по SMS сейчас недоступен. Повторите попытку позже.",
     phoneFormatTitle: "Формат",
     phoneFormatMessage: "Введи номер в международном формате (например, +49123...).",
     otpTitle: "Введите SMS-код",
@@ -134,17 +138,27 @@ const CreateAccountScreen = ({ navigation }: Props) => {
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const errorCopy = useErrorCopy();
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const showError = (title: string, message: string) => {
+    if (Platform.OS === "web") {
+      setSubmitError(message);
+      return;
+    }
+    RNAlert.alert(title, message);
+  };
 
   const handleNext = async () => {
     if (!consent || loading) return;
+    setSubmitError(null);
     const normalizedPhone = normalizePhone(phone);
 
     if (!normalizedPhone) {
-      RNAlert.alert(copy.hintMissingPhone);
+      showError(copy.phoneFormatTitle, copy.hintMissingPhone);
       return;
     }
     if (!normalizedPhone.startsWith("+")) {
-      RNAlert.alert(copy.phoneFormatTitle, copy.phoneFormatMessage);
+      showError(copy.phoneFormatTitle, copy.phoneFormatMessage);
       return;
     }
 
@@ -154,7 +168,11 @@ const CreateAccountScreen = ({ navigation }: Props) => {
       navigation.navigate("PhoneOtp", { phone: normalizedPhone });
     } catch (err: any) {
       logError(err, "sign-up");
-      RNAlert.alert(copy.signupFailed, getErrorMessage(err, errorCopy, copy.tryAgain));
+      const message =
+        err?.code === "CONFIG_MISSING"
+          ? copy.configMissing
+          : getErrorMessage(err, errorCopy, copy.tryAgain);
+      showError(copy.signupFailed, message);
     } finally {
       setLoading(false);
     }
@@ -188,7 +206,10 @@ const CreateAccountScreen = ({ navigation }: Props) => {
                 placeholder={copy.phonePlaceholder}
                 placeholderTextColor="rgba(242,231,215,0.65)"
                 value={phone}
-                onChangeText={(value) => setPhone(value.replace(/\s+/g, ""))}
+                onChangeText={(value) => {
+                  setSubmitError(null);
+                  setPhone(value.replace(/\s+/g, ""));
+                }}
                 keyboardType="phone-pad"
               />
             </View>
@@ -224,6 +245,7 @@ const CreateAccountScreen = ({ navigation }: Props) => {
                 <Text style={styles.ctaText}>{loading ? copy.loading : copy.next}</Text>
               </LinearGradient>
             </Pressable>
+            {submitError && <Text style={styles.submitError}>{submitError}</Text>}
 
             <Text style={styles.footer}>
               {copy.member}{" "}
@@ -331,6 +353,12 @@ const styles = StyleSheet.create({
   },
   ctaDisabled: {
     opacity: 0.6
+  },
+  submitError: {
+    color: "#f2b8b5",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 8
   },
   footer: {
     textAlign: "center",

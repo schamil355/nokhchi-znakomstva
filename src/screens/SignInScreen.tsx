@@ -31,7 +31,8 @@ const translations = {
     otpInvalidTitle: "Code ungültig",
     otpInvalidBody: "Bitte erneut versuchen.",
     signInFailedTitle: "Anmeldung fehlgeschlagen",
-    signInFailedMessage: "Bitte prüfe deine Angaben."
+    signInFailedMessage: "Bitte prüfe deine Angaben.",
+    configMissing: "SMS-Anmeldung ist nicht verfügbar. Bitte später erneut versuchen."
   },
   en: {
     title: "Sign in",
@@ -51,7 +52,8 @@ const translations = {
     otpInvalidTitle: "Invalid code",
     otpInvalidBody: "Please try again.",
     signInFailedTitle: "Sign in failed",
-    signInFailedMessage: "Please check your details."
+    signInFailedMessage: "Please check your details.",
+    configMissing: "SMS sign-in is not available right now. Please try again later."
   },
   fr: {
     title: "Connexion",
@@ -71,7 +73,8 @@ const translations = {
     otpInvalidTitle: "Code invalide",
     otpInvalidBody: "Merci de réessayer.",
     signInFailedTitle: "Échec de la connexion",
-    signInFailedMessage: "Merci de vérifier tes informations."
+    signInFailedMessage: "Merci de vérifier tes informations.",
+    configMissing: "La connexion SMS n'est pas disponible pour le moment. Réessaie plus tard."
   },
   ru: {
     title: "Войти",
@@ -91,7 +94,8 @@ const translations = {
     otpInvalidTitle: "Код недействителен",
     otpInvalidBody: "Попробуйте ещё раз.",
     signInFailedTitle: "Не удалось войти",
-    signInFailedMessage: "Проверьте введённые данные."
+    signInFailedMessage: "Проверьте введённые данные.",
+    configMissing: "Вход по SMS сейчас недоступен. Повторите попытку позже."
   }
 };
 
@@ -110,22 +114,31 @@ const SignInScreen = ({ navigation }: Props) => {
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const setLoadingState = useAuthStore((state) => state.setLoading);
   const copy = useLocalizedCopy(translations);
   const errorCopy = useErrorCopy();
+  const showError = (title: string, message: string) => {
+    if (Platform.OS === "web") {
+      setSubmitError(message);
+      return;
+    }
+    Alert.alert(title, message);
+  };
 
   const handleSubmit = async () => {
     if (sending) {
       return;
     }
+    setSubmitError(null);
 
     const normalizedPhone = normalizePhone(phone);
     if (!normalizedPhone) {
-      Alert.alert(copy.missingPhone);
+      showError(copy.signInFailedTitle, copy.missingPhone);
       return;
     }
     if (!normalizedPhone.startsWith("+")) {
-      Alert.alert(copy.phoneFormatTitle, copy.phoneFormatMessage);
+      showError(copy.phoneFormatTitle, copy.phoneFormatMessage);
       return;
     }
 
@@ -137,7 +150,11 @@ const SignInScreen = ({ navigation }: Props) => {
       setShowOtpModal(true);
     } catch (error: any) {
       logError(error, "sign-in-otp-request");
-      Alert.alert(copy.signInFailedTitle, getErrorMessage(error, errorCopy, copy.signInFailedMessage));
+      const message =
+        error?.code === "CONFIG_MISSING"
+          ? copy.configMissing
+          : getErrorMessage(error, errorCopy, copy.signInFailedMessage);
+      showError(copy.signInFailedTitle, message);
     } finally {
       setSending(false);
     }
@@ -170,7 +187,10 @@ const SignInScreen = ({ navigation }: Props) => {
                 autoCapitalize="none"
                 keyboardType="phone-pad"
                 value={phone}
-                onChangeText={(value) => setPhone(value.replace(/\s+/g, ""))}
+                onChangeText={(value) => {
+                  setSubmitError(null);
+                  setPhone(value.replace(/\s+/g, ""));
+                }}
               />
               <Pressable
                 style={[styles.button, sending && styles.buttonDisabled]}
@@ -186,6 +206,7 @@ const SignInScreen = ({ navigation }: Props) => {
                   <Text style={styles.buttonText}>{sending ? copy.loading : copy.submit}</Text>
                 </LinearGradient>
               </Pressable>
+              {submitError && <Text style={styles.submitError}>{submitError}</Text>}
             </View>
             <Pressable onPress={() => navigation.navigate("CreateAccount", { mode: "phone" })}>
               <Text style={styles.signupHint}>
@@ -316,6 +337,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
     fontSize: 16
+  },
+  submitError: {
+    color: "#f2b8b5",
+    fontSize: 12,
+    textAlign: "center"
   },
   signupHint: {
     color: PALETTE.sand,

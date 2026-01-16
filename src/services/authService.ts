@@ -1,6 +1,6 @@
 import { Session } from "@supabase/supabase-js";
 import { z } from "zod";
-import { getSupabaseClient } from "../lib/supabaseClient";
+import { getSupabaseClient, getSupabaseConfig } from "../lib/supabaseClient";
 import { normalizePhone } from "../lib/phone";
 import { createRateLimiter } from "../lib/rateLimiter";
 import { useAuthStore } from "../state/authStore";
@@ -18,19 +18,23 @@ const authLimiter = createRateLimiter({ intervalMs: 5_000, maxCalls: 3 });
 const authCopy: Record<string, Record<string, string>> = {
   en: {
     signInFailed: "Sign in failed",
-    networkSlow: "Network is slow or unavailable. Please try again."
+    networkSlow: "Network is slow or unavailable. Please try again.",
+    configMissing: "SMS sign-in is not configured. Please try again later."
   },
   de: {
     signInFailed: "Anmeldung fehlgeschlagen",
-    networkSlow: "Netzwerk langsam oder nicht erreichbar. Bitte später erneut versuchen."
+    networkSlow: "Netzwerk langsam oder nicht erreichbar. Bitte später erneut versuchen.",
+    configMissing: "SMS-Anmeldung ist nicht konfiguriert. Bitte später erneut versuchen."
   },
   fr: {
     signInFailed: "Échec de la connexion",
-    networkSlow: "Réseau lent ou indisponible. Réessaie plus tard."
+    networkSlow: "Réseau lent ou indisponible. Réessaie plus tard.",
+    configMissing: "La connexion SMS n'est pas configurée. Réessaie plus tard."
   },
   ru: {
     signInFailed: "Не удалось войти",
-    networkSlow: "Сеть недоступна или медленная. Повторите попытку позже."
+    networkSlow: "Сеть недоступна или медленная. Повторите попытку позже.",
+    configMissing: "Вход по SMS не настроен. Повторите попытку позже."
   }
 };
 
@@ -40,6 +44,13 @@ const tAuth = (key: keyof typeof authCopy.en) => {
 };
 
 const withCode = (code: string, message?: string) => Object.assign(new Error(message ?? code), { code });
+
+const ensureSupabaseConfig = () => {
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig();
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw withCode("CONFIG_MISSING", tAuth("configMissing"));
+  }
+};
 
 const getFallbackDisplayName = (user: Session["user"]) => {
   const userMeta = user.user_metadata ?? {};
@@ -55,6 +66,7 @@ const getFallbackDisplayName = (user: Session["user"]) => {
 export const requestPhoneOtp = async (phone: string): Promise<void> =>
   authLimiter(async () => {
     try {
+      ensureSupabaseConfig();
       const supabase = getSupabaseClient();
       const { phone: parsedPhone } = phoneSchema.parse({ phone });
       const normalizedPhone = normalizePhone(parsedPhone.trim());
@@ -89,6 +101,7 @@ export const verifyPhoneOtp = async (
 ): Promise<VerifyOtpResult> =>
   authLimiter(async () => {
     try {
+      ensureSupabaseConfig();
       const supabase = getSupabaseClient();
       const { phone: parsedPhone } = phoneSchema.parse({ phone });
       const normalizedPhone = normalizePhone(parsedPhone.trim());
