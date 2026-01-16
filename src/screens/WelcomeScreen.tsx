@@ -55,6 +55,8 @@ const translations = {
   }
 };
 
+const PHONE_SIGNUP_ENABLED = false;
+
 const WelcomeScreen = () => {
   const navigation = useNavigation<AuthStackNavigation>();
   const copy = useLocalizedCopy(translations);
@@ -90,7 +92,11 @@ const WelcomeScreen = () => {
           <View style={styles.actions}>
             <Pressable
               testID="cta-create-account"
-              onPress={() => navigation.navigate("CreateAccount", { mode: "phone" })}
+              onPress={() =>
+                navigation.navigate(PHONE_SIGNUP_ENABLED ? "RegisterChoice" : "CreateAccount", {
+                  mode: "email"
+                })
+              }
               style={({ pressed }) => [
                 styles.primaryButton,
                 pressed && styles.primaryButtonPressed

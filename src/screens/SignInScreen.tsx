@@ -4,98 +4,102 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { requestPhoneOtp, verifyPhoneOtp } from "../services/authService";
+import { signInWithPassword } from "../services/authService";
 import { useAuthStore } from "../state/authStore";
+import { getSupabaseClient } from "../lib/supabaseClient";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
-import { getErrorDetails, getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
-import { normalizePhone } from "../lib/phone";
+import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
 type Props = NativeStackScreenProps<any>;
 
 const translations = {
   de: {
     title: "Anmelden",
-    phoneLabel: "Telefonnummer",
-    phonePlaceholder: "Gib deine Telefonnummer ein",
-    submit: "SMS-Code senden",
+    emailLabel: "E-Mail",
+    emailPlaceholder: "Gib deine E-Mail-Adresse ein",
+    passwordLabel: "Passwort",
+    passwordPlaceholder: "Gib das Passwort ein",
+    forgot: "Passwort vergessen?",
+    submit: "Weiter",
     loading: "Lädt...",
-    missingPhone: "Bitte gib deine Telefonnummer ein.",
-    phoneFormatTitle: "Format",
-    phoneFormatMessage: "Bitte gib die Telefonnummer im internationalen Format (z. B. +49123...) ein.",
     signupHint: "Neu hier?",
     signupLink: "Jetzt registrieren",
-    otpTitle: "SMS-Code eingeben",
-    otpSubtitle: "Wir haben dir einen Bestätigungscode gesendet.",
-    otpPlaceholder: "123456",
-    otpSubmit: "Bestätigen",
-    otpInvalidTitle: "Code ungültig",
-    otpInvalidBody: "Bitte erneut versuchen.",
+    resetTitle: "Passwort zurücksetzen",
+    resetInfo: "Wir senden dir einen Link zum Zurücksetzen.",
+    resetPlaceholder: "E-Mail-Adresse",
+    resetSend: "Link senden",
+    resetSuccess: "Bitte prüfe dein Postfach.",
+    resetMissingEmail: "Bitte gib deine E-Mail ein.",
+    resetError: "Passwort konnte nicht zurückgesetzt werden.",
+    close: "Schließen",
     signInFailedTitle: "Anmeldung fehlgeschlagen",
-    signInFailedMessage: "Bitte prüfe deine Angaben.",
-    configMissing: "SMS-Anmeldung ist nicht verfügbar. Bitte später erneut versuchen."
+    signInFailedMessage: "Bitte prüfe deine Angaben."
   },
   en: {
     title: "Sign in",
-    phoneLabel: "Phone number",
-    phonePlaceholder: "Enter your phone number",
-    submit: "Send SMS code",
+    emailLabel: "Email",
+    emailPlaceholder: "Enter your email address",
+    passwordLabel: "Password",
+    passwordPlaceholder: "Enter your password",
+    forgot: "Forgot password?",
+    submit: "Next",
     loading: "Loading...",
-    missingPhone: "Please enter your phone number.",
-    phoneFormatTitle: "Format",
-    phoneFormatMessage: "Please enter the phone number in international format (e.g. +49123...).",
     signupHint: "New here?",
     signupLink: "Create an account",
-    otpTitle: "Enter SMS code",
-    otpSubtitle: "We sent you a verification code.",
-    otpPlaceholder: "123456",
-    otpSubmit: "Confirm",
-    otpInvalidTitle: "Invalid code",
-    otpInvalidBody: "Please try again.",
+    resetTitle: "Reset password",
+    resetInfo: "We'll send you a reset link.",
+    resetPlaceholder: "Email address",
+    resetSend: "Send link",
+    resetSuccess: "Please check your inbox.",
+    resetMissingEmail: "Please enter your email.",
+    resetError: "Could not reset the password.",
+    close: "Close",
     signInFailedTitle: "Sign in failed",
-    signInFailedMessage: "Please check your details.",
-    configMissing: "SMS sign-in is not available right now. Please try again later."
+    signInFailedMessage: "Please check your details."
   },
   fr: {
     title: "Connexion",
-    phoneLabel: "Téléphone",
-    phonePlaceholder: "Saisis ton numéro",
-    submit: "Envoyer le code SMS",
+    emailLabel: "E-mail",
+    emailPlaceholder: "Saisis ton e-mail",
+    passwordLabel: "Mot de passe",
+    passwordPlaceholder: "Saisis ton mot de passe",
+    forgot: "Mot de passe oublié ?",
+    submit: "Continuer",
     loading: "Chargement...",
-    missingPhone: "Merci d'entrer ton numéro.",
-    phoneFormatTitle: "Format",
-    phoneFormatMessage: "Merci de saisir le numéro au format international (ex. +49123…).",
     signupHint: "Nouveau ici ?",
     signupLink: "Créer un compte",
-    otpTitle: "Saisis le code SMS",
-    otpSubtitle: "Nous t'avons envoyé un code de vérification.",
-    otpPlaceholder: "123456",
-    otpSubmit: "Valider",
-    otpInvalidTitle: "Code invalide",
-    otpInvalidBody: "Merci de réessayer.",
+    resetTitle: "Réinitialiser le mot de passe",
+    resetInfo: "Nous envoyons un lien pour réinitialiser.",
+    resetPlaceholder: "Adresse e-mail",
+    resetSend: "Envoyer",
+    resetSuccess: "Vérifie ta boîte mail.",
+    resetMissingEmail: "Merci d'entrer ton e-mail.",
+    resetError: "Impossible de réinitialiser le mot de passe.",
+    close: "Fermer",
     signInFailedTitle: "Échec de la connexion",
-    signInFailedMessage: "Merci de vérifier tes informations.",
-    configMissing: "La connexion SMS n'est pas disponible pour le moment. Réessaie plus tard."
+    signInFailedMessage: "Merci de vérifier tes informations."
   },
   ru: {
     title: "Войти",
-    phoneLabel: "Телефон",
-    phonePlaceholder: "Введите номер телефона",
-    submit: "Отправить SMS-код",
+    emailLabel: "E-mail",
+    emailPlaceholder: "Введите e-mail",
+    passwordLabel: "Пароль",
+    passwordPlaceholder: "Введите пароль",
+    forgot: "Забыли пароль?",
+    submit: "Далее",
     loading: "Загрузка...",
-    missingPhone: "Введите номер телефона.",
-    phoneFormatTitle: "Формат",
-    phoneFormatMessage: "Введите номер в международном формате (например, +49123...).",
     signupHint: "Еще нет аккаунта?",
     signupLink: "Зарегистрироваться",
-    otpTitle: "Введите SMS-код",
-    otpSubtitle: "Мы отправили проверочный код.",
-    otpPlaceholder: "123456",
-    otpSubmit: "Подтвердить",
-    otpInvalidTitle: "Код недействителен",
-    otpInvalidBody: "Попробуйте ещё раз.",
+    resetTitle: "Сброс пароля",
+    resetInfo: "Мы отправим ссылку для сброса пароля.",
+    resetPlaceholder: "E-mail",
+    resetSend: "Отправить",
+    resetSuccess: "Проверьте почту.",
+    resetMissingEmail: "Введите e-mail.",
+    resetError: "Не удалось сбросить пароль.",
+    close: "Закрыть",
     signInFailedTitle: "Не удалось войти",
-    signInFailedMessage: "Проверьте введённые данные.",
-    configMissing: "Вход по SMS сейчас недоступен. Повторите попытку позже."
+    signInFailedMessage: "Проверьте введённые данные."
   }
 };
 
@@ -108,60 +112,54 @@ const PALETTE = {
 };
 
 const SignInScreen = ({ navigation }: Props) => {
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpPhone, setOtpPhone] = useState("");
-  const [sending, setSending] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [showOtpModal, setShowOtpModal] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const setLoadingState = useAuthStore((state) => state.setLoading);
   const copy = useLocalizedCopy(translations);
   const errorCopy = useErrorCopy();
-  const showError = (title: string, message: string) => {
-    if (Platform.OS === "web") {
-      setSubmitError(message);
-      return;
-    }
-    Alert.alert(title, message);
-  };
+  const [resetVisible, setResetVisible] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (sending) {
-      return;
-    }
-    setSubmitError(null);
-
-    const normalizedPhone = normalizePhone(phone);
-    if (!normalizedPhone) {
-      showError(copy.signInFailedTitle, copy.missingPhone);
-      return;
-    }
-    if (!normalizedPhone.startsWith("+")) {
-      showError(copy.phoneFormatTitle, copy.phoneFormatMessage);
+    if (loading) {
       return;
     }
 
-    setSending(true);
+    setLoading(true);
+    setLoadingState(true);
 
     try {
-      await requestPhoneOtp(normalizedPhone);
-      setOtpPhone(normalizedPhone);
-      setShowOtpModal(true);
+      await signInWithPassword(email.trim().toLowerCase(), password);
     } catch (error: any) {
-      logError(error, "sign-in-otp-request");
-      const baseMessage =
-        error?.code === "CONFIG_MISSING"
-          ? copy.configMissing
-          : getErrorMessage(error, errorCopy, copy.signInFailedMessage);
-      const detailedMessage = Platform.OS === "web" ? getErrorDetails(error) : null;
-      const useDetails =
-        Boolean(detailedMessage) &&
-        (baseMessage === copy.signInFailedMessage || baseMessage === errorCopy.unknown);
-      const message = error?.code === "CONFIG_MISSING" ? baseMessage : useDetails ? detailedMessage! : baseMessage;
-      showError(copy.signInFailedTitle, message);
+      logError(error, "sign-in");
+      Alert.alert(copy.signInFailedTitle, getErrorMessage(error, errorCopy, copy.signInFailedMessage));
     } finally {
-      setSending(false);
+      setLoading(false);
+      setLoadingState(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    const targetEmail = (resetEmail || email).trim().toLowerCase();
+    if (!targetEmail) {
+      Alert.alert(copy.resetTitle, copy.resetMissingEmail);
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const supabase = getSupabaseClient();
+      await supabase.auth.resetPasswordForEmail(targetEmail, {
+        redirectTo: "https://tschetschenische.app/auth/reset"
+      });
+      Alert.alert(copy.resetTitle, copy.resetSuccess);
+      setResetVisible(false);
+    } catch (error: any) {
+      logError(error, "password-reset");
+      Alert.alert(copy.resetTitle, getErrorMessage(error, errorCopy, copy.resetError));
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -184,23 +182,35 @@ const SignInScreen = ({ navigation }: Props) => {
             </Pressable>
             <Text style={styles.title}>{copy.title}</Text>
             <View style={styles.form}>
-              <Text style={styles.label}>{copy.phoneLabel}</Text>
+              <Text style={styles.label}>{copy.emailLabel}</Text>
               <TextInput
                 style={styles.input}
-                placeholder={copy.phonePlaceholder}
+                placeholder={copy.emailPlaceholder}
                 placeholderTextColor="rgba(242,231,215,0.65)"
                 autoCapitalize="none"
-                keyboardType="phone-pad"
-                value={phone}
-                onChangeText={(value) => {
-                  setSubmitError(null);
-                  setPhone(value.replace(/\s+/g, ""));
-                }}
+                keyboardType="email-address"
+                autoComplete="email"
+                value={email}
+                onChangeText={setEmail}
+              />
+              <View style={styles.passwordRow}>
+                <Text style={styles.label}>{copy.passwordLabel}</Text>
+                <Pressable onPress={() => { setResetEmail(email); setResetVisible(true); }}>
+                  <Text style={styles.forgotText}>{copy.forgot}</Text>
+                </Pressable>
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder={copy.passwordPlaceholder}
+                placeholderTextColor="rgba(242,231,215,0.65)"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
               />
               <Pressable
-                style={[styles.button, sending && styles.buttonDisabled]}
+                style={[styles.button, loading && styles.buttonDisabled]}
                 onPress={handleSubmit}
-                disabled={sending}
+                disabled={loading}
               >
                 <LinearGradient
                   colors={[PALETTE.gold, "#8b6c2a"]}
@@ -208,57 +218,40 @@ const SignInScreen = ({ navigation }: Props) => {
                   end={{ x: 1, y: 1 }}
                   style={styles.buttonInner}
                 >
-                  <Text style={styles.buttonText}>{sending ? copy.loading : copy.submit}</Text>
+                  <Text style={styles.buttonText}>{loading ? copy.loading : copy.submit}</Text>
                 </LinearGradient>
               </Pressable>
-              {submitError && <Text style={styles.submitError}>{submitError}</Text>}
             </View>
-            <Pressable onPress={() => navigation.navigate("CreateAccount", { mode: "phone" })}>
+            <Pressable onPress={() => navigation.navigate("CreateAccount", { mode: "email" })}>
               <Text style={styles.signupHint}>
                 {copy.signupHint} <Text style={styles.signupLink}>{copy.signupLink}</Text>
               </Text>
             </Pressable>
           </View>
 
-          {showOtpModal && (
-            <Pressable style={styles.modalBackdrop} onPress={() => setShowOtpModal(false)}>
-              <View style={styles.modalCard}>
-                <Text style={styles.modalTitle}>{copy.otpTitle}</Text>
-                <Text style={styles.modalSubtitle}>{copy.otpSubtitle}</Text>
+          {resetVisible && (
+            <KeyboardAvoidingView
+              behavior={Platform.select({ ios: "padding", android: undefined })}
+              keyboardVerticalOffset={Platform.select({ ios: 100, default: 0 })}
+              style={styles.resetBackdrop}
+            >
+              <Pressable style={StyleSheet.absoluteFill} onPress={() => setResetVisible(false)} />
+              <View style={styles.resetCard}>
+                <Text style={styles.resetTitle}>{copy.resetTitle}</Text>
+                <Text style={styles.resetInfo}>{copy.resetInfo}</Text>
                 <TextInput
-                  style={styles.modalInput}
-                  value={otp}
-                  onChangeText={setOtp}
-                  placeholder={copy.otpPlaceholder}
-                  placeholderTextColor="rgba(0,0,0,0.4)"
-                  keyboardType="number-pad"
-                  maxLength={6}
+                  style={styles.input}
+                  placeholder={copy.resetPlaceholder}
+                  placeholderTextColor="rgba(0,0,0,0.35)"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  value={resetEmail}
+                  onChangeText={setResetEmail}
                 />
                 <Pressable
-                  style={[styles.button, (otp.length < 4 || verifying) && styles.buttonDisabled]}
-                  onPress={async () => {
-                    if (otp.length < 4 || verifying) return;
-                    setVerifying(true);
-                    setLoadingState(true);
-                    try {
-                      const { profile } = await verifyPhoneOtp(normalizePhone(otpPhone || phone), otp);
-                      setShowOtpModal(false);
-                      setOtp("");
-                      if (!profile || !profile.verified) {
-                        navigation.reset({
-                          index: 0,
-                          routes: [{ name: "OnboardingGender" }]
-                        });
-                      }
-                    } catch (verifyError: any) {
-                      logError(verifyError, "sign-in-otp-verify");
-                      Alert.alert(copy.otpInvalidTitle, getErrorMessage(verifyError, errorCopy, copy.otpInvalidBody));
-                    } finally {
-                      setVerifying(false);
-                      setLoadingState(false);
-                    }
-                  }}
-                  disabled={otp.length < 4 || verifying}
+                  style={[styles.button, resetLoading && styles.buttonDisabled]}
+                  onPress={handlePasswordReset}
+                  disabled={resetLoading}
                 >
                   <LinearGradient
                     colors={[PALETTE.gold, "#8b6c2a"]}
@@ -266,11 +259,14 @@ const SignInScreen = ({ navigation }: Props) => {
                     end={{ x: 1, y: 1 }}
                     style={styles.buttonInner}
                   >
-                    <Text style={styles.buttonText}>{verifying ? copy.loading : copy.otpSubmit}</Text>
+                    <Text style={styles.buttonText}>{resetLoading ? copy.loading : copy.resetSend}</Text>
                   </LinearGradient>
                 </Pressable>
+                <Pressable onPress={() => setResetVisible(false)}>
+                  <Text style={styles.resetCancel}>{copy.close}</Text>
+                </Pressable>
               </View>
-            </Pressable>
+            </KeyboardAvoidingView>
           )}
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -302,6 +298,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 8
   },
+  emailTab: {
+    height: 0
+  },
+  emailTabText: {
+    height: 0
+  },
   form: {
     gap: 12,
     marginTop: 12
@@ -309,6 +311,15 @@ const styles = StyleSheet.create({
   label: {
     color: PALETTE.sand,
     fontWeight: "600"
+  },
+  passwordRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  forgotText: {
+    color: "#d8c18f",
+    fontWeight: "500"
   },
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -343,11 +354,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 16
   },
-  submitError: {
-    color: "#f2b8b5",
-    fontSize: 12,
-    textAlign: "center"
-  },
   signupHint: {
     color: PALETTE.sand,
     textAlign: "center",
@@ -357,37 +363,34 @@ const styles = StyleSheet.create({
     color: "#d8c18f",
     fontWeight: "700"
   },
-  modalBackdrop: {
+  resetBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.35)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 24
+    padding: 24,
+    paddingTop: Platform.select({ ios: 20, default: 40 })
   },
-  modalCard: {
+  resetCard: {
     width: "100%",
-    maxWidth: 360,
     backgroundColor: "#fff",
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
     gap: 12
   },
-  modalTitle: {
+  resetTitle: {
     fontSize: 18,
     fontWeight: "700",
-    textAlign: "center"
+    color: "#0d1f1a"
   },
-  modalSubtitle: {
-    color: "#777",
-    textAlign: "center"
+  resetInfo: {
+    color: "#5a625e"
   },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 18,
-    textAlign: "center"
+  resetCancel: {
+    textAlign: "center",
+    marginTop: 8,
+    color: "#0d6e4f",
+    fontWeight: "600"
   }
 });
 

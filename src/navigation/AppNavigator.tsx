@@ -41,6 +41,7 @@ import CreateAccountScreen from "../screens/CreateAccountScreen";
 import RegisterChoiceScreen from "../screens/RegisterChoiceScreen";
 import RelationshipCompassScreen from "../screens/RelationshipCompassScreen";
 import PhoneOtpScreen from "../screens/PhoneOtpScreen";
+import EmailPendingScreen from "../screens/EmailPendingScreen";
 
 type AppNavigatorProps = {
   isAuthenticated: boolean;
@@ -87,6 +88,7 @@ const AuthNavigator = () => {
       <AuthStack.Screen name="SignIn" component={SignInScreen} />
       <AuthStack.Screen name="RegisterChoice" component={RegisterChoiceScreen} />
       <AuthStack.Screen name="CreateAccount" component={CreateAccountScreen} />
+      <AuthStack.Screen name="EmailPending" component={EmailPendingScreen} />
       <AuthStack.Screen name="PhoneOtp" component={PhoneOtpScreen} />
       <AuthStack.Screen name="OnboardingGender" component={OnboardingGenderScreen} />
       <AuthStack.Screen name="OnboardingName" component={OnboardingNameScreen} />

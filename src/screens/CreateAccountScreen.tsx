@@ -14,8 +14,9 @@ import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { requestPhoneOtp } from "../services/authService";
-import { normalizePhone } from "../lib/phone";
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { useAuthStore } from "../state/authStore";
+import { getEmailRedirectUrl } from "../services/authService";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getErrorDetails, getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
@@ -32,113 +33,83 @@ const PALETTE = {
 const translations = {
   de: {
     title: "Registrieren",
-    phonePlaceholder: "Telefonnummer",
+    emailPlaceholder: "E-Mail-Adresse",
+    passwordPlaceholder: "Passwort",
     consentText: "Mit dem Häkchen stimmst du unseren",
     consentSuffix: " zu.",
     terms: "Bedingungen",
     conditions: "Datenschutz",
     and: "und",
     loading: "Lädt...",
-    next: "SMS-Code senden",
+    next: "Weiter",
     member: "Schon Mitglied?",
     login: "Einloggen",
-    hintMissingPhone: "Bitte Telefonnummer eingeben.",
+    hintMissingEmail: "Bitte E-Mail und Passwort eingeben.",
     signupFailed: "Registrierung fehlgeschlagen",
-    tryAgain: "Bitte versuche es erneut.",
-    configMissing: "SMS-Versand ist gerade nicht verfügbar. Bitte später erneut versuchen.",
-    phoneFormatTitle: "Format",
-    phoneFormatMessage: "Bitte gib die Telefonnummer im internationalen Format (z. B. +49123...) ein.",
-    otpTitle: "SMS-Code eingeben",
-    otpSubtitle: "Wir haben dir einen Bestätigungscode gesendet.",
-    otpPlaceholder: "123456",
-    otpSubmit: "Bestätigen",
-    otpInvalidTitle: "Code ungültig",
-    otpInvalidBody: "Bitte erneut versuchen."
+    tryAgain: "Bitte versuche es erneut."
   },
   en: {
     title: "Create account",
-    phonePlaceholder: "Phone number",
+    emailPlaceholder: "Email address",
+    passwordPlaceholder: "Password",
     consentText: "By checking the box you agree to our",
     consentSuffix: ".",
     terms: "Terms",
     conditions: "Conditions",
     and: "and",
     loading: "Loading...",
-    next: "Send SMS code",
+    next: "Next",
     member: "Already a member?",
     login: "Log In",
-    hintMissingPhone: "Please enter your phone number.",
+    hintMissingEmail: "Please enter your email and password.",
     signupFailed: "Registration failed",
-    tryAgain: "Please try again.",
-    configMissing: "SMS sign-in is not available right now. Please try again later.",
-    phoneFormatTitle: "Format",
-    phoneFormatMessage: "Please enter the phone number in international format (e.g. +49123...).",
-    otpTitle: "Enter SMS code",
-    otpSubtitle: "We sent you a verification code.",
-    otpPlaceholder: "123456",
-    otpSubmit: "Confirm",
-    otpInvalidTitle: "Invalid code",
-    otpInvalidBody: "Please try again."
+    tryAgain: "Please try again."
   },
   fr: {
     title: "Créer un compte",
-    phonePlaceholder: "Numéro de téléphone",
+    emailPlaceholder: "Adresse e-mail",
+    passwordPlaceholder: "Mot de passe",
     consentText: "En cochant la case, tu acceptes nos",
     consentSuffix: ".",
     terms: "Conditions",
     conditions: "Confidentialité",
     and: "et",
     loading: "Chargement...",
-    next: "Envoyer le code SMS",
+    next: "Suivant",
     member: "Déjà membre ?",
     login: "Connexion",
-    hintMissingPhone: "Merci de saisir ton numéro de téléphone.",
+    hintMissingEmail: "Merci de saisir email et mot de passe.",
     signupFailed: "Échec de l'inscription",
-    tryAgain: "Réessaie.",
-    configMissing: "La connexion SMS n'est pas disponible pour le moment. Réessaie plus tard.",
-    phoneFormatTitle: "Format",
-    phoneFormatMessage: "Merci de saisir le numéro au format international (ex. +49123…).",
-    otpTitle: "Saisis le code SMS",
-    otpSubtitle: "Nous t'avons envoyé un code de vérification.",
-    otpPlaceholder: "123456",
-    otpSubmit: "Valider",
-    otpInvalidTitle: "Code invalide",
-    otpInvalidBody: "Merci de réessayer."
+    tryAgain: "Réessaie."
   },
   ru: {
     title: "Регистрация",
-    phonePlaceholder: "Номер телефона",
+    emailPlaceholder: "E-mail",
+    passwordPlaceholder: "Пароль",
     consentText: "Отмечая, вы соглашаетесь с нашими",
     consentSuffix: ".",
     terms: "Условиями",
     conditions: "Политикой",
     and: "и",
     loading: "Загрузка...",
-    next: "Отправить SMS-код",
+    next: "Далее",
     member: "Уже есть аккаунт?",
     login: "Войти",
-    hintMissingPhone: "Введите номер телефона.",
+    hintMissingEmail: "Введите e-mail и пароль.",
     signupFailed: "Не удалось зарегистрироваться",
-    tryAgain: "Попробуйте еще раз.",
-    configMissing: "Вход по SMS сейчас недоступен. Повторите попытку позже.",
-    phoneFormatTitle: "Формат",
-    phoneFormatMessage: "Введи номер в международном формате (например, +49123...).",
-    otpTitle: "Введите SMS-код",
-    otpSubtitle: "Мы отправили проверочный код.",
-    otpPlaceholder: "123456",
-    otpSubmit: "Подтвердить",
-    otpInvalidTitle: "Код недействителен",
-    otpInvalidBody: "Попробуйте ещё раз."
+    tryAgain: "Попробуйте еще раз."
   }
 };
 
 const CreateAccountScreen = ({ navigation }: Props) => {
   const copy = useLocalizedCopy(translations);
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const errorCopy = useErrorCopy();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const setSession = useAuthStore((state) => state.setSession);
 
   const showError = (title: string, message: string) => {
     if (Platform.OS === "web") {
@@ -151,32 +122,42 @@ const CreateAccountScreen = ({ navigation }: Props) => {
   const handleNext = async () => {
     if (!consent || loading) return;
     setSubmitError(null);
-    const normalizedPhone = normalizePhone(phone);
 
-    if (!normalizedPhone) {
-      showError(copy.phoneFormatTitle, copy.hintMissingPhone);
-      return;
-    }
-    if (!normalizedPhone.startsWith("+")) {
-      showError(copy.phoneFormatTitle, copy.phoneFormatMessage);
+    const emailTrimmed = email.trim().toLowerCase();
+    if (!emailTrimmed || !password) {
+      showError(copy.signupFailed, copy.hintMissingEmail);
       return;
     }
 
     setLoading(true);
     try {
-      await requestPhoneOtp(normalizedPhone);
-      navigation.navigate("PhoneOtp", { phone: normalizedPhone });
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.auth.signUp({
+        email: emailTrimmed,
+        password,
+        options: { emailRedirectTo: getEmailRedirectUrl() }
+      });
+      if (error) {
+        throw error;
+      }
+      if (data.session) {
+        setSession(data.session);
+        navigation.navigate("OnboardingGender");
+        return;
+      }
+      if (data.user?.email) {
+        navigation.navigate("EmailPending", { email: data.user.email });
+        return;
+      }
+      showError(copy.signupFailed, copy.tryAgain);
     } catch (err: any) {
       logError(err, "sign-up");
-      const baseMessage =
-        err?.code === "CONFIG_MISSING"
-          ? copy.configMissing
-          : getErrorMessage(err, errorCopy, copy.tryAgain);
+      const baseMessage = getErrorMessage(err, errorCopy, copy.tryAgain);
       const detailedMessage = Platform.OS === "web" ? getErrorDetails(err) : null;
       const useDetails =
         Boolean(detailedMessage) &&
         (baseMessage === copy.tryAgain || baseMessage === errorCopy.unknown);
-      const message = err?.code === "CONFIG_MISSING" ? baseMessage : useDetails ? detailedMessage! : baseMessage;
+      const message = useDetails ? detailedMessage! : baseMessage;
       showError(copy.signupFailed, message);
     } finally {
       setLoading(false);
@@ -205,17 +186,33 @@ const CreateAccountScreen = ({ navigation }: Props) => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{copy.phonePlaceholder}</Text>
+              <Text style={styles.label}>{copy.emailPlaceholder}</Text>
               <TextInput
                 style={styles.input}
-                placeholder={copy.phonePlaceholder}
+                placeholder={copy.emailPlaceholder}
                 placeholderTextColor="rgba(242,231,215,0.65)"
-                value={phone}
+                value={email}
                 onChangeText={(value) => {
                   setSubmitError(null);
-                  setPhone(value.replace(/\s+/g, ""));
+                  setEmail(value);
                 }}
-                keyboardType="phone-pad"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>{copy.passwordPlaceholder}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={copy.passwordPlaceholder}
+                placeholderTextColor="rgba(242,231,215,0.65)"
+                value={password}
+                onChangeText={(value) => {
+                  setSubmitError(null);
+                  setPassword(value);
+                }}
+                secureTextEntry
               />
             </View>
 
@@ -370,36 +367,6 @@ const styles = StyleSheet.create({
     color: PALETTE.sand,
     fontSize: 14,
     marginTop: 12
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center"
-  },
-  modalCard: {
-    width: "85%",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    gap: 12
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    textAlign: "center"
-  },
-  modalSubtitle: {
-    color: "#777",
-    textAlign: "center"
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 18,
-    textAlign: "center"
   }
 });
 

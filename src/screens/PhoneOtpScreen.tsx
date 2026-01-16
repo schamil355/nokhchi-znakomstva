@@ -65,7 +65,7 @@ const PhoneOtpScreen = ({ navigation, route }: Props) => {
 
   useEffect(() => {
     if (!phoneParam) {
-      navigation.replace("CreateAccount", { mode: "phone" });
+      navigation.replace("CreateAccount", { mode: "email" });
     }
   }, [navigation, phoneParam]);
 

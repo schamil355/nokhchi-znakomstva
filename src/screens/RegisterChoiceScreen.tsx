@@ -11,30 +11,30 @@ const ACCENT = "#0d6e4f";
 
 const translations = {
   de: {
-    title: "Mit Telefonnummer registrieren",
-    subtitle: "Wir senden dir einen SMS-Code zur Bestätigung.",
-    phone: "Mit Telefonnummer fortfahren",
+    title: "Mit E-Mail registrieren",
+    subtitle: "Wir senden dir einen Bestätigungslink.",
+    email: "Mit E-Mail fortfahren",
     member: "Schon Mitglied?",
     login: "Einloggen"
   },
   en: {
-    title: "Register with your phone",
-    subtitle: "We'll send you an SMS code to verify.",
-    phone: "Continue with phone number",
+    title: "Register with email",
+    subtitle: "We'll send you a confirmation link.",
+    email: "Continue with email",
     member: "Already a member?",
     login: "Log In"
   },
   fr: {
-    title: "S'inscrire avec le téléphone",
-    subtitle: "Nous enverrons un code SMS de vérification.",
-    phone: "Continuer avec le numéro de téléphone",
+    title: "S'inscrire avec l'e-mail",
+    subtitle: "Nous t'enverrons un lien de confirmation.",
+    email: "Continuer avec l'e-mail",
     member: "Déjà membre ?",
     login: "Connexion"
   },
   ru: {
-    title: "Регистрация по телефону",
-    subtitle: "Мы отправим SMS-код для подтверждения.",
-    phone: "Продолжить с номером телефона",
+    title: "Регистрация по e-mail",
+    subtitle: "Мы отправим ссылку для подтверждения.",
+    email: "Продолжить с e-mail",
     member: "Уже есть аккаунт?",
     login: "Войти"
   }
@@ -51,13 +51,13 @@ const RegisterChoiceScreen = ({ navigation }: Props) => {
 
         <Pressable
           style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
-          onPress={() => navigation.navigate("CreateAccount", { mode: "phone" })}
+          onPress={() => navigation.navigate("CreateAccount", { mode: "email" })}
         >
-          <Ionicons name="call-outline" size={20} color={ACCENT} />
-          <Text style={styles.optionText}>{copy.phone}</Text>
+          <Ionicons name="mail-outline" size={20} color={ACCENT} />
+          <Text style={styles.optionText}>{copy.email}</Text>
         </Pressable>
 
-        <Pressable onPress={() => navigation.navigate("SignIn")}>
+        <Pressable onPress={() => navigation.navigate("SignIn")}> 
           <Text style={styles.footer}>
             {copy.member} <Text style={styles.link}>{copy.login}</Text>
           </Text>

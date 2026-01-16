@@ -94,6 +94,7 @@ const ONBOARDING_ROUTES = new Set<string>([
   "SignIn",
   "RegisterChoice",
   "CreateAccount",
+  "EmailPending",
   "OnboardingGender",
   "OnboardingName",
   "OnboardingBirthday",
