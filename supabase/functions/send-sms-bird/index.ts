@@ -47,7 +47,20 @@ Deno.serve(async (req) => {
     });
   }
 
-  const phone = event.user.phone;
+  const rawPhone = event.user.phone ?? "";
+  const phoneDigits = rawPhone.replace(/\D/g, "");
+  const normalizedPhone = phoneDigits ? `+${phoneDigits.replace(/^00/, "")}` : "";
+  if (!normalizedPhone.startsWith("+") || normalizedPhone.length < 5) {
+    return new Response(
+      JSON.stringify({
+        error: { http_code: 422, message: "Invalid phone format. Expected E.164 with +countrycode." },
+      }),
+      {
+        status: 422,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
   const otp = event.sms.otp;
 
   // 2) Bird Channels API call
@@ -73,7 +86,7 @@ Deno.serve(async (req) => {
         "Authorization": `AccessKey ${birdKey}`,
       },
       body: JSON.stringify({
-        receiver: { contacts: [{ identifierValue: phone }] },
+        receiver: { contacts: [{ identifierValue: normalizedPhone }] },
         body: { type: "text", text: { text: msg } },
       }),
     }
