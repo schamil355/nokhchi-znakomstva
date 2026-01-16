@@ -3,7 +3,6 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { z } from "zod";
 import { getSupabaseClient, getSupabaseConfig } from "../lib/supabaseClient";
-import { normalizePhone } from "../lib/phone";
 import { createRateLimiter } from "../lib/rateLimiter";
 import { useAuthStore } from "../state/authStore";
 import { upsertProfile, fetchProfile } from "./profileService";
@@ -16,9 +15,6 @@ const credentialsSchema = z.object({
   password: z.string().min(8)
 });
 
-const phoneSchema = z.object({
-  phone: z.string().min(3)
-});
 
 const authLimiter = createRateLimiter({ intervalMs: 5_000, maxCalls: 3 });
 
@@ -136,91 +132,6 @@ export const signInWithPassword = async (email: string, password: string): Promi
     }
   });
 
-export const requestPhoneOtp = async (phone: string): Promise<void> =>
-  authLimiter(async () => {
-    try {
-      ensureSupabaseConfig();
-      const supabase = getSupabaseClient();
-      const { phone: parsedPhone } = phoneSchema.parse({ phone });
-      const normalizedPhone = normalizePhone(parsedPhone.trim());
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: normalizedPhone,
-        options: { shouldCreateUser: true }
-      });
-      if (error) {
-        throw error;
-      }
-    } catch (error: any) {
-      if (isAbortError(error) || (typeof error?.message === "string" && error.message.toLowerCase().includes("network request failed"))) {
-        throw withCode("NETWORK", tAuth("networkSlow"));
-      }
-      throw error;
-    }
-  });
-
-type VerifyOtpOptions = {
-  createProfileIfMissing?: boolean;
-};
-
-type VerifyOtpResult = {
-  session: Session;
-  profile: ReturnType<typeof fetchProfile> extends Promise<infer T> ? T : null;
-};
-
-export const verifyPhoneOtp = async (
-  phone: string,
-  token: string,
-  options: VerifyOtpOptions = {}
-): Promise<VerifyOtpResult> =>
-  authLimiter(async () => {
-    try {
-      ensureSupabaseConfig();
-      const supabase = getSupabaseClient();
-      const { phone: parsedPhone } = phoneSchema.parse({ phone });
-      const normalizedPhone = normalizePhone(parsedPhone.trim());
-      const { error } = await supabase.auth.verifyOtp({
-        phone: normalizedPhone,
-        token,
-        type: "sms"
-      });
-      if (error) {
-        throw error;
-      }
-      const { data, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !data.session) {
-        throw sessionError ?? new Error(tAuth("signInFailed"));
-      }
-
-      useAuthStore.getState().setSession(data.session);
-      usePreferencesStore.getState().setActiveUser(data.session.user.id);
-      let profile = await fetchProfile(data.session.user.id);
-      if (!profile && options.createProfileIfMissing) {
-        const userMeta = data.session.user.user_metadata ?? {};
-        const displayName = getFallbackDisplayName(data.session.user);
-        profile = await upsertProfile(data.session.user.id, {
-          displayName,
-          birthday: "1990-01-01",
-          bio: "",
-          gender: (userMeta.gender as any) || "nonbinary",
-          intention: (userMeta.intention as any) || "serious",
-          interests: [],
-          photos: [],
-          primaryPhotoId: null,
-          primaryPhotoPath: null
-        });
-      }
-      if (profile) {
-        useAuthStore.getState().setProfile(profile);
-      }
-
-      return { session: data.session, profile };
-    } catch (error: any) {
-      if (isAbortError(error) || (typeof error?.message === "string" && error.message.toLowerCase().includes("network request failed"))) {
-        throw withCode("NETWORK", tAuth("networkSlow"));
-      }
-      throw error;
-    }
-  });
 
 export const signOut = async () => {
   const supabase = getSupabaseClient();
