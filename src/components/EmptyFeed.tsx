@@ -427,7 +427,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     borderRadius: 999,
     paddingVertical: 0,
-    paddingHorizontal: 48,
     width: "88%",
     alignSelf: "center",
     alignItems: "center",
@@ -442,6 +441,7 @@ const styles = StyleSheet.create({
   primaryCtaInner: {
     width: "100%",
     paddingVertical: 18,
+    paddingHorizontal: 48,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 999
