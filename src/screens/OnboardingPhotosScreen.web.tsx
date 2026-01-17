@@ -78,7 +78,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
   const selectedGender = useOnboardingStore((state) => state.selectedGender);
   const name = useOnboardingStore((state) => state.name);
   const dob = useOnboardingStore((state) => state.dob);
-  const location = useOnboardingStore((state) => state.location);
+  useOnboardingStore((state) => state.location);
   const setPhotosUploaded = useOnboardingStore((state) => state.setPhotosUploaded);
 
   const [tiles, setTiles] = useState<(PhotoTile | null)[]>([null, null, null]);
@@ -86,9 +86,6 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
   const [sessionUserId, setSessionUserId] = useState<string | null>(authSession?.user?.id ?? null);
   const uploadTokens = useRef<Record<number, string>>({});
   const [showRules, setShowRules] = useState(false);
-
-  const locationStatus = location.status;
-  const locationLabel = location.countryName ?? location.country ?? null;
 
   const onboardingRedirect = useMemo(() => {
     if (!selectedGender) {
@@ -575,19 +572,6 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
           <Text style={styles.title}>{copy.title}</Text>
           <Text style={styles.subtitle}>{copy.subtitle}</Text>
           <Text style={styles.instructions}>{copy.instructions}</Text>
-          {locationStatus === "granted" && (
-            <View style={styles.locationBanner}>
-              <Ionicons name="location" size={16} color={PALETTE.gold} />
-              <View style={styles.locationBannerText}>
-                <Text style={styles.locationBannerTitle}>{copy.locationConfirmed}</Text>
-                {locationLabel && (
-                  <Text style={styles.locationBannerSubtitle}>
-                    {copy.locationCountryLabel} {locationLabel}
-                  </Text>
-                )}
-              </View>
-            </View>
-          )}
 
           <View style={styles.tilesRow}>
             {tiles.map((tile, index) => (
@@ -746,33 +730,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "rgba(242,231,215,0.72)",
     marginTop: 10
-  },
-  locationBanner: {
-    marginTop: 12,
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(217,192,143,0.45)",
-    backgroundColor: "rgba(217,192,143,0.12)"
-  },
-  locationBannerText: {
-    alignItems: "center"
-  },
-  locationBannerTitle: {
-    color: PALETTE.sand,
-    fontWeight: "600",
-    textAlign: "center"
-  },
-  locationBannerSubtitle: {
-    color: "rgba(242,231,215,0.8)",
-    fontSize: 12,
-    textAlign: "center",
-    marginTop: 2
   },
   tilesRow: {
     flexDirection: "row",
