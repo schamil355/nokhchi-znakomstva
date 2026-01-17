@@ -138,6 +138,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
   const [loading, setLoading] = useState(false);
   const [sessionUserId, setSessionUserId] = useState<string | null>(authSession?.user?.id ?? null);
   const uploadTokens = useRef<Record<number, string>>({});
+  const suppressTilePress = useRef<Record<number, boolean>>({});
   const [showRules, setShowRules] = useState(false);
 
   const onboardingRedirect = useMemo(() => {
@@ -653,42 +654,47 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
           <View style={styles.tilesRow}>
             {tiles.map((tile, index) => (
               <View key={index.toString()} style={styles.tileWrapper}>
-                <View style={styles.tileContainer}>
-                  <Pressable
-                    onPress={() => showSourcePicker(index)}
-                    style={({ pressed }) => [
-                      styles.tile,
-                      pressed && styles.tilePressed,
-                      index === 0 && styles.primaryTile
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={index === 0 ? `${copy.profileLabel}` : `${copy.title} ${index + 1}`}
-                  >
-                    {tile ? (
-                      <>
-                        <Image source={{ uri: tile.uri }} style={styles.tileImage} />
-                        {tile.uploading && (
-                          <View style={styles.tileOverlay}>
-                            <ActivityIndicator color="#ffffff" />
-                          </View>
-                        )}
-                      </>
-                    ) : (
-                      <Text style={styles.plus}>+</Text>
-                    )}
-                  </Pressable>
-                  {tile && (
-                    <Pressable
-                      onPress={() => removeTile(index)}
-                      style={styles.removeBadge}
-                      accessibilityRole="button"
-                      accessibilityLabel={copy.removePhoto}
-                      hitSlop={8}
-                    >
-                      <Ionicons name="close" size={14} color="#1a1a1a" />
-                    </Pressable>
+                <Pressable
+                  onPress={() => {
+                    if (suppressTilePress.current[index]) {
+                      suppressTilePress.current[index] = false;
+                      return;
+                    }
+                    showSourcePicker(index);
+                  }}
+                  style={({ pressed }) => [
+                    styles.tile,
+                    pressed && styles.tilePressed,
+                    index === 0 && styles.primaryTile
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={index === 0 ? `${copy.profileLabel}` : `${copy.title} ${index + 1}`}
+                >
+                  {tile ? (
+                    <>
+                      <Image source={{ uri: tile.uri }} style={styles.tileImage} />
+                      <Pressable
+                        onPress={() => {
+                          suppressTilePress.current[index] = true;
+                          removeTile(index);
+                        }}
+                        style={styles.removeBadge}
+                        accessibilityRole="button"
+                        accessibilityLabel={copy.removePhoto}
+                        hitSlop={10}
+                      >
+                        <Ionicons name="close" size={14} color="#1a1a1a" />
+                      </Pressable>
+                      {tile.uploading && (
+                        <View style={styles.tileOverlay}>
+                          <ActivityIndicator color="#ffffff" />
+                        </View>
+                      )}
+                    </>
+                  ) : (
+                    <Text style={styles.plus}>+</Text>
                   )}
-                </View>
+                </Pressable>
                 {tile?.uploadError && !tile.uploading && (
                   <Text style={styles.tileErrorText}>{tile.uploadError}</Text>
                 )}
@@ -833,10 +839,6 @@ const styles = StyleSheet.create({
     width: "31%",
     alignItems: "center"
   },
-  tileContainer: {
-    width: "100%",
-    position: "relative"
-  },
   tile: {
     width: "100%",
     aspectRatio: 3 / 4,
@@ -847,7 +849,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.06)",
-    overflow: "hidden"
+    overflow: "hidden",
+    position: "relative"
   },
   tilePressed: {
     borderColor: PALETTE.gold,
