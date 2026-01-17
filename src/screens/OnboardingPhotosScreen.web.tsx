@@ -491,27 +491,36 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
 
   const removeTile = (index: number) => {
     const tileToRemove = tiles[index];
+    const performRemoval = () => {
+      uploadTokens.current[index] = `${index}-${Date.now()}-cleared`;
+      setTiles((prev) => {
+        const next = [...prev];
+        const previous = next[index];
+        if (previous?.uri) {
+          revokeObjectUrl(previous.uri);
+        }
+        next[index] = null;
+        return next;
+      });
+      if (tileToRemove?.photoId) {
+        deletePhotoRemote(tileToRemove.photoId).catch((error) =>
+          console.warn("[Photos] failed to delete tile", error)
+        );
+      }
+    };
+
+    if (typeof window !== "undefined" && typeof window.confirm === "function") {
+      if (window.confirm(copy.removePhoto)) {
+        performRemoval();
+      }
+      return;
+    }
+
     Alert.alert(copy.removePhoto, undefined, [
       {
         text: copy.removeConfirm,
         style: "destructive",
-        onPress: () => {
-          uploadTokens.current[index] = `${index}-${Date.now()}-cleared`;
-          setTiles((prev) => {
-            const next = [...prev];
-            const previous = next[index];
-            if (previous?.uri) {
-              revokeObjectUrl(previous.uri);
-            }
-            next[index] = null;
-            return next;
-          });
-          if (tileToRemove?.photoId) {
-            deletePhotoRemote(tileToRemove.photoId).catch((error) =>
-              console.warn("[Photos] failed to delete tile", error)
-            );
-          }
-        }
+        onPress: performRemoval
       },
       { text: copy.cancel, style: "cancel" }
     ]);
