@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import SafeAreaView from "../components/SafeAreaView";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as FaceDetector from "expo-face-detector";
@@ -223,64 +223,70 @@ const SelfieScanScreen = ({ navigation, route }: Props) => {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <Pressable
-              onPress={() => navigation.goBack()}
-              accessibilityRole="button"
-              accessibilityLabel={copy.back}
-              style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-            >
-              <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
-            </Pressable>
-            <View style={styles.progressTrack}>
-              <View style={styles.progressFill} />
-            </View>
-          </View>
-
-          <Text style={styles.title}>{copy.title}</Text>
-          <Text style={styles.subtitle}>{copy.instructions}</Text>
-          {supportsFaceDetector && hasMultipleFaces && <Text style={styles.faceHint}>{copy.faceHint}</Text>}
-
-          <View style={styles.cameraCard}>
-            <View style={styles.panelHeader}>
-              <View style={styles.recBadge}>
-                <View style={styles.recDot} />
-                <Text style={styles.recText}>{copy.rec}</Text>
-              </View>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.container}>
+            <View style={styles.header}>
               <Pressable
                 onPress={() => navigation.goBack()}
                 accessibilityRole="button"
                 accessibilityLabel={copy.back}
-                style={styles.closeButton}
+                style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
               >
-                <Ionicons name="close" size={20} color={PALETTE.sand} />
+                <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
               </Pressable>
+              <View style={styles.progressTrack}>
+                <View style={styles.progressFill} />
+              </View>
             </View>
-            <View style={styles.ovalWrapper}>
-              <CameraViewComponent
-                ref={(ref: CameraView | null) => {
-                  cameraRef.current = ref;
-                }}
-                style={styles.camera}
-                facing="front"
-                onFacesDetected={supportsFaceDetector ? onFacesDetected : undefined}
-                faceDetectorSettings={
-                  supportsFaceDetector
-                    ? {
-                        mode: FaceDetector.FaceDetectorMode.fast,
-                        detectLandmarks: FaceDetector.FaceDetectorLandmarks.none,
-                        runClassifications: FaceDetector.FaceDetectorClassifications.none,
-                        minDetectionInterval: 300,
-                        tracking: true,
-                        trackingId: true
-                      }
-                    : undefined
-                }
-              />
+
+            <Text style={styles.title}>{copy.title}</Text>
+            <Text style={styles.subtitle}>{copy.instructions}</Text>
+            {supportsFaceDetector && hasMultipleFaces && <Text style={styles.faceHint}>{copy.faceHint}</Text>}
+
+            <View style={styles.cameraCard}>
+              <View style={styles.panelHeader}>
+                <View style={styles.recBadge}>
+                  <View style={styles.recDot} />
+                  <Text style={styles.recText}>{copy.rec}</Text>
+                </View>
+                <Pressable
+                  onPress={() => navigation.goBack()}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.back}
+                  style={styles.closeButton}
+                >
+                  <Ionicons name="close" size={20} color={PALETTE.sand} />
+                </Pressable>
+              </View>
+              <View style={styles.ovalWrapper}>
+                <CameraViewComponent
+                  ref={(ref: CameraView | null) => {
+                    cameraRef.current = ref;
+                  }}
+                  style={styles.camera}
+                  facing="front"
+                  onFacesDetected={supportsFaceDetector ? onFacesDetected : undefined}
+                  faceDetectorSettings={
+                    supportsFaceDetector
+                      ? {
+                          mode: FaceDetector.FaceDetectorMode.fast,
+                          detectLandmarks: FaceDetector.FaceDetectorLandmarks.none,
+                          runClassifications: FaceDetector.FaceDetectorClassifications.none,
+                          minDetectionInterval: 300,
+                          tracking: true,
+                          trackingId: true
+                        }
+                      : undefined
+                  }
+                />
+              </View>
             </View>
           </View>
-        </View>
+        </ScrollView>
 
         <View style={styles.footer}>
           <Pressable
@@ -313,6 +319,12 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "transparent"
+  },
+  scrollView: {
+    flex: 1
+  },
+  scrollContent: {
+    paddingBottom: 24
   },
   container: {
     flex: 1,
@@ -442,7 +454,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 24,
-    paddingBottom: 32,
+    paddingBottom: 0,
     backgroundColor: "transparent"
   },
   primaryButton: {
