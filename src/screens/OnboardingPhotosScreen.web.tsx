@@ -138,6 +138,8 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
   const [loading, setLoading] = useState(false);
   const [sessionUserId, setSessionUserId] = useState<string | null>(authSession?.user?.id ?? null);
   const uploadTokens = useRef<Record<number, string>>({});
+  const longPressTimers = useRef<Record<number, ReturnType<typeof setTimeout> | null>>({});
+  const longPressFired = useRef<Record<number, boolean>>({});
   const [showRules, setShowRules] = useState(false);
 
   const onboardingRedirect = useMemo(() => {
@@ -489,6 +491,36 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
     void pickImage(index);
   };
 
+  const startLongPress = (index: number) => {
+    longPressFired.current[index] = false;
+    if (longPressTimers.current[index]) {
+      clearTimeout(longPressTimers.current[index] as ReturnType<typeof setTimeout>);
+    }
+    longPressTimers.current[index] = setTimeout(() => {
+      longPressFired.current[index] = true;
+      longPressTimers.current[index] = null;
+      removeTile(index);
+      setTimeout(() => {
+        longPressFired.current[index] = false;
+      }, 800);
+    }, 600);
+  };
+
+  const endLongPress = (index: number) => {
+    if (longPressTimers.current[index]) {
+      clearTimeout(longPressTimers.current[index] as ReturnType<typeof setTimeout>);
+      longPressTimers.current[index] = null;
+    }
+  };
+
+  const handleTilePress = (index: number) => {
+    if (longPressFired.current[index]) {
+      longPressFired.current[index] = false;
+      return;
+    }
+    showSourcePicker(index);
+  };
+
   const removeTile = (index: number) => {
     const tileToRemove = tiles[index];
     Alert.alert(copy.removePhoto, undefined, [
@@ -645,8 +677,13 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
             {tiles.map((tile, index) => (
               <View key={index.toString()} style={styles.tileWrapper}>
                 <Pressable
-                  onPress={() => showSourcePicker(index)}
-                  onLongPress={() => tile && removeTile(index)}
+                  onPress={() => handleTilePress(index)}
+                  onPressIn={() => {
+                    if (tile) {
+                      startLongPress(index);
+                    }
+                  }}
+                  onPressOut={() => endLongPress(index)}
                   style={({ pressed }) => [
                     styles.tile,
                     pressed && styles.tilePressed,
@@ -658,17 +695,6 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
                   {tile ? (
                     <>
                       <Image source={{ uri: tile.uri }} style={styles.tileImage} />
-                      <Pressable
-                        onPress={(event: any) => {
-                          event?.stopPropagation?.();
-                          removeTile(index);
-                        }}
-                        style={styles.removeBadge}
-                        accessibilityRole="button"
-                        accessibilityLabel={copy.removePhoto}
-                      >
-                        <Ionicons name="close" size={14} color="#1a1a1a" />
-                      </Pressable>
                       {tile.uploading && (
                         <View style={styles.tileOverlay}>
                           <ActivityIndicator color="#ffffff" />
@@ -862,19 +888,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.35)",
     alignItems: "center",
     justifyContent: "center"
-  },
-  removeBadge: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "rgba(217,192,143,0.95)",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.15)"
   },
   tileErrorText: {
     fontSize: 11,
