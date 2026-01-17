@@ -1,13 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   View
 } from "react-native";
-import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,7 +14,6 @@ import { useOnboardingStore } from "../state/onboardingStore";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { useAuthStore } from "../state/authStore";
 import { upsertProfile } from "../services/profileService";
-import { openWebDatePicker } from "../lib/webDatePicker";
 import { onboardingBirthdayTranslations as translations } from "./onboardingBirthdayCopy";
 
 const PALETTE = {
@@ -56,6 +53,11 @@ const clampDate = (date: Date, minDate: Date, maxDate: Date) => {
   return date;
 };
 
+const toInputDate = (value: Date) => {
+  const pad = (num: number) => String(num).padStart(2, "0");
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+};
+
 const OnboardingBirthdayScreen = ({ navigation }: Props) => {
   const copy = useLocalizedCopy(translations);
   const selectedGender = useOnboardingStore((state) => state.selectedGender);
@@ -65,16 +67,6 @@ const OnboardingBirthdayScreen = ({ navigation }: Props) => {
   const setAge = useOnboardingStore((state) => state.setAge);
   const session = useAuthStore((state) => state.session);
   const profile = useAuthStore((state) => state.profile);
-
-  const dateFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(copy.dateLocale, {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric"
-      }),
-    [copy.dateLocale]
-  );
 
   const today = useMemo(() => new Date(), []);
   const latestAllowed = useMemo(() => subtractYears(today, MIN_AGE), [today]);
@@ -91,7 +83,6 @@ const OnboardingBirthdayScreen = ({ navigation }: Props) => {
   }, [earliestAllowed, latestAllowed, savedDob]);
 
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate);
-  const [showIOSPicker, setShowIOSPicker] = useState(Platform.OS === "ios");
   const [isSaving, setIsSaving] = useState(false);
   const [dateButtonFocused, setDateButtonFocused] = useState(false);
 
@@ -122,38 +113,6 @@ const OnboardingBirthdayScreen = ({ navigation }: Props) => {
     }
     return require("../../assets/onboarding/step3/male_avatar_step_3.png");
   }, [selectedGender]);
-
-  const openPicker = useCallback(async () => {
-    if (Platform.OS === "web") {
-      const next = await openWebDatePicker({
-        mode: "date",
-        initial: selectedDate,
-        min: earliestAllowed,
-        max: latestAllowed
-      });
-      if (next) {
-        setSelectedDate(clampDate(next, earliestAllowed, latestAllowed));
-      }
-      return;
-    }
-    if (Platform.OS === "android") {
-      DateTimePickerAndroid.open({
-        value: selectedDate,
-        mode: "date",
-        display: "spinner",
-        onChange: (_, date) => {
-          if (date) {
-            setSelectedDate(clampDate(date, earliestAllowed, latestAllowed));
-          }
-        },
-        maximumDate: latestAllowed,
-        minimumDate: earliestAllowed,
-        locale: copy.dateLocale
-      });
-    } else {
-      setShowIOSPicker(true);
-    }
-  }, [copy.dateLocale, earliestAllowed, latestAllowed, selectedDate]);
 
   const ensureProfileSeed = useCallback(
     async (birthdayIso: string) => {
@@ -203,97 +162,105 @@ const OnboardingBirthdayScreen = ({ navigation }: Props) => {
     return null;
   }
 
+  const minDate = toInputDate(earliestAllowed);
+  const maxDate = toInputDate(latestAllowed);
+  const inputValue = toInputDate(selectedDate);
+
   return (
     <LinearGradient colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]} locations={[0, 0.55, 1]} style={{ flex: 1 }}>
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
         <View style={styles.container}>
-        <View style={styles.header}>
-          <Pressable
-            onPress={() => navigation.goBack()}
-            accessibilityRole="button"
-            accessibilityLabel={copy.back}
-            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-          >
-            <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
-          </Pressable>
-          <View style={styles.progressTrack}>
-            <View style={styles.progressFill} />
+          <View style={styles.header}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              accessibilityRole="button"
+              accessibilityLabel={copy.back}
+              style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+            >
+              <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
+            </Pressable>
+            <View style={styles.progressTrack}>
+              <View style={styles.progressFill} />
+            </View>
           </View>
-        </View>
 
-        <View style={styles.hero}>
-          <Image source={avatarSource} style={styles.heroImage} resizeMode="contain" />
-        </View>
+          <View style={styles.hero}>
+            <Image source={avatarSource} style={styles.heroImage} resizeMode="contain" />
+          </View>
 
-        <Text style={styles.title}>{copy.title}</Text>
-        <Text style={styles.subtitle}>{copy.subtitle}</Text>
+          <Text style={styles.title}>{copy.title}</Text>
+          <Text style={styles.subtitle}>{copy.subtitle}</Text>
 
-        <Pressable
-          onPress={openPicker}
-          accessibilityRole="button"
-          accessibilityLabel={copy.selectLabel}
-          accessibilityHint={copy.selectHint}
-          onFocus={() => setDateButtonFocused(true)}
-          onBlur={() => setDateButtonFocused(false)}
-          style={[
-            styles.dateField,
-            dateButtonFocused && styles.dateFieldFocused,
-            !isValidDate && styles.dateFieldInvalid
-          ]}
-        >
-          <Text style={styles.dateText}>{dateFormatter.format(selectedDate)}</Text>
-          <Text style={styles.ageText}>{copy.ageLabel(age)}</Text>
-        </Pressable>
-
-        {Platform.OS === "ios" && showIOSPicker && (
-          <View style={styles.pickerWrapper}>
-            <DateTimePicker
-              value={selectedDate}
-              mode="date"
-              display="spinner"
-              themeVariant="dark"
-              textColor="#ffffff"
-              onChange={(_, date) => {
-                if (date) {
-                  setSelectedDate(clampDate(date, earliestAllowed, latestAllowed));
+          <View
+            style={[
+              styles.dateField,
+              dateButtonFocused && styles.dateFieldFocused,
+              !isValidDate && styles.dateFieldInvalid
+            ]}
+          >
+            <input
+              type="date"
+              value={inputValue}
+              min={minDate}
+              max={maxDate}
+              onFocus={() => setDateButtonFocused(true)}
+              onBlur={() => setDateButtonFocused(false)}
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                if (!value) {
+                  return;
                 }
+                const next = new Date(`${value}T00:00:00`);
+                if (Number.isNaN(next.getTime())) {
+                  return;
+                }
+                setSelectedDate(clampDate(next, earliestAllowed, latestAllowed));
               }}
-              maximumDate={latestAllowed}
-              minimumDate={earliestAllowed}
-              locale={copy.dateLocale}
-              style={styles.datePicker}
+              aria-label={copy.selectLabel}
+              style={webInputStyle}
             />
+            <Text style={styles.ageText}>{copy.ageLabel(age)}</Text>
           </View>
-        )}
-      </View>
+        </View>
 
-      <View style={styles.footer}>
-        <Pressable
-          onPress={handleContinue}
-          disabled={!isValidDate || isSaving}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !isValidDate || isSaving }}
-          accessibilityHint={isValidDate ? copy.continueHint : copy.selectHint}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            !isValidDate && styles.primaryButtonDisabled,
-            pressed && isValidDate && styles.primaryButtonPressed
-          ]}
-        >
-          <LinearGradient
-            colors={[PALETTE.gold, "#8b6c2a"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.primaryInner}
+        <View style={styles.footer}>
+          <Pressable
+            onPress={handleContinue}
+            disabled={!isValidDate || isSaving}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !isValidDate || isSaving }}
+            accessibilityHint={isValidDate ? copy.continueHint : copy.selectHint}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              !isValidDate && styles.primaryButtonDisabled,
+              pressed && isValidDate && styles.primaryButtonPressed
+            ]}
           >
-            <Text style={styles.primaryButtonText}>{copy.continue}</Text>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
-          </LinearGradient>
-        </Pressable>
-      </View>
+            <LinearGradient
+              colors={[PALETTE.gold, "#8b6c2a"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.primaryInner}
+            >
+              <Text style={styles.primaryButtonText}>{copy.continue}</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </LinearGradient>
+          </Pressable>
+        </View>
       </SafeAreaView>
     </LinearGradient>
   );
+};
+
+const webInputStyle: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  background: "transparent",
+  border: "none",
+  outline: "none",
+  color: "#ffffff",
+  fontSize: "18px",
+  fontWeight: "600"
 };
 
 const styles = StyleSheet.create({
@@ -380,24 +347,10 @@ const styles = StyleSheet.create({
   dateFieldInvalid: {
     borderColor: "#e08585"
   },
-  dateText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#ffffff"
-  },
   ageText: {
     fontSize: 14,
-    color: "#ffffff"
-  },
-  pickerWrapper: {
-    marginTop: 12,
-    borderRadius: 20,
-    backgroundColor: "rgba(0,0,0,0.1)",
-    paddingVertical: 8,
-    marginBottom: 20
-  },
-  datePicker: {
-    width: "100%"
+    color: "#ffffff",
+    marginLeft: 12
   },
   footer: {
     paddingHorizontal: 12,
