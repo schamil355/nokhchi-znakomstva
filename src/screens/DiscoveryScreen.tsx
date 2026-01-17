@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions, LayoutChangeEvent } from "react-native";
 import SafeAreaView from "../components/SafeAreaView";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRevenueCat } from "../hooks/useRevenueCat";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { calculateCompassAlignment } from "../lib/matchEngine";
+import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -174,6 +175,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   const errorCopy = useErrorCopy();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { height, width } = useWindowDimensions();
+  const tabBarHeight = React.useContext(BottomTabBarHeightContext) ?? 0;
   const {
     data: discoveryProfiles = [],
     isLoading: isDiscoveryLoading,
@@ -188,6 +191,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     forYou: [],
     recent: []
   });
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   const {
     data: recentProfiles = [],
@@ -212,6 +216,18 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   const isLoading = isRecentTab ? isRecentLoading : isDiscoveryLoading;
   const isRefetching = isRecentTab ? isRecentRefetching : isDiscoveryRefetching;
   const refetch = isRecentTab ? refetchRecent : refetchDiscovery;
+  const cardHeight = React.useMemo(() => {
+    const availableHeight = height - insets.top - insets.bottom - tabBarHeight - headerHeight;
+    const baseHeight = width * 0.85;
+    const maxHeight = availableHeight > 0 ? availableHeight - 16 : baseHeight;
+    const target = Math.min(baseHeight, maxHeight);
+    return Math.round(Math.max(240, target));
+  }, [height, insets.bottom, insets.top, tabBarHeight, headerHeight, width]);
+
+  const handleHeaderLayout = React.useCallback((event: LayoutChangeEvent) => {
+    const next = event.nativeEvent.layout.height;
+    setHeaderHeight((prev) => (Math.abs(prev - next) > 1 ? next : prev));
+  }, []);
 
   const isSameQueue = useCallback((next: Profile[], prev: Profile[]) => {
     if (prev.length !== next.length) {
@@ -492,7 +508,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
           style={styles.scroll}
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: Math.max(32, insets.bottom + 48) }
+            { paddingBottom: Math.max(32, insets.bottom + tabBarHeight + 24) }
           ]}
           refreshControl={
             <RefreshControl
@@ -503,7 +519,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
             />
           }
         >
-          <View style={styles.headerContainer}>
+          <View style={styles.headerContainer} onLayout={handleHeaderLayout}>
             <View style={styles.headerRow}>
               <Text style={styles.logoText}>Нохчи Знакомства</Text>
               <View style={styles.headerActions}>
@@ -551,7 +567,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
               directChatDisabled={isStartingDirect}
               reportDisabled={isModerating}
               showActions={canInteract}
-              fillHeight
+              cardHeight={cardHeight}
               compassSummary={
                 compassSummary && compassSummary.total > 0
                   ? { matches: compassSummary.matches, total: compassSummary.total }

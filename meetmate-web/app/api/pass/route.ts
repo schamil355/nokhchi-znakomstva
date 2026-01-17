@@ -1,23 +1,36 @@
 import { NextResponse } from "next/server";
-import { env, SUPABASE_ENABLED } from "@/lib/env";
+import { SUPABASE_ENABLED } from "@/lib/env";
+import { getAuthenticatedUser, getServerClient } from "@/lib/supabaseServer";
 
 export async function POST(req: Request) {
   if (!SUPABASE_ENABLED) return NextResponse.json({ ok: true, demo: true });
 
-  const { passer_id, passee_id } = await req.json();
-  if (!passer_id || !passee_id) return NextResponse.json({ ok: false }, { status: 400 });
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+  }
 
-  const url = `${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/passes`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-      "Content-Type": "application/json",
-      Prefer: "return=minimal",
-    },
-    body: JSON.stringify({ passer_id, passee_id }),
+  let payload: any;
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 400 });
+  }
+  const passeeId = payload?.passee_id;
+  if (!passeeId || typeof passeeId !== "string") {
+    return NextResponse.json({ ok: false }, { status: 400 });
+  }
+
+  const supabase = getServerClient();
+  const { error } = await supabase.from("passes").insert({
+    passer_id: user.id,
+    passee_id: passeeId
   });
 
-  return NextResponse.json({ ok: res.ok });
+  if (error) {
+    console.error("Failed to create pass", error);
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

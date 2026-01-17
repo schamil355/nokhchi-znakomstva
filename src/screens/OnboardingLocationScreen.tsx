@@ -22,7 +22,7 @@ import {
 } from "../state/onboardingStore";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
-import { usePreferencesStore } from "../state/preferencesStore";
+import { GeoRegion, usePreferencesStore } from "../state/preferencesStore";
 import { resolveGeoRegion } from "../lib/geo";
 
 const PALETTE = {
@@ -65,7 +65,17 @@ const toCountryCode = (value?: string | null) => {
   return trimmed.slice(0, 2).toUpperCase();
 };
 
-const persistLocationToSupabase = async (location: OnboardingLocation) => {
+const toRegionCode = (region?: GeoRegion | null) => {
+  if (region === "chechnya") {
+    return "CHECHNYA";
+  }
+  if (region === "russia") {
+    return "RU";
+  }
+  return null;
+};
+
+const persistLocationToSupabase = async (location: OnboardingLocation, region?: GeoRegion | null) => {
   try {
     const supabase = getSupabaseClient();
     const {
@@ -79,6 +89,7 @@ const persistLocationToSupabase = async (location: OnboardingLocation) => {
       latitude: location.latitude,
       longitude: location.longitude,
       country: toCountryCode(location.country) ?? null,
+      region_code: toRegionCode(region),
       updated_at: new Date().toISOString()
     };
     const { data, error } = await supabase
@@ -372,7 +383,7 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
           setStatus("granted");
           setLocation(nextLocation);
           setCoords({ latitude, longitude });
-          await persistLocationToSupabase(nextLocation);
+          await persistLocationToSupabase(nextLocation, derivedRegion);
           navigation.navigate("OnboardingPhotos");
           return;
         } catch (webError) {
@@ -501,7 +512,7 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
 
       setLocation(nextLocation);
       setCoords({ latitude, longitude });
-      await persistLocationToSupabase(nextLocation);
+      await persistLocationToSupabase(nextLocation, derivedRegion);
       navigation.navigate("OnboardingPhotos");
     } catch (error) {
       console.error("[Location] activation error", error);

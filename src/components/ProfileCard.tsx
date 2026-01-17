@@ -25,6 +25,7 @@ type ProfileCardProps = {
   showActions?: boolean;
   compassSummary?: { matches: number; total: number };
   fillHeight?: boolean;
+  cardHeight?: number;
 };
 
 type CardCopy = {
@@ -112,7 +113,8 @@ const ProfileCard = ({
   onView,
   showActions = true,
   compassSummary,
-  fillHeight = false
+  fillHeight = false,
+  cardHeight
 }: ProfileCardProps) => {
   const copy = useLocalizedCopy(translations);
   const photos = profile.photos?.filter(Boolean) ?? [];
@@ -334,9 +336,16 @@ const ProfileCard = ({
 
   const isIncognito = Boolean((profile as any).isIncognito ?? (profile as any).is_incognito);
   const totalPhotos = photos.length || 1;
+  const cardStyle = [styles.card, fillHeight && styles.cardFill, cardHeight ? { height: cardHeight } : null];
+  const sizedWrapperStyle = fillHeight
+    ? styles.photoWrapperFill
+    : cardHeight
+      ? styles.photoWrapperFixed
+      : styles.photoWrapperSized;
+
   return (
-    <View style={[styles.card, fillHeight && styles.cardFill]}>
-      <View style={[styles.photoWrapper, fillHeight ? styles.photoWrapperFill : styles.photoWrapperSized]}>
+    <View style={cardStyle}>
+      <View style={[styles.photoWrapper, sizedWrapperStyle]}>
         <Pressable style={styles.mediaPressable} onPress={handleNextPhoto}>
           {isIncognito ? (
             resolvedAssetId ? (
@@ -521,9 +530,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#0a0a0a"
   },
   photoWrapperSized: {
-    aspectRatio: 0.7
+    aspectRatio: 1
   },
   photoWrapperFill: {
+    flex: 1,
+    minHeight: 0
+  },
+  photoWrapperFixed: {
     flex: 1,
     minHeight: 0
   },

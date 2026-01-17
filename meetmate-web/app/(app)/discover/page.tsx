@@ -1,8 +1,12 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SwipeDeck } from "@/components/SwipeDeck";
 import { SUPABASE_ENABLED } from "@/lib/env";
+import { resolveGeoRegion, type GeoRegion } from "@/lib/geoRegion";
+import { getStoredRegion, setStoredRegion } from "@/lib/regionPreference";
 
 type Candidate = {
   user_id: string;
@@ -16,7 +20,14 @@ type Candidate = {
   distance_km?: number | null;
 };
 
-const DEMO_VIEWER_ID = "00000000-0000-0000-0000-000000000001";
+const DEFAULT_REGION: GeoRegion = "chechnya";
+
+const REGION_LABELS: Record<GeoRegion, string> = {
+  chechnya: "Tschetschenien",
+  russia: "Russland",
+  europe: "Europa",
+  other: "Andere Regionen"
+};
 
 const MOCK_FEED: Candidate[] = [
   {
@@ -55,10 +66,11 @@ const MOCK_FEED: Candidate[] = [
 ];
 
 export default function DiscoverPage() {
-  const [viewerId] = useState(DEMO_VIEWER_ID);
+  const router = useRouter();
   const [candidates, setCandidates] = useState<Candidate[]>(() => (SUPABASE_ENABLED ? [] : MOCK_FEED));
   const [loading, setLoading] = useState(SUPABASE_ENABLED);
   const [message, setMessage] = useState<string | null>(null);
+  const [region, setRegion] = useState<GeoRegion>(DEFAULT_REGION);
 
   useEffect(() => {
     if (!SUPABASE_ENABLED) return;
@@ -68,7 +80,7 @@ export default function DiscoverPage() {
       setLoading(true);
       setMessage(null);
       try {
-        const res = await fetch(`/api/feed?uid=${viewerId}`);
+        const res = await fetch(`/api/feed?region=${region}`);
         if (!res.ok) throw new Error(`Feed request failed (${res.status})`);
         const data = await res.json();
         if (!cancelled) {
@@ -89,54 +101,119 @@ export default function DiscoverPage() {
     return () => {
       cancelled = true;
     };
-  }, [viewerId]);
+  }, [region]);
+
+  useEffect(() => {
+    const stored = getStoredRegion();
+    if (stored) {
+      setRegion(stored);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!SUPABASE_ENABLED) return;
+
+    let cancelled = false;
+    const checkLocation = async () => {
+      try {
+        const response = await fetch("/api/settings/location");
+        if (response.status === 401) {
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(`Location request failed (${response.status})`);
+        }
+        const data = (await response.json()) as {
+          latitude: number | null;
+          longitude: number | null;
+          country: string | null;
+        };
+        if (cancelled) return;
+        if (!data.latitude || !data.longitude) {
+          router.replace("/onboarding/location");
+          return;
+        }
+        if (!getStoredRegion()) {
+          const derived = resolveGeoRegion({
+            countryCode: data.country,
+            latitude: data.latitude,
+            longitude: data.longitude
+          });
+          setStoredRegion(derived);
+          setRegion(derived);
+        }
+      } catch (error) {
+        console.warn("Location check failed", error);
+      }
+    };
+
+    checkLocation();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const handleLike = useCallback(
     async (candidate: Candidate) => {
       if (!SUPABASE_ENABLED) return;
       try {
-        await fetch("/api/like", {
+        const res = await fetch("/api/like", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ liker_id: viewerId, likee_id: candidate.user_id }),
+          body: JSON.stringify({ likee_id: candidate.user_id }),
         });
+        if (!res.ok) {
+          throw new Error(`Like failed (${res.status})`);
+        }
       } catch (error) {
         console.warn("Like failed", error);
         setMessage("Like fehlgeschlagen.");
       }
     },
-    [viewerId]
+    []
   );
 
   const handlePass = useCallback(
     async (candidate: Candidate) => {
       if (!SUPABASE_ENABLED) return;
       try {
-        await fetch("/api/pass", {
+        const res = await fetch("/api/pass", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ passer_id: viewerId, passee_id: candidate.user_id }),
+          body: JSON.stringify({ passee_id: candidate.user_id }),
         });
+        if (!res.ok) {
+          throw new Error(`Pass failed (${res.status})`);
+        }
       } catch (error) {
         console.warn("Pass failed", error);
         setMessage("Pass konnte nicht verarbeitet werden.");
       }
     },
-    [viewerId]
+    []
   );
 
   const subtitle = useMemo(() => {
     if (!SUPABASE_ENABLED) return "Demo-Feed: Supabase nicht konfiguriert.";
     if (loading) return "Lade passende Profile …";
-    return `${candidates.length} Profile übrig`;
-  }, [candidates.length, loading]);
+    const regionLabel = REGION_LABELS[region];
+    return `${candidates.length} Profile · Region: ${regionLabel}`;
+  }, [candidates.length, loading, region]);
 
   return (
     <section className="px-4 py-10">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
-        <header className="space-y-2">
+        <header className="space-y-3">
           <h1 className="text-3xl font-semibold text-[var(--text)]">Entdecken</h1>
-          <p className="text-sm text-[var(--muted)]">{subtitle}</p>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--muted)]">
+            <span>{subtitle}</span>
+            <Link
+              href="/filters"
+              className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold text-[var(--text)] hover:border-[var(--primary-400)]"
+            >
+              Filter
+            </Link>
+          </div>
         </header>
 
         {message ? (

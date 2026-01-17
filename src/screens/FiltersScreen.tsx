@@ -3,6 +3,7 @@ import {
   ActionSheetIOS,
   Alert,
   LayoutChangeEvent,
+  Modal,
   PanResponder,
   Platform,
   Pressable,
@@ -183,6 +184,7 @@ const FiltersScreen = () => {
   const errorCopy = useErrorCopy();
   const queryClient = useQueryClient();
   const tabBarHeight = React.useContext(BottomTabBarHeightContext) ?? 0;
+  const isWeb = Platform.OS === "web";
   const regionOptions = React.useMemo(
     () =>
       REGION_BASE.map((value) => ({
@@ -207,6 +209,7 @@ const FiltersScreen = () => {
   const [locationError, setLocationError] = React.useState<string | null>(null);
   const [region, setRegion] = React.useState<GeoRegion>(filters.region);
   const [searchDisabled, setSearchDisabled] = React.useState(false);
+  const [regionPickerVisible, setRegionPickerVisible] = React.useState(false);
 
   React.useEffect(() => {
     setAgeRange(filters.ageRange);
@@ -339,7 +342,16 @@ const FiltersScreen = () => {
     }
   };
 
+  const handleRegionSelect = (next: GeoRegion) => {
+    setRegion(next);
+    setRegionPickerVisible(false);
+  };
+
   const showRegionPicker = () => {
+    if (isWeb) {
+      setRegionPickerVisible(true);
+      return;
+    }
     const labels = regionOptions.map((option) => option.label);
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -370,6 +382,40 @@ const FiltersScreen = () => {
   return (
     <LinearGradient colors={[PALETTE.deep, PALETTE.forest, "#0b1a12"]} locations={[0, 0.55, 1]} style={{ flex: 1 }}>
       <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+        {isWeb && (
+          <Modal
+            transparent
+            animationType="fade"
+            visible={regionPickerVisible}
+            onRequestClose={() => setRegionPickerVisible(false)}
+          >
+            <View style={styles.modalBackdrop}>
+              <Pressable style={styles.modalBackdropTouchable} onPress={() => setRegionPickerVisible(false)} />
+              <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>{copy.regionPickerTitle}</Text>
+                {regionOptions.map((option) => {
+                  const isActive = option.value === region;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      style={[styles.modalOption, isActive && styles.modalOptionActive]}
+                      onPress={() => handleRegionSelect(option.value)}
+                    >
+                      <View style={styles.modalOptionText}>
+                        <Text style={styles.modalOptionTitle}>{option.label}</Text>
+                        <Text style={styles.modalOptionSubtitle}>{option.subtitle}</Text>
+                      </View>
+                      {isActive ? <Ionicons name="checkmark" size={18} color={PALETTE.gold} /> : null}
+                    </Pressable>
+                  );
+                })}
+                <Pressable style={styles.modalCancel} onPress={() => setRegionPickerVisible(false)}>
+                  <Text style={styles.modalCancelText}>{copy.cancel}</Text>
+                </Pressable>
+              </View>
+            </View>
+          </Modal>
+        )}
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={[styles.content, { paddingBottom: contentBottomSpacing, paddingTop: contentTopSpacing }]}
@@ -770,6 +816,69 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#fff"
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "flex-end",
+    padding: 20
+  },
+  modalBackdropTouchable: {
+    ...StyleSheet.absoluteFillObject
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 520,
+    alignSelf: "center",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.4)",
+    backgroundColor: "#0b1a12",
+    padding: 16,
+    gap: 12
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: PALETTE.sand
+  },
+  modalOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.2)",
+    backgroundColor: "rgba(255,255,255,0.03)"
+  },
+  modalOptionActive: {
+    borderColor: "rgba(217,192,143,0.6)",
+    backgroundColor: "rgba(217,192,143,0.15)"
+  },
+  modalOptionText: {
+    flex: 1
+  },
+  modalOptionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: PALETTE.sand
+  },
+  modalOptionSubtitle: {
+    marginTop: 2,
+    fontSize: 13,
+    color: "rgba(242,231,215,0.65)"
+  },
+  modalCancel: {
+    alignSelf: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: PALETTE.sand
   }
 });
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 
 type Flags = {
@@ -13,6 +14,14 @@ const defaultFlags: Flags = {
   show_distance: true,
   show_last_seen: true
 };
+
+const tabClass = (active: boolean) =>
+  [
+    "rounded-full border px-3 py-1 text-sm font-semibold transition",
+    active
+      ? "border-[var(--primary-500)] bg-[var(--primary-100)] text-[var(--primary-700)]"
+      : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)]"
+  ].join(" ");
 
 const ToggleRow = ({
   label,
@@ -102,6 +111,15 @@ export default function PrivacySettingsPage() {
           <h1 className="text-3xl font-semibold text-[var(--text)]">Privatsphäre</h1>
           <p className="text-sm text-[var(--muted)]">Steuere, wie du in Discovery angezeigt wirst.</p>
         </header>
+
+        <nav className="flex flex-wrap gap-2">
+          <Link href="/settings/privacy" className={tabClass(true)} aria-current="page">
+            Privatsphäre
+          </Link>
+          <Link href="/settings/region" className={tabClass(false)}>
+            Suchregion
+          </Link>
+        </nav>
 
         {(loading || isPending) && (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--muted)]">
