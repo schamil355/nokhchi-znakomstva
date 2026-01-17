@@ -1,11 +1,21 @@
 import Constants from "expo-constants";
-import * as FileSystem from "expo-file-system";
+import { Platform } from "react-native";
+import type * as FileSystemType from "expo-file-system";
 import { decode as decodeBase64 } from "base64-arraybuffer";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { useAuthStore } from "../state/authStore";
 import { getCurrentLocale } from "../localization/LocalizationProvider";
 import { PROFILE_BUCKET } from "../lib/storage";
-import * as ImageManipulator from "expo-image-manipulator";
+import type * as ImageManipulatorType from "expo-image-manipulator";
+
+const FileSystem =
+  Platform.OS === "web"
+    ? null
+    : (require("expo-file-system") as typeof FileSystemType);
+const ImageManipulator =
+  Platform.OS === "web"
+    ? null
+    : (require("expo-image-manipulator") as typeof ImageManipulatorType);
 
 const rawApiBase =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -124,6 +134,9 @@ const inferExtension = (uri: string) => {
 
 export const uploadOriginalAsync = async (fileUri: string, userId: string): Promise<string> => {
   const supabase = getSupabaseClient();
+  if (!FileSystem || !ImageManipulator) {
+    throw new Error(t("uploadFailed"));
+  }
   // Stelle sicher, dass eine Session/Tokens vorhanden sind, sonst schlägt Storage mit 401 fehl.
   const ensureToken = async (): Promise<string> => {
     const { data, error } = await supabase.auth.getSession();

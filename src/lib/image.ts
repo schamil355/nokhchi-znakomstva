@@ -1,8 +1,14 @@
-import * as FileSystem from "expo-file-system";
+import { Platform } from "react-native";
+import type * as FileSystemType from "expo-file-system";
 import { getCurrentLocale } from "../localization/LocalizationProvider";
 
 const MAX_UPLOAD_BYTES = 6 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"];
+
+const FileSystem =
+  Platform.OS === "web"
+    ? null
+    : (require("expo-file-system") as typeof FileSystemType);
 
 type ImageCopy = {
   invalidFormat: string;
@@ -48,6 +54,18 @@ export const validateImageUri = async (uri: string) => {
   const ext = extensionOf(uri);
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
     throw new Error(t("invalidFormat"));
+  }
+
+  if (!FileSystem) {
+    const response = await fetch(uri);
+    if (!response.ok) {
+      throw new Error(t("unreadable"));
+    }
+    const blob = await response.blob();
+    if (blob.size > MAX_UPLOAD_BYTES) {
+      throw new Error(t("tooLarge"));
+    }
+    return;
   }
 
   const info = await FileSystem.getInfoAsync(uri);
