@@ -191,7 +191,11 @@ const OnboardingVerifyScreen = ({ navigation, route }: Props) => {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.container}>
             <View style={styles.header}>
               <Pressable
@@ -248,33 +252,33 @@ const OnboardingVerifyScreen = ({ navigation, route }: Props) => {
               ))}
             </View>
           </View>
-
-          <View style={styles.footer}>
-            <Pressable
-              onPress={() => navigation.navigate("SelfieScan", { profilePath: primaryPhotoPath })}
-              disabled={!photoUrl || !primaryPhotoPath || loading}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: !photoUrl || !primaryPhotoPath || loading }}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                (!photoUrl || !primaryPhotoPath || loading) && styles.primaryButtonDisabled,
-                pressed && photoUrl && primaryPhotoPath && styles.primaryButtonPressed
-              ]}
-            >
-              <LinearGradient
-                colors={[PALETTE.gold, "#8b6c2a"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.primaryInner}
-              >
-                <Text style={styles.primaryButtonText}>{copy.verify}</Text>
-              </LinearGradient>
-            </Pressable>
-            <Pressable onPress={() => navigation.replace("OnboardingPhotos")}>
-              <Text style={styles.changePhotoText}>{copy.changePhoto}</Text>
-            </Pressable>
-          </View>
         </ScrollView>
+
+        <View style={styles.footer}>
+          <Pressable
+            onPress={() => navigation.navigate("SelfieScan", { profilePath: primaryPhotoPath })}
+            disabled={!photoUrl || !primaryPhotoPath || loading}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !photoUrl || !primaryPhotoPath || loading }}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              (!photoUrl || !primaryPhotoPath || loading) && styles.primaryButtonDisabled,
+              pressed && photoUrl && primaryPhotoPath && styles.primaryButtonPressed
+            ]}
+          >
+            <LinearGradient
+              colors={[PALETTE.gold, "#8b6c2a"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.primaryInner}
+            >
+              <Text style={styles.primaryButtonText}>{copy.verify}</Text>
+            </LinearGradient>
+          </Pressable>
+          <Pressable onPress={() => navigation.replace("OnboardingPhotos")}>
+            <Text style={styles.changePhotoText}>{copy.changePhoto}</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     </LinearGradient>
   );
@@ -285,8 +289,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "transparent"
   },
+  scrollView: {
+    flex: 1
+  },
   scrollContent: {
-    paddingBottom: 24
+    paddingBottom: 160
   },
   container: {
     paddingHorizontal: 24,
@@ -419,7 +426,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 24,
-    paddingBottom: 32,
+    paddingBottom: 0,
     backgroundColor: "transparent"
   },
   primaryButton: {
