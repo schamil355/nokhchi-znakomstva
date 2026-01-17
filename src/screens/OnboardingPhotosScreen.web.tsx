@@ -1,11 +1,9 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import {
-  ActionSheetIOS,
   ActivityIndicator,
   Alert,
   Image,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,10 +13,6 @@ import {
 import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import type * as ImagePickerType from "expo-image-picker";
-import type * as ImageManipulatorType from "expo-image-manipulator";
-import type * as FileSystemType from "expo-file-system";
-import { decode as decodeBase64 } from "base64-arraybuffer";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useOnboardingStore } from "../state/onboardingStore";
 import { useAuthStore } from "../state/authStore";
@@ -37,21 +31,6 @@ const PALETTE = {
   gold: "#d9c08f",
   sand: "#f2e7d7"
 };
-const MAX_FILE_SIZE = 700 * 1024; // ~700KB to keep uploads fast on mobile
-const MAX_DIMENSION = 1280; // downscale to speed up uploads
-const ImagePicker =
-  Platform.OS === "web"
-    ? null
-    : (require("expo-image-picker") as typeof ImagePickerType);
-const ImageManipulator =
-  Platform.OS === "web"
-    ? null
-    : (require("expo-image-manipulator") as typeof ImageManipulatorType);
-const FileSystem =
-  Platform.OS === "web"
-    ? null
-    : (require("expo-file-system") as typeof FileSystemType);
-const DEFAULT_SAVE_FORMAT = (ImageManipulator?.SaveFormat?.JPEG ?? "jpeg") as string;
 
 type Props = NativeStackScreenProps<any>;
 
@@ -78,6 +57,15 @@ type SelectedImage = {
 const useSupabase = () => {
   const client = useMemo(() => getSupabaseClient(), []);
   return client;
+};
+
+const revokeObjectUrl = (uri?: string | null) => {
+  if (!uri) {
+    return;
+  }
+  if (uri.startsWith("blob:")) {
+    URL.revokeObjectURL(uri);
+  }
 };
 
 const OnboardingPhotosScreen = ({ navigation }: Props) => {
@@ -185,56 +173,6 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
     return null;
   }, [authSession?.user?.id, sessionUserId, supabase]);
 
-  const showSourcePicker = (index: number) => {
-    if (Platform.OS === "web") {
-      void pickImage(index, "library");
-      return;
-    }
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: [copy.camera, copy.library, copy.cancel],
-          cancelButtonIndex: 2
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 0) {
-            pickImage(index, "camera");
-          } else if (buttonIndex === 1) {
-            pickImage(index, "library");
-          }
-        }
-      );
-    } else {
-      Alert.alert(copy.selectionTitle, undefined, [
-        { text: copy.camera, onPress: () => pickImage(index, "camera") },
-        { text: copy.library, onPress: () => pickImage(index, "library") },
-        { text: copy.cancel, style: "cancel" }
-      ]);
-    }
-  };
-
-  const ensurePermission = async (type: "camera" | "library") => {
-    if (Platform.OS === "web") {
-      return true;
-    }
-    if (!ImagePicker) {
-      Alert.alert(copy.uploadError);
-      return false;
-    }
-    if (type === "camera") {
-      const { granted } = await ImagePicker.requestCameraPermissionsAsync();
-      if (!granted) {
-        Alert.alert(copy.permissionDenied);
-      }
-      return granted;
-    }
-    const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!granted) {
-      Alert.alert(copy.permissionDenied);
-    }
-    return granted;
-  };
-
   const pickImageWeb = async (): Promise<SelectedImage | null> => {
     if (typeof document === "undefined") {
       Alert.alert(copy.uploadError);
@@ -270,7 +208,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
           return;
         }
         const objectUrl = URL.createObjectURL(file);
-        const format = file.type?.split("/")[1] ?? DEFAULT_SAVE_FORMAT;
+        const format = file.type?.split("/")[1] ?? "jpeg";
         finish({
           uri: objectUrl,
           width: 0,
@@ -298,18 +236,22 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
   };
 
   const queueTileUpload = useCallback(
-    (index: number, manipulated: SelectedImage, previousPhotoId: number | null) => {
+    (index: number, selected: SelectedImage, previousPhotoId: number | null) => {
       const token = `${index}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       uploadTokens.current[index] = token;
 
       setTiles((prev) => {
         const next = [...prev];
+        const previous = next[index];
+        if (previous?.uri) {
+          revokeObjectUrl(previous.uri);
+        }
         next[index] = {
-          uri: manipulated.uri,
-          width: manipulated.width ?? 0,
-          height: manipulated.height ?? 0,
-          type: manipulated.format ?? DEFAULT_SAVE_FORMAT,
-          file: manipulated.file ?? null,
+          uri: selected.uri,
+          width: selected.width ?? 0,
+          height: selected.height ?? 0,
+          type: selected.format ?? "jpeg",
+          file: selected.file ?? null,
           remoteKey: null,
           photoId: null,
           uploading: true,
@@ -340,9 +282,15 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
             }
           }
 
-          const fileBuffer = await convertUriToArrayBuffer(manipulated.uri, manipulated.file ?? null);
-          const key = `${userId}/${Date.now()}_${index + 1}.jpg`;
-          const contentType = manipulated.file?.type ?? "image/jpeg";
+          if (!selected.file) {
+            throw new Error("missing-file");
+          }
+
+          const fileBuffer = await selected.file.arrayBuffer();
+          const extensionRaw = selected.file.type?.split("/")[1] ?? "jpg";
+          const extension = extensionRaw === "jpeg" ? "jpg" : extensionRaw;
+          const key = `${userId}/${Date.now()}_${index + 1}.${extension}`;
+          const contentType = selected.file.type || "image/jpeg";
           const supabaseUrl =
             (supabase as any)?.supabaseUrl ??
             process.env.EXPO_PUBLIC_SUPABASE_URL ??
@@ -369,7 +317,10 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
               });
               const message = uploadError?.message?.toLowerCase() ?? "";
               const aborted =
-                message.includes("abort") || message.includes("canceled") || message.includes("timeout") || message.includes("network");
+                message.includes("abort") ||
+                message.includes("canceled") ||
+                message.includes("timeout") ||
+                message.includes("network");
               if (aborted && attempt < 2) {
                 await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
                 return uploadWithRetry(attempt + 1);
@@ -387,7 +338,10 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
               });
               const message = err?.message?.toLowerCase?.() ?? "";
               const aborted =
-                message.includes("abort") || message.includes("canceled") || message.includes("timeout") || message.includes("network");
+                message.includes("abort") ||
+                message.includes("canceled") ||
+                message.includes("timeout") ||
+                message.includes("network");
               if (aborted && attempt < 2) {
                 await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
                 return uploadWithRetry(attempt + 1);
@@ -450,98 +404,25 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
 
       runUpload();
     },
-    [copy.sessionExpiredMessage, copy.uploadError, convertUriToArrayBuffer, ensureUserId, errorCopy, navigation, supabase]
+    [copy.sessionExpiredMessage, copy.uploadError, ensureUserId, errorCopy, navigation, supabase]
   );
 
-  const pickImage = async (index: number, source: "camera" | "library") => {
-    if (Platform.OS === "web") {
+  const pickImage = async (index: number) => {
+    try {
       const selected = await pickImageWeb();
       if (!selected) {
         return;
       }
       const previousPhotoId = tiles[index]?.photoId ?? null;
       queueTileUpload(index, selected, previousPhotoId);
-      return;
-    }
-    const permission = await ensurePermission(source);
-    if (!permission) {
-      return;
-    }
-    if (!ImagePicker) {
-      Alert.alert(copy.uploadError);
-      return;
-    }
-
-    try {
-      const mediaTypeImages = ["images"] as const;
-
-      const pickerResult =
-        source === "camera"
-          ? await ImagePicker.launchCameraAsync({
-              mediaTypes: mediaTypeImages,
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 1
-            })
-          : await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: mediaTypeImages,
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 1
-            });
-
-      if (pickerResult.canceled || !pickerResult.assets?.length) {
-        return;
-      }
-
-      const asset = pickerResult.assets[0];
-      const manipulated = await compressImage(asset.uri, asset.width ?? null, asset.height ?? null);
-      if (!manipulated) {
-        return;
-      }
-      const previousPhotoId = tiles[index]?.photoId ?? null;
-      queueTileUpload(index, manipulated, previousPhotoId);
     } catch (error) {
       console.error("[Photos] picker error", error);
       Alert.alert(copy.uploadError);
     }
   };
 
-  const compressImage = async (
-    uri: string,
-    width: number | null,
-    height: number | null
-  ): Promise<SelectedImage | null> => {
-    try {
-      if (!ImageManipulator || !FileSystem) {
-        return {
-          uri,
-          width: width ?? 0,
-          height: height ?? 0,
-          format: DEFAULT_SAVE_FORMAT
-        };
-      }
-      const resized = await ImageManipulator.manipulateAsync(
-        uri,
-        width ? [{ resize: { width: Math.min(width, MAX_DIMENSION) } }] : [],
-        { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG }
-      );
-      let info = await FileSystem.getInfoAsync(resized.uri);
-      if (info.size && info.size > MAX_FILE_SIZE) {
-        const further = await ImageManipulator.manipulateAsync(
-          resized.uri,
-          [{ resize: { width: Math.min(resized.width ?? MAX_DIMENSION, Math.floor(MAX_DIMENSION / 1.4)) } }],
-          { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
-        );
-        info = await FileSystem.getInfoAsync(further.uri);
-        return further;
-      }
-      return resized;
-    } catch (error) {
-      console.warn("[Photos] compression failed", error);
-      Alert.alert(copy.uploadError);
-      return null;
-    }
+  const showSourcePicker = (index: number) => {
+    void pickImage(index);
   };
 
   const removeTile = (index: number) => {
@@ -554,6 +435,10 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
           uploadTokens.current[index] = `${index}-${Date.now()}-cleared`;
           setTiles((prev) => {
             const next = [...prev];
+            const previous = next[index];
+            if (previous?.uri) {
+              revokeObjectUrl(previous.uri);
+            }
             next[index] = null;
             return next;
           });
@@ -567,31 +452,6 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
       { text: copy.cancel, style: "cancel" }
     ]);
   };
-
-  const convertUriToArrayBuffer = useCallback(async (uri: string, file?: File | null) => {
-    try {
-      if (file) {
-        return await file.arrayBuffer();
-      }
-      const response = await fetch(uri);
-      if (!response.ok) {
-        throw new Error("failed-to-load-file");
-      }
-      return await response.arrayBuffer();
-    } catch (error) {
-      if (!FileSystem) {
-        throw error;
-      }
-      console.warn("[Photos] blob read failed, falling back to base64", error);
-      try {
-        const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-        return decodeBase64(base64);
-      } catch (fallbackError) {
-        console.warn("[Photos] failed to convert file", fallbackError);
-        throw fallbackError;
-      }
-    }
-  }, []);
 
   const uploadPhotos = async () => {
     const primaryTile = tiles[0];
@@ -698,88 +558,86 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
     >
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
         <View style={styles.container}>
-        <View style={styles.header}>
-          <Pressable
-            onPress={() => navigation.goBack()}
-            accessibilityRole="button"
-            accessibilityLabel={copy.back}
-            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-          >
-            <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
-          </Pressable>
-          <View style={styles.progressTrack}>
-            <View style={styles.progressFill} />
-          </View>
-        </View>
-
-        <Text style={styles.title}>{copy.title}</Text>
-        <Text style={styles.subtitle}>{copy.subtitle}</Text>
-        <Text style={styles.instructions}>{copy.instructions}</Text>
-        {locationStatus === "granted" && (
-          <View style={styles.locationBanner}>
-            <Ionicons name="location" size={16} color={PALETTE.gold} />
-            <View style={styles.locationBannerText}>
-              <Text style={styles.locationBannerTitle}>{copy.locationConfirmed}</Text>
-              {locationLabel && (
-                <Text style={styles.locationBannerSubtitle}>
-                  {copy.locationCountryLabel} {locationLabel}
-                </Text>
-              )}
+          <View style={styles.header}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              accessibilityRole="button"
+              accessibilityLabel={copy.back}
+              style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+            >
+              <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
+            </Pressable>
+            <View style={styles.progressTrack}>
+              <View style={styles.progressFill} />
             </View>
           </View>
-        )}
 
-        <View style={styles.tilesRow}>
-          {tiles.map((tile, index) => (
-            <View key={index.toString()} style={styles.tileWrapper}>
-              <Pressable
-                onPress={() => showSourcePicker(index)}
-                onLongPress={() => tile && removeTile(index)}
-                style={({ pressed }) => [
-                  styles.tile,
-                  pressed && styles.tilePressed,
-                  index === 0 && styles.primaryTile
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  index === 0 ? `${copy.profileLabel}` : `${copy.title} ${index + 1}`
-                }
-              >
-                {tile ? (
-                  <>
-                    <Image source={{ uri: tile.uri }} style={styles.tileImage} />
-                    {tile.uploading && (
-                      <View style={styles.tileOverlay}>
-                        <ActivityIndicator color="#ffffff" />
-                      </View>
-                    )}
-                  </>
-                ) : (
-                  <Text style={styles.plus}>+</Text>
+          <Text style={styles.title}>{copy.title}</Text>
+          <Text style={styles.subtitle}>{copy.subtitle}</Text>
+          <Text style={styles.instructions}>{copy.instructions}</Text>
+          {locationStatus === "granted" && (
+            <View style={styles.locationBanner}>
+              <Ionicons name="location" size={16} color={PALETTE.gold} />
+              <View style={styles.locationBannerText}>
+                <Text style={styles.locationBannerTitle}>{copy.locationConfirmed}</Text>
+                {locationLabel && (
+                  <Text style={styles.locationBannerSubtitle}>
+                    {copy.locationCountryLabel} {locationLabel}
+                  </Text>
                 )}
-              </Pressable>
-              {tile?.uploadError && !tile.uploading && (
-                <Text style={styles.tileErrorText}>{tile.uploadError}</Text>
-              )}
+              </View>
             </View>
-          ))}
-        </View>
+          )}
 
-        <View style={styles.profileLabelChip}>
-          <Text style={styles.profileLabelText}>{copy.profileLabel}</Text>
-        </View>
+          <View style={styles.tilesRow}>
+            {tiles.map((tile, index) => (
+              <View key={index.toString()} style={styles.tileWrapper}>
+                <Pressable
+                  onPress={() => showSourcePicker(index)}
+                  onLongPress={() => tile && removeTile(index)}
+                  style={({ pressed }) => [
+                    styles.tile,
+                    pressed && styles.tilePressed,
+                    index === 0 && styles.primaryTile
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={index === 0 ? `${copy.profileLabel}` : `${copy.title} ${index + 1}`}
+                >
+                  {tile ? (
+                    <>
+                      <Image source={{ uri: tile.uri }} style={styles.tileImage} />
+                      {tile.uploading && (
+                        <View style={styles.tileOverlay}>
+                          <ActivityIndicator color="#ffffff" />
+                        </View>
+                      )}
+                    </>
+                  ) : (
+                    <Text style={styles.plus}>+</Text>
+                  )}
+                </Pressable>
+                {tile?.uploadError && !tile.uploading && (
+                  <Text style={styles.tileErrorText}>{tile.uploadError}</Text>
+                )}
+              </View>
+            ))}
+          </View>
 
-        <View style={styles.guidelinesBox}>
-          {copy.guidelines.map((item) => (
-            <View key={item} style={styles.guidelineRow}>
-              <Ionicons name="checkmark-circle" size={18} color={PALETTE.gold} />
-              <Text style={styles.guidelineText}>{item}</Text>
-            </View>
-          ))}
-          <Pressable onPress={() => setShowRules(true)}>
-            <Text style={styles.guidelineLink}>{copy.rulesLink}</Text>
-          </Pressable>
-        </View>
+          <View style={styles.profileLabelChip}>
+            <Text style={styles.profileLabelText}>{copy.profileLabel}</Text>
+          </View>
+
+          <View style={styles.guidelinesBox}>
+            {copy.guidelines.map((item) => (
+              <View key={item} style={styles.guidelineRow}>
+                <Ionicons name="checkmark-circle" size={18} color={PALETTE.gold} />
+                <Text style={styles.guidelineText}>{item}</Text>
+              </View>
+            ))}
+            <Pressable onPress={() => setShowRules(true)}>
+              <Text style={styles.guidelineLink}>{copy.rulesLink}</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.footer}>
@@ -787,22 +645,22 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
             onPress={uploadPhotos}
             disabled={!canContinue}
             accessibilityRole="button"
-          accessibilityState={{ disabled: !canContinue }}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            !canContinue && styles.primaryButtonDisabled,
-            pressed && canContinue && styles.primaryButtonPressed
-          ]}
-        >
-          {loading ? (
-            <View style={styles.primaryInner}>
-              <ActivityIndicator color="#ffffff" />
-            </View>
-          ) : (
-            <LinearGradient
-              colors={[PALETTE.gold, "#8b6c2a"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            accessibilityState={{ disabled: !canContinue }}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              !canContinue && styles.primaryButtonDisabled,
+              pressed && canContinue && styles.primaryButtonPressed
+            ]}
+          >
+            {loading ? (
+              <View style={styles.primaryInner}>
+                <ActivityIndicator color="#ffffff" />
+              </View>
+            ) : (
+              <LinearGradient
+                colors={[PALETTE.gold, "#8b6c2a"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.primaryInner}
               >
                 <Text style={styles.primaryButtonText}>{copy.continue}</Text>
@@ -1007,23 +865,47 @@ const styles = StyleSheet.create({
     fontSize: 14
   },
   guidelineLink: {
-    color: "#d8c18f",
+    color: PALETTE.gold,
+    fontWeight: "600",
+    marginTop: 6
+  },
+  footer: {
+    paddingHorizontal: 24,
+    paddingBottom: 24
+  },
+  primaryButton: {
+    borderRadius: 28,
+    overflow: "hidden"
+  },
+  primaryButtonDisabled: {
+    opacity: 0.5
+  },
+  primaryButtonPressed: {
+    opacity: 0.85
+  },
+  primaryInner: {
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  primaryButtonText: {
+    color: "#1a1a1a",
     fontWeight: "700",
-    marginTop: 12
+    fontSize: 16
   },
   modalSafe: {
     flex: 1,
-    backgroundColor: "#fff"
+    backgroundColor: "#f8f7f2"
   },
   modalHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 64,
-    paddingBottom: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderColor: "#e4e6eb"
+    borderBottomColor: "#e0ded8"
   },
   modalClose: {
     width: 32,
@@ -1033,58 +915,19 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#1f2933"
   },
   modalScroll: {
     flex: 1
   },
   modalContent: {
-    padding: 20,
-    paddingTop: 32
+    padding: 20
   },
   modalBody: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
     color: "#1f2933"
-  },
-  footer: {
-    paddingHorizontal: 24,
-    paddingBottom: Platform.select({ ios: 32, default: 24 }),
-    backgroundColor: "transparent",
-    marginTop: 20
-  },
-  primaryButton: {
-    backgroundColor: "transparent",
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-    borderWidth: 1.2,
-    borderColor: PALETTE.gold,
-    overflow: "hidden"
-  },
-  primaryInner: {
-    width: "100%",
-    paddingVertical: 18,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  primaryButtonDisabled: {
-    opacity: 0.65
-  },
-  primaryButtonPressed: {
-    opacity: 0.9
-  },
-  primaryButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600"
-  },
-  skipText: {
-    textAlign: "center",
-    color: "rgba(242,231,215,0.8)",
-    fontWeight: "500"
   }
 });
 
