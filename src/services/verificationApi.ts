@@ -69,19 +69,30 @@ export const startVerificationSession = async (): Promise<VerificationSession> =
 
 export const uploadVerificationSelfie = async (params: {
   sessionId: string;
-  fileUri: string;
+  fileUri?: string;
+  file?: Blob;
   mimeType?: string;
   captureFlag?: boolean;
 }): Promise<{ ok: boolean; similarity: number; next: string }> => {
-  const { sessionId, fileUri, mimeType = "image/jpeg", captureFlag = true } = params;
+  const { sessionId, fileUri, file, mimeType = "image/jpeg", captureFlag = true } = params;
   const formData = new FormData();
   formData.append("sessionId", sessionId);
   formData.append("captureFlag", captureFlag ? "true" : "false");
-  formData.append("selfie", {
-    uri: fileUri,
-    name: "selfie.jpg",
-    type: mimeType,
-  } as any);
+  if (file) {
+    if (typeof File !== "undefined" && file instanceof File) {
+      formData.append("selfie", file);
+    } else {
+      formData.append("selfie", file, "selfie.jpg");
+    }
+  } else if (fileUri) {
+    formData.append("selfie", {
+      uri: fileUri,
+      name: "selfie.jpg",
+      type: mimeType,
+    } as any);
+  } else {
+    throw new Error("Missing selfie file.");
+  }
 
   const response = await fetch(`${ensureApiBase()}/v1/verification/upload-selfie`, {
     method: "POST",

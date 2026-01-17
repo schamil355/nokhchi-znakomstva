@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View, Platform } from "react-native";
 import SafeAreaView from "../components/SafeAreaView";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as FaceDetector from "expo-face-detector";
@@ -136,12 +136,29 @@ const SelfieScanScreen = ({ navigation, route }: Props) => {
         skipProcessing: true,
         quality: 0.8
       });
-      const result = await uploadVerificationSelfie({
-        sessionId: currentSessionId,
-        fileUri: photo.uri,
-        mimeType: "image/jpeg",
-        captureFlag: true
-      });
+      if (!photo?.uri) {
+        throw new Error("missing-photo");
+      }
+      let result: { ok: boolean; similarity: number; next: string };
+      if (Platform.OS === "web") {
+        const response = await fetch(photo.uri);
+        const blob = await response.blob();
+        const mimeType = blob.type || "image/jpeg";
+        const file = typeof File !== "undefined" ? new File([blob], "selfie.jpg", { type: mimeType }) : blob;
+        result = await uploadVerificationSelfie({
+          sessionId: currentSessionId,
+          file,
+          mimeType,
+          captureFlag: true
+        });
+      } else {
+        result = await uploadVerificationSelfie({
+          sessionId: currentSessionId,
+          fileUri: photo.uri,
+          mimeType: "image/jpeg",
+          captureFlag: true
+        });
+      }
 
       if (result?.ok) {
         await markProfileVerified(result?.similarity ?? null);
