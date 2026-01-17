@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import SafeAreaView from "../components/SafeAreaView";
 import { Ionicons } from "@expo/vector-icons";
-import * as Location from "expo-location";
+import type * as LocationType from "expo-location";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -33,14 +33,18 @@ const PALETTE = {
   sand: "#f2e7d7"
 };
 const HERO = require("../../assets/onboarding/step5/female_male_avatar_step_5.png");
+const Location =
+  Platform.OS === "web"
+    ? null
+    : (require("expo-location") as typeof LocationType);
 
 type Props = NativeStackScreenProps<any>;
 
-const mapPermissionStatus = (status: Location.PermissionStatus): LocationPermissionStatus => {
+const mapPermissionStatus = (status?: string | null): LocationPermissionStatus => {
   switch (status) {
-    case Location.PermissionStatus.GRANTED:
+    case "granted":
       return "granted";
-    case Location.PermissionStatus.DENIED:
+    case "denied":
       return "denied";
     default:
       return "blocked";
@@ -195,6 +199,41 @@ const fetchIpCountry = async (): Promise<IpCountryInfo> => {
   }
 };
 
+const getWebPosition = (): Promise<{ latitude: number; longitude: number }> => {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject({ code: "unavailable" });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        });
+      },
+      (error) => {
+        reject(error);
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
+    );
+  });
+};
+
+const mapWebErrorStatus = (error: unknown): LocationPermissionStatus => {
+  const code = typeof error === "object" && error ? (error as any).code : null;
+  if (code === 1) {
+    return "denied";
+  }
+  if (code === 2 || code === 3) {
+    return "unavailable";
+  }
+  if (code === "unavailable") {
+    return "unavailable";
+  }
+  return "blocked";
+};
+
 const OnboardingLocationScreen = ({ navigation }: Props) => {
   const copy = useLocalizedCopy(translations);
   const selectedGender = useOnboardingStore((state) => state.selectedGender);
@@ -250,10 +289,63 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
     setMessage(null);
     let gpsCountryCode: string | null = null;
     try {
+      if (Platform.OS === "web") {
+        try {
+          const position = await getWebPosition();
+          const latitude = position.latitude;
+          const longitude = position.longitude;
+          const nextLocation: OnboardingLocation = {
+            status: "granted",
+            latitude,
+            longitude,
+            country: null,
+            countryName: null
+          };
+
+          const ipCountry = await fetchIpCountry();
+          if (!nextLocation.country && ipCountry.code) {
+            nextLocation.country = ipCountry.code;
+          }
+          if (!nextLocation.countryName && ipCountry.name) {
+            nextLocation.countryName = ipCountry.name;
+          }
+
+          const derivedRegion = resolveGeoRegion({
+            countryName: nextLocation.countryName ?? ipCountry.name,
+            countryCode: nextLocation.country ?? ipCountry.code,
+            latitude,
+            longitude
+          });
+          usePreferencesStore.getState().setFilters({ region: derivedRegion });
+
+          setStatus("granted");
+          setLocation(nextLocation);
+          setCoords({ latitude, longitude });
+          await persistLocationToSupabase(nextLocation);
+          navigation.navigate("OnboardingPhotos");
+          return;
+        } catch (webError) {
+          const mapped = mapWebErrorStatus(webError);
+          setStatus(mapped);
+          setLocation({ status: mapped, latitude: null, longitude: null, country: null, countryName: null });
+          if (mapped === "denied") {
+            setMessage(copy.statusDenied);
+          } else if (mapped === "blocked") {
+            setMessage(copy.statusBlocked);
+          } else {
+            setMessage(copy.statusUnavailable);
+          }
+          return;
+        }
+      }
+
+      if (!Location) {
+        throw new Error("location-unavailable");
+      }
       const existing = await Location.getForegroundPermissionsAsync();
       let finalStatus = existing.status;
 
-      if (finalStatus !== Location.PermissionStatus.GRANTED) {
+      if (finalStatus !== "granted") {
         const requested = await Location.requestForegroundPermissionsAsync();
         finalStatus = requested.status;
       }
@@ -272,7 +364,7 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
       }
 
       const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced
+        accuracy: Location.Accuracy?.Balanced ?? 3
       });
       const latitude = position.coords.latitude;
       const longitude = position.coords.longitude;
