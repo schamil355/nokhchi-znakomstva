@@ -114,7 +114,7 @@ const translations = {
     skip: "Later",
     settings: "Open settings",
     errorGeneric: "We couldn't determine your location. Please try again later.",
-    vpnWarning: "VPN detected. Please disable your VPN to continue with location verification.",
+    vpnWarning: "VPN detected. Please turn it off to continue.",
     back: "Back",
     devTitle: "DEV",
     devStatus: "Status",
@@ -132,7 +132,7 @@ const translations = {
     skip: "Später",
     settings: "Einstellungen öffnen",
     errorGeneric: "Standort konnte nicht ermittelt werden. Bitte versuche es später erneut.",
-    vpnWarning: "VPN erkannt. Bitte deaktiviere deine VPN, um mit der Standortprüfung fortzufahren.",
+    vpnWarning: "VPN erkannt. Bitte schalte das VPN aus, um fortzufahren.",
     back: "Zurück",
     devTitle: "DEV",
     devStatus: "Status",
@@ -150,7 +150,7 @@ const translations = {
     skip: "Plus tard",
     settings: "Ouvrir les réglages",
     errorGeneric: "Impossible de déterminer ta position. Réessaie plus tard.",
-    vpnWarning: "VPN détecté. Désactive ton VPN pour poursuivre la vérification de localisation.",
+    vpnWarning: "VPN détecté. Désactive-le pour continuer.",
     back: "Retour",
     devTitle: "DEV",
     devStatus: "Statut",
@@ -168,7 +168,7 @@ const translations = {
     skip: "Позже",
     settings: "Открыть настройки",
     errorGeneric: "Не удалось определить местоположение. Попробуй ещё раз позже.",
-    vpnWarning: "Обнаружен VPN. Отключи VPN, чтобы продолжить с проверкой местоположения.",
+    vpnWarning: "Обнаружен VPN. Отключи его, чтобы продолжить.",
     back: "Назад",
     devTitle: "DEV",
     devStatus: "Статус",
@@ -195,6 +195,25 @@ const fetchIpCountry = async (): Promise<IpCountryInfo> => {
     };
   } catch (error) {
     console.warn("[Location] ip lookup failed", error);
+    return { name: null, code: null };
+  }
+};
+
+const fetchGeoCountryFromCoords = async (latitude: number, longitude: number): Promise<IpCountryInfo> => {
+  try {
+    const response = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+    );
+    if (!response.ok) {
+      return { name: null, code: null };
+    }
+    const data = await response.json();
+    return {
+      name: data?.countryName ?? null,
+      code: data?.countryCode ? String(data.countryCode).toUpperCase() : null
+    };
+  } catch (error) {
+    console.warn("[Location] reverse geocode failed", error);
     return { name: null, code: null };
   }
 };
@@ -303,11 +322,43 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
           };
 
           const ipCountry = await fetchIpCountry();
+          const gpsCountry = await fetchGeoCountryFromCoords(latitude, longitude);
+          if (gpsCountry.code) {
+            nextLocation.country = gpsCountry.code;
+          }
+          if (gpsCountry.name) {
+            nextLocation.countryName = gpsCountry.name;
+          }
           if (!nextLocation.country && ipCountry.code) {
             nextLocation.country = ipCountry.code;
           }
           if (!nextLocation.countryName && ipCountry.name) {
             nextLocation.countryName = ipCountry.name;
+          }
+
+          const normalizedGpsCountry = gpsCountry.name?.toLowerCase() ?? null;
+          const normalizedIpCountry = ipCountry.name?.toLowerCase() ?? null;
+          const normalizedGpsIso = gpsCountry.code ?? null;
+          const normalizedIpIso = ipCountry.code ?? null;
+          const hasIsoMismatch =
+            Boolean(normalizedGpsIso && normalizedIpIso && normalizedGpsIso !== normalizedIpIso);
+          const hasFallbackMismatch =
+            Boolean(
+              (!normalizedGpsIso || !normalizedIpIso) &&
+                normalizedGpsCountry &&
+                normalizedIpCountry &&
+                normalizedGpsCountry !== normalizedIpCountry
+            );
+          if (hasIsoMismatch || hasFallbackMismatch) {
+            console.warn("[Location] Country mismatch detected", {
+              gpsCountry: normalizedGpsCountry,
+              ipCountry: normalizedIpCountry,
+              gpsIso: normalizedGpsIso,
+              ipIso: normalizedIpIso
+            });
+            setMessage(copy.vpnWarning);
+            Alert.alert(copy.vpnWarning);
+            return;
           }
 
           const derivedRegion = resolveGeoRegion({
