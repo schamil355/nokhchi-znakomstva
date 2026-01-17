@@ -1,7 +1,7 @@
 import "react-native-url-polyfill/auto";
 import "./sentry";
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Platform, View } from "react-native";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -207,6 +207,51 @@ const App = (): JSX.Element => {
       mounted = false;
     };
   }, [setSession]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") {
+      return;
+    }
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("code");
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const accessToken = hashParams.get("access_token");
+    const refreshToken = hashParams.get("refresh_token");
+    const hasAuthParams = Boolean(code || (accessToken && refreshToken));
+    if (!hasAuthParams) {
+      return;
+    }
+
+    const applyAuthFromUrl = async () => {
+      try {
+        if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.warn("[Auth] exchangeCodeForSession failed", error);
+          } else if (data.session) {
+            setSession(data.session);
+          }
+        } else if (accessToken && refreshToken) {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+          if (error) {
+            console.warn("[Auth] setSession from URL failed", error);
+          } else if (data.session) {
+            setSession(data.session);
+          }
+        }
+        await bootstrapSession();
+      } catch (error) {
+        console.warn("[Auth] URL session bootstrap failed", error);
+      } finally {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    };
+
+    void applyAuthFromUrl();
+  }, [setSession, supabase]);
 
   useEffect(() => {
     registerServiceWorker();
