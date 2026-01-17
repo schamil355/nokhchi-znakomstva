@@ -68,6 +68,59 @@ const revokeObjectUrl = (uri?: string | null) => {
   }
 };
 
+const isHeicFile = (file: File) => {
+  const type = file.type?.toLowerCase() ?? "";
+  if (type === "image/heic" || type === "image/heif") {
+    return true;
+  }
+  const name = file.name?.toLowerCase() ?? "";
+  return name.endsWith(".heic") || name.endsWith(".heif");
+};
+
+const loadImage = (src: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const img = document.createElement("img");
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("image-load-failed"));
+    img.src = src;
+  });
+
+const convertHeicToJpeg = async (file: File): Promise<File | null> => {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  let sourceUrl: string | null = null;
+  try {
+    sourceUrl = URL.createObjectURL(file);
+    const img = await loadImage(sourceUrl);
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth || img.width || 1;
+    canvas.height = img.naturalHeight || img.height || 1;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return null;
+    }
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.9)
+    );
+    if (!blob) {
+      return null;
+    }
+    const safeName = file.name?.trim()
+      ? file.name.replace(/\.(heic|heif)$/i, ".jpg")
+      : `photo-${Date.now()}.jpg`;
+    return new File([blob], safeName, { type: "image/jpeg" });
+  } catch (error) {
+    console.warn("[Photos] heic convert failed", error);
+    return null;
+  } finally {
+    if (sourceUrl) {
+      URL.revokeObjectURL(sourceUrl);
+    }
+  }
+};
+
 const OnboardingPhotosScreen = ({ navigation }: Props) => {
   const copy = useLocalizedCopy(translations);
   const errorCopy = useErrorCopy();
@@ -198,20 +251,33 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
         resolve(result);
       };
 
-      input.onchange = () => {
+      input.onchange = async () => {
         const file = input.files?.[0] ?? null;
         if (!file) {
           finish(null);
           return;
         }
-        const objectUrl = URL.createObjectURL(file);
-        const format = file.type?.split("/")[1] ?? "jpeg";
+        let previewUrl = URL.createObjectURL(file);
+        let uploadFile = file;
+        const nameExtension = file.name?.split(".").pop();
+        const rawFormat = file.type?.split("/")[1] ?? nameExtension ?? "jpeg";
+        let format = rawFormat.toLowerCase();
+
+        if (isHeicFile(file)) {
+          const converted = await convertHeicToJpeg(file);
+          if (converted) {
+            URL.revokeObjectURL(previewUrl);
+            uploadFile = converted;
+            previewUrl = URL.createObjectURL(converted);
+            format = "jpeg";
+          }
+        }
         finish({
-          uri: objectUrl,
+          uri: previewUrl,
           width: 0,
           height: 0,
           format,
-          file
+          file: uploadFile
         });
       };
 
@@ -219,10 +285,10 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
         "focus",
         () => {
           setTimeout(() => {
-            if (!settled) {
+            if (!settled && !(input.files && input.files.length > 0)) {
               finish(null);
             }
-          }, 0);
+          }, 350);
         },
         { once: true }
       );
@@ -284,10 +350,11 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
           }
 
           const fileBuffer = await selected.file.arrayBuffer();
-          const extensionRaw = selected.file.type?.split("/")[1] ?? "jpg";
-          const extension = extensionRaw === "jpeg" ? "jpg" : extensionRaw;
+          const extensionRaw = selected.file.type?.split("/")[1]?.toLowerCase() ?? "";
+          const format = (selected.format ?? extensionRaw ?? "jpg").toLowerCase();
+          const extension = format === "jpeg" ? "jpg" : format;
           const key = `${userId}/${Date.now()}_${index + 1}.${extension}`;
-          const contentType = selected.file.type || "image/jpeg";
+          const contentType = selected.file.type || (extension === "jpg" ? "image/jpeg" : "application/octet-stream");
           const supabaseUrl =
             (supabase as any)?.supabaseUrl ??
             process.env.EXPO_PUBLIC_SUPABASE_URL ??
@@ -562,17 +629,17 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
                 accessibilityRole="button"
                 accessibilityLabel={copy.back}
                 style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-            >
-              <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
-            </Pressable>
-            <View style={styles.progressTrack}>
-              <View style={styles.progressFill} />
+              >
+                <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
+              </Pressable>
+              <View style={styles.progressTrack}>
+                <View style={styles.progressFill} />
+              </View>
             </View>
-          </View>
 
-          <Text style={styles.title}>{copy.title}</Text>
-          <Text style={styles.subtitle}>{copy.subtitle}</Text>
-          <Text style={styles.instructions}>{copy.instructions}</Text>
+            <Text style={styles.title}>{copy.title}</Text>
+            <Text style={styles.subtitle}>{copy.subtitle}</Text>
+            <Text style={styles.instructions}>{copy.instructions}</Text>
 
           <View style={styles.tilesRow}>
             {tiles.map((tile, index) => (
@@ -591,6 +658,17 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
                   {tile ? (
                     <>
                       <Image source={{ uri: tile.uri }} style={styles.tileImage} />
+                      <Pressable
+                        onPress={(event: any) => {
+                          event?.stopPropagation?.();
+                          removeTile(index);
+                        }}
+                        style={styles.removeBadge}
+                        accessibilityRole="button"
+                        accessibilityLabel={copy.removePhoto}
+                      >
+                        <Ionicons name="close" size={14} color="#1a1a1a" />
+                      </Pressable>
                       {tile.uploading && (
                         <View style={styles.tileOverlay}>
                           <ActivityIndicator color="#ffffff" />
@@ -784,6 +862,19 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.35)",
     alignItems: "center",
     justifyContent: "center"
+  },
+  removeBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(217,192,143,0.95)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.15)"
   },
   tileErrorText: {
     fontSize: 11,
