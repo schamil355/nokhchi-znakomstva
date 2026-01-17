@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import SafeAreaView from "../components/SafeAreaView";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -191,88 +191,90 @@ const OnboardingVerifyScreen = ({ navigation, route }: Props) => {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <Pressable
-              onPress={() => navigation.goBack()}
-              accessibilityRole="button"
-              accessibilityLabel={copy.back}
-              style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-            >
-              <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
-            </Pressable>
-            <View style={styles.progressTrack}>
-              <View style={styles.progressFill} />
-            </View>
-          </View>
-
-          <View style={styles.heroWrapper}>
-            <View style={styles.heroInner}>
-              <View style={styles.photoRing}>
-                {loading ? (
-                  <ActivityIndicator color={PALETTE.gold} />
-                ) : photoUrl ? (
-                  <Image source={{ uri: photoUrl }} style={styles.photo} accessibilityLabel={copy.heroAlt} />
-                ) : (
-                  <View style={styles.photoPlaceholder}>
-                    <Ionicons name="person" size={48} color="rgba(242,231,215,0.72)" />
-                  </View>
-                )}
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.container}>
+            <View style={styles.header}>
+              <Pressable
+                onPress={() => navigation.goBack()}
+                accessibilityRole="button"
+                accessibilityLabel={copy.back}
+                style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+              >
+                <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
+              </Pressable>
+              <View style={styles.progressTrack}>
+                <View style={styles.progressFill} />
               </View>
-              <Image source={verifyBadge} style={styles.badgeImage} accessibilityLabel={copy.badgeAlt} />
             </View>
-          </View>
 
-          <Text style={styles.title}>{copy.title}</Text>
-          <Text style={styles.subtitle}>{copy.subtitle}</Text>
-
-          {error && (
-            <Text style={styles.errorText} accessibilityLiveRegion="polite">
-              {error}
-            </Text>
-          )}
-
-          <View style={styles.guidelinesBox}>
-            {copy.guidelines.map((text, idx) => (
-              <View key={text} style={styles.guidelineRow}>
-                <View style={styles.guidelineIconWrap}>
-                  <Ionicons
-                    name={GUIDELINE_ICONS[idx] ?? "information-circle-outline"}
-                    size={16}
-                    color={PALETTE.gold}
-                  />
+            <View style={styles.heroWrapper}>
+              <View style={styles.heroInner}>
+                <View style={styles.photoRing}>
+                  {loading ? (
+                    <ActivityIndicator color={PALETTE.gold} />
+                  ) : photoUrl ? (
+                    <Image source={{ uri: photoUrl }} style={styles.photo} accessibilityLabel={copy.heroAlt} />
+                  ) : (
+                    <View style={styles.photoPlaceholder}>
+                      <Ionicons name="person" size={48} color="rgba(242,231,215,0.72)" />
+                    </View>
+                  )}
                 </View>
-                <Text style={styles.guidelineText}>{text}</Text>
+                <Image source={verifyBadge} style={styles.badgeImage} accessibilityLabel={copy.badgeAlt} />
               </View>
-            ))}
-          </View>
-        </View>
+            </View>
 
-        <View style={styles.footer}>
-          <Pressable
-            onPress={() => navigation.navigate("SelfieScan", { profilePath: primaryPhotoPath })}
-            disabled={!photoUrl || !primaryPhotoPath || loading}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !photoUrl || !primaryPhotoPath || loading }}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              (!photoUrl || !primaryPhotoPath || loading) && styles.primaryButtonDisabled,
-              pressed && photoUrl && primaryPhotoPath && styles.primaryButtonPressed
-            ]}
-          >
-            <LinearGradient
-              colors={[PALETTE.gold, "#8b6c2a"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.primaryInner}
+            <Text style={styles.title}>{copy.title}</Text>
+            <Text style={styles.subtitle}>{copy.subtitle}</Text>
+
+            {error && (
+              <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                {error}
+              </Text>
+            )}
+
+            <View style={styles.guidelinesBox}>
+              {copy.guidelines.map((text, idx) => (
+                <View key={text} style={styles.guidelineRow}>
+                  <View style={styles.guidelineIconWrap}>
+                    <Ionicons
+                      name={GUIDELINE_ICONS[idx] ?? "information-circle-outline"}
+                      size={16}
+                      color={PALETTE.gold}
+                    />
+                  </View>
+                  <Text style={styles.guidelineText}>{text}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.footer}>
+            <Pressable
+              onPress={() => navigation.navigate("SelfieScan", { profilePath: primaryPhotoPath })}
+              disabled={!photoUrl || !primaryPhotoPath || loading}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !photoUrl || !primaryPhotoPath || loading }}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                (!photoUrl || !primaryPhotoPath || loading) && styles.primaryButtonDisabled,
+                pressed && photoUrl && primaryPhotoPath && styles.primaryButtonPressed
+              ]}
             >
-              <Text style={styles.primaryButtonText}>{copy.verify}</Text>
-            </LinearGradient>
-          </Pressable>
-          <Pressable onPress={() => navigation.replace("OnboardingPhotos")}>
-            <Text style={styles.changePhotoText}>{copy.changePhoto}</Text>
-          </Pressable>
-        </View>
+              <LinearGradient
+                colors={[PALETTE.gold, "#8b6c2a"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.primaryInner}
+              >
+                <Text style={styles.primaryButtonText}>{copy.verify}</Text>
+              </LinearGradient>
+            </Pressable>
+            <Pressable onPress={() => navigation.replace("OnboardingPhotos")}>
+              <Text style={styles.changePhotoText}>{copy.changePhoto}</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     </LinearGradient>
   );
@@ -283,8 +285,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "transparent"
   },
+  scrollContent: {
+    paddingBottom: 24
+  },
   container: {
-    flex: 1,
     paddingHorizontal: 24,
     paddingTop: 4,
     backgroundColor: "transparent"
