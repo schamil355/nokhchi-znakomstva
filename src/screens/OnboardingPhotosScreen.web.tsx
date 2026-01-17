@@ -828,7 +828,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 24,
-    paddingBottom: 24
+    paddingBottom: 8
   },
   primaryButton: {
     borderRadius: 28,
