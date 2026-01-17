@@ -554,13 +554,14 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <Pressable
-              onPress={() => navigation.goBack()}
-              accessibilityRole="button"
-              accessibilityLabel={copy.back}
-              style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.container}>
+            <View style={styles.header}>
+              <Pressable
+                onPress={() => navigation.goBack()}
+                accessibilityRole="button"
+                accessibilityLabel={copy.back}
+                style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
             >
               <Ionicons name="chevron-back" size={24} color={PALETTE.gold} />
             </Pressable>
@@ -611,18 +612,19 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
             <Text style={styles.profileLabelText}>{copy.profileLabel}</Text>
           </View>
 
-          <View style={styles.guidelinesBox}>
-            {copy.guidelines.map((item) => (
-              <View key={item} style={styles.guidelineRow}>
-                <Ionicons name="checkmark-circle" size={18} color={PALETTE.gold} />
-                <Text style={styles.guidelineText}>{item}</Text>
-              </View>
-            ))}
-            <Pressable onPress={() => setShowRules(true)}>
-              <Text style={styles.guidelineLink}>{copy.rulesLink}</Text>
-            </Pressable>
+            <View style={styles.guidelinesBox}>
+              {copy.guidelines.map((item) => (
+                <View key={item} style={styles.guidelineRow}>
+                  <Ionicons name="checkmark-circle" size={18} color={PALETTE.gold} />
+                  <Text style={styles.guidelineText}>{item}</Text>
+                </View>
+              ))}
+              <Pressable onPress={() => setShowRules(true)}>
+                <Text style={styles.guidelineLink}>{copy.rulesLink}</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
+        </ScrollView>
 
         <View style={styles.footer}>
           <Pressable
@@ -680,8 +682,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    backgroundColor: "transparent",
-    paddingBottom: 12
+    backgroundColor: "transparent"
+  },
+  scrollContent: {
+    paddingBottom: 28
   },
   header: {
     flexDirection: "row",
@@ -828,7 +832,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 24,
-    paddingBottom: 8
+    paddingBottom: 0,
+    marginTop: 20
   },
   primaryButton: {
     borderRadius: 28,
