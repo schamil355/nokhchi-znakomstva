@@ -15,7 +15,7 @@ import {
 import SafeAreaView from "../components/SafeAreaView";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
+import type * as ImagePickerType from "expo-image-picker";
 import type * as ImageManipulatorType from "expo-image-manipulator";
 import type * as FileSystemType from "expo-file-system";
 import { decode as decodeBase64 } from "base64-arraybuffer";
@@ -38,6 +38,10 @@ const PALETTE = {
 };
 const MAX_FILE_SIZE = 700 * 1024; // ~700KB to keep uploads fast on mobile
 const MAX_DIMENSION = 1280; // downscale to speed up uploads
+const ImagePicker =
+  Platform.OS === "web"
+    ? null
+    : (require("expo-image-picker") as typeof ImagePickerType);
 const ImageManipulator =
   Platform.OS === "web"
     ? null
@@ -57,8 +61,17 @@ type PhotoTile = {
   type: string;
   remoteKey: string | null;
   photoId: number | null;
+  file?: File | null;
   uploading: boolean;
   uploadError: string | null;
+};
+
+type SelectedImage = {
+  uri: string;
+  width: number;
+  height: number;
+  format?: string | null;
+  file?: File | null;
 };
 
 const translations = {
@@ -268,6 +281,10 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
   }, [authSession?.user?.id, sessionUserId, supabase]);
 
   const showSourcePicker = (index: number) => {
+    if (Platform.OS === "web") {
+      void pickImage(index, "library");
+      return;
+    }
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
@@ -292,6 +309,13 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
   };
 
   const ensurePermission = async (type: "camera" | "library") => {
+    if (Platform.OS === "web") {
+      return true;
+    }
+    if (!ImagePicker) {
+      Alert.alert(copy.uploadError);
+      return false;
+    }
     if (type === "camera") {
       const { granted } = await ImagePicker.requestCameraPermissionsAsync();
       if (!granted) {
@@ -306,8 +330,70 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
     return granted;
   };
 
+  const pickImageWeb = async (): Promise<SelectedImage | null> => {
+    if (typeof document === "undefined") {
+      Alert.alert(copy.uploadError);
+      return null;
+    }
+    return new Promise((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.style.position = "fixed";
+      input.style.left = "-9999px";
+      let settled = false;
+
+      const cleanup = () => {
+        if (input.parentNode) {
+          input.parentNode.removeChild(input);
+        }
+      };
+
+      const finish = (result: SelectedImage | null) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        resolve(result);
+      };
+
+      input.onchange = () => {
+        const file = input.files?.[0] ?? null;
+        if (!file) {
+          finish(null);
+          return;
+        }
+        const objectUrl = URL.createObjectURL(file);
+        const format = file.type?.split("/")[1] ?? DEFAULT_SAVE_FORMAT;
+        finish({
+          uri: objectUrl,
+          width: 0,
+          height: 0,
+          format,
+          file
+        });
+      };
+
+      window.addEventListener(
+        "focus",
+        () => {
+          setTimeout(() => {
+            if (!settled) {
+              finish(null);
+            }
+          }, 0);
+        },
+        { once: true }
+      );
+
+      document.body.appendChild(input);
+      input.click();
+    });
+  };
+
   const queueTileUpload = useCallback(
-    (index: number, manipulated: ImageManipulatorType.ImageResult, previousPhotoId: number | null) => {
+    (index: number, manipulated: SelectedImage, previousPhotoId: number | null) => {
       const token = `${index}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       uploadTokens.current[index] = token;
 
@@ -318,6 +404,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
           width: manipulated.width ?? 0,
           height: manipulated.height ?? 0,
           type: manipulated.format ?? DEFAULT_SAVE_FORMAT,
+          file: manipulated.file ?? null,
           remoteKey: null,
           photoId: null,
           uploading: true,
@@ -348,8 +435,9 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
             }
           }
 
-          const fileBuffer = await convertUriToArrayBuffer(manipulated.uri);
+          const fileBuffer = await convertUriToArrayBuffer(manipulated.uri, manipulated.file ?? null);
           const key = `${userId}/${Date.now()}_${index + 1}.jpg`;
+          const contentType = manipulated.file?.type ?? "image/jpeg";
           const supabaseUrl =
             (supabase as any)?.supabaseUrl ??
             process.env.EXPO_PUBLIC_SUPABASE_URL ??
@@ -360,7 +448,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
             try {
               const { error: uploadError } = await supabase.storage
                 .from(PROFILE_BUCKET)
-                .upload(key, fileBuffer, { contentType: "image/jpeg", upsert: true });
+                .upload(key, fileBuffer, { contentType, upsert: true });
               if (!uploadError) {
                 return;
               }
@@ -461,8 +549,21 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
   );
 
   const pickImage = async (index: number, source: "camera" | "library") => {
+    if (Platform.OS === "web") {
+      const selected = await pickImageWeb();
+      if (!selected) {
+        return;
+      }
+      const previousPhotoId = tiles[index]?.photoId ?? null;
+      queueTileUpload(index, selected, previousPhotoId);
+      return;
+    }
     const permission = await ensurePermission(source);
     if (!permission) {
+      return;
+    }
+    if (!ImagePicker) {
+      Alert.alert(copy.uploadError);
       return;
     }
 
@@ -501,7 +602,11 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
     }
   };
 
-  const compressImage = async (uri: string, width: number | null, height: number | null) => {
+  const compressImage = async (
+    uri: string,
+    width: number | null,
+    height: number | null
+  ): Promise<SelectedImage | null> => {
     try {
       if (!ImageManipulator || !FileSystem) {
         return {
@@ -509,7 +614,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
           width: width ?? 0,
           height: height ?? 0,
           format: DEFAULT_SAVE_FORMAT
-        } as ImageManipulatorType.ImageResult;
+        };
       }
       const resized = await ImageManipulator.manipulateAsync(
         uri,
@@ -558,8 +663,11 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
     ]);
   };
 
-  const convertUriToArrayBuffer = useCallback(async (uri: string) => {
+  const convertUriToArrayBuffer = useCallback(async (uri: string, file?: File | null) => {
     try {
+      if (file) {
+        return await file.arrayBuffer();
+      }
       const response = await fetch(uri);
       if (!response.ok) {
         throw new Error("failed-to-load-file");
