@@ -683,7 +683,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
                         accessibilityLabel={copy.removePhoto}
                         hitSlop={10}
                       >
-                        <Ionicons name="close" size={14} color="#1a1a1a" />
+                        <Ionicons name="close" size={14} color="#ffffff" />
                       </Pressable>
                       {tile.uploading && (
                         <View style={styles.tileOverlay}>
@@ -960,7 +960,7 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   primaryButtonText: {
-    color: "#1a1a1a",
+    color: "#ffffff",
     fontWeight: "700",
     fontSize: 16
   },
