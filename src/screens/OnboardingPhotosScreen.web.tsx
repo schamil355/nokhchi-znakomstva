@@ -78,7 +78,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
   const selectedGender = useOnboardingStore((state) => state.selectedGender);
   const name = useOnboardingStore((state) => state.name);
   const dob = useOnboardingStore((state) => state.dob);
-  useOnboardingStore((state) => state.location);
+  const locationStatus = useOnboardingStore((state) => state.location.status);
   const setPhotosUploaded = useOnboardingStore((state) => state.setPhotosUploaded);
 
   const [tiles, setTiles] = useState<(PhotoTile | null)[]>([null, null, null]);
