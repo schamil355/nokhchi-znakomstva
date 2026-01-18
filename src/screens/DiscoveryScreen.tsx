@@ -78,7 +78,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       body: "You have seen 16 profiles. Unlock Premium for unlimited swipes.",
       cta: "Unlock Premium"
     },
-    matchTitle: "New connection!",
+    matchTitle: "New match!",
     matchBody: (name) => `You and ${name} are now connected.`,
     matchAlertBody: "A mutual introduction was created. You can start chatting now.",
     fallbackName: "someone",
@@ -106,7 +106,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       body: "Du hast 16 Profile gesehen. Mit Premium kannst du unbegrenzt swipen.",
       cta: "Premium freischalten"
     },
-    matchTitle: "Neue Verbindung!",
+    matchTitle: "Neues Match!",
     matchBody: (name) => `Du und ${name} seid jetzt verbunden.`,
     matchAlertBody: "Es gibt eine gegenseitige Einführung. Ihr könnt jetzt chatten.",
     fallbackName: "jemand",
@@ -134,7 +134,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       body: "Tu as vu 16 profils. Passe en Premium pour swiper sans limite.",
       cta: "Débloquer Premium"
     },
-    matchTitle: "Nouvelle connexion !",
+    matchTitle: "Nouveau match !",
     matchBody: (name) => `Toi et ${name} êtes désormais connectés.`,
     matchAlertBody: "Une introduction mutuelle a été créée. Tu peux discuter maintenant.",
     fallbackName: "quelqu'un",
@@ -162,7 +162,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       body: "Вы просмотрели 16 профилей. Откройте Premium для безлимитных свайпов.",
       cta: "Открыть Premium"
     },
-    matchTitle: "Новая связь!",
+    matchTitle: "Новый матч!",
     matchBody: (name) => `Вы и ${name} теперь на связи.`,
     matchAlertBody: "Создана взаимная связь. Можно начинать диалог.",
     fallbackName: "кто-то",
