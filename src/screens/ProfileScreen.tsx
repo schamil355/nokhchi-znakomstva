@@ -1504,7 +1504,7 @@ const ProfileScreen = () => {
               onValueChange={handleToggleIncognitoDisplay}
               disabled={isUpdatingIncognito || isSigningOut}
               trackColor={{ true: PALETTE.gold, false: "rgba(255,255,255,0.25)" }}
-              thumbColor="#ffffff"
+              thumbColor={PALETTE.deep}
             />
           </View>
         </View>
