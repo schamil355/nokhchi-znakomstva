@@ -726,9 +726,9 @@ const styles = StyleSheet.create({
     gap: 12
   },
   actionCircle: {
-    width: 61.2,
-    height: 61.2,
-    borderRadius: 30.6,
+    width: 67.32,
+    height: 67.32,
+    borderRadius: 33.66,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -754,14 +754,14 @@ const styles = StyleSheet.create({
   filledCircle: {
     width: "100%",
     height: "100%",
-    borderRadius: 30.6,
+    borderRadius: 33.66,
     alignItems: "center",
     justifyContent: "center"
   },
   smallAction: {
-    width: 54,
-    height: 54,
-    borderRadius: 27
+    width: 59.4,
+    height: 59.4,
+    borderRadius: 29.7
   }
 });
 
