@@ -7,7 +7,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRevenueCat } from "../hooks/useRevenueCat";
 import type { PurchasesPackage } from "react-native-purchases";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
-import { PRIVACY_URL, TERMS_URL } from "../lib/legalLinks";
 import { useAuthStore } from "../state/authStore";
 import { refetchProfile } from "../services/profileService";
 import { createStripeCheckoutSession, fetchStripePlanAvailability } from "../services/stripeCheckoutService";
@@ -633,24 +632,6 @@ const PremiumUpsellScreen = () => {
                   </View>
                 ) : null}
                 {webInlineError ? <Text style={styles.errorText}>{webInlineError}</Text> : null}
-                {webSelectedPlan ? (
-                  <View style={styles.subInfoCard}>
-                    <Text style={styles.subInfoTitle}>{copy.subscriptionInfoTitle}</Text>
-                    <View style={styles.subInfoRow}>
-                      <Text style={styles.subInfoLabel}>{copy.subInfoPlan}</Text>
-                      <Text style={styles.subInfoValue}>{webSelectedPlan.label}</Text>
-                    </View>
-                    <View style={styles.subInfoRow}>
-                      <Text style={styles.subInfoLabel}>{copy.subInfoDuration}</Text>
-                      <Text style={styles.subInfoValue}>{webSelectedPlan.durationLabel}</Text>
-                    </View>
-                    <View style={styles.subInfoRow}>
-                      <Text style={styles.subInfoLabel}>{copy.subInfoPrice}</Text>
-                      <Text style={styles.subInfoValue}>{formatWebPrice(webSelectedPlan.amountMinor)}</Text>
-                    </View>
-                    <Text style={styles.subInfoNote}>{copy.subInfoAutoRenew}</Text>
-                  </View>
-                ) : null}
               </>
             ) : (
               <>
@@ -699,26 +680,6 @@ const PremiumUpsellScreen = () => {
                   </View>
                 ) : null}
                 {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-                {selectedPackage ? (
-                  <View style={styles.subInfoCard}>
-                    <Text style={styles.subInfoTitle}>{copy.subscriptionInfoTitle}</Text>
-                    <View style={styles.subInfoRow}>
-                      <Text style={styles.subInfoLabel}>{copy.subInfoPlan}</Text>
-                      <Text style={styles.subInfoValue}>{getPlanLabel(selectedPackage)}</Text>
-                    </View>
-                    <View style={styles.subInfoRow}>
-                      <Text style={styles.subInfoLabel}>{copy.subInfoDuration}</Text>
-                      <Text style={styles.subInfoValue}>{getDurationLabel(selectedPackage)}</Text>
-                    </View>
-                    <View style={styles.subInfoRow}>
-                      <Text style={styles.subInfoLabel}>{copy.subInfoPrice}</Text>
-                      <Text style={styles.subInfoValue}>{formatTotalPrice(selectedPackage)}</Text>
-                    </View>
-                    <Text style={styles.subInfoNote}>
-                      {selectedPackage.packageType === "LIFETIME" ? copy.subInfoOneTime : copy.subInfoAutoRenew}
-                    </Text>
-                  </View>
-                ) : null}
               </>
             )}
           </View>
@@ -762,17 +723,6 @@ const PremiumUpsellScreen = () => {
               <Text style={styles.linkText}>{copy.later}</Text>
             </Pressable>
           </View>
-          <Text style={styles.legalText}>
-            {copy.legalPrefix}{" "}
-            <Text style={styles.legalLink} onPress={() => Linking.openURL(TERMS_URL)}>
-              {copy.terms}
-            </Text>{" "}
-            {copy.and}{" "}
-            <Text style={styles.legalLink} onPress={() => Linking.openURL(PRIVACY_URL)}>
-              {copy.privacy}
-            </Text>
-            {copy.legalSuffix}
-          </Text>
         </View>
       </SafeAreaView>
     </LinearGradient>
