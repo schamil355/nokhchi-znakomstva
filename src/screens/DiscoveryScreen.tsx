@@ -43,6 +43,11 @@ type CopyShape = {
     forYou: string;
     recent: string;
   };
+  limits: {
+    title: string;
+    body: string;
+    cta: string;
+  };
   matchTitle: string;
   matchBody: (name: string) => string;
   matchAlertBody: string;
@@ -68,6 +73,11 @@ type CopyShape = {
 const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   en: {
     tabs: { forYou: "For you", recent: "Recently verified" },
+    limits: {
+      title: "Swipe limit reached",
+      body: "You have seen 16 profiles. Unlock Premium for unlimited swipes.",
+      cta: "Unlock Premium"
+    },
     matchTitle: "New connection!",
     matchBody: (name) => `You and ${name} are now connected.`,
     matchAlertBody: "A mutual introduction was created. You can start chatting now.",
@@ -91,6 +101,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   },
   de: {
     tabs: { forYou: "Für dich", recent: "Kürzlich verifiziert" },
+    limits: {
+      title: "Limit erreicht",
+      body: "Du hast 16 Profile gesehen. Mit Premium kannst du unbegrenzt swipen.",
+      cta: "Premium freischalten"
+    },
     matchTitle: "Neue Verbindung!",
     matchBody: (name) => `Du und ${name} seid jetzt verbunden.`,
     matchAlertBody: "Es gibt eine gegenseitige Einführung. Ihr könnt jetzt chatten.",
@@ -114,6 +129,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   },
   fr: {
     tabs: { forYou: "Pour toi", recent: "Récemment vérifiés" },
+    limits: {
+      title: "Limite atteinte",
+      body: "Tu as vu 16 profils. Passe en Premium pour swiper sans limite.",
+      cta: "Débloquer Premium"
+    },
     matchTitle: "Nouvelle connexion !",
     matchBody: (name) => `Toi et ${name} êtes désormais connectés.`,
     matchAlertBody: "Une introduction mutuelle a été créée. Tu peux discuter maintenant.",
@@ -137,6 +157,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   },
   ru: {
     tabs: { forYou: "Для тебя", recent: "Недавно проверены" },
+    limits: {
+      title: "Лимит достигнут",
+      body: "Вы просмотрели 16 профилей. Откройте Premium для безлимитных свайпов.",
+      cta: "Открыть Premium"
+    },
     matchTitle: "Новая связь!",
     matchBody: (name) => `Вы и ${name} теперь на связи.`,
     matchAlertBody: "Создана взаимная связь. Можно начинать диалог.",
@@ -182,6 +207,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   });
   const [headerHeight, setHeaderHeight] = useState(0);
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
+  const [swipeLimitReached, setSwipeLimitReached] = useState(false);
 
   const {
     data: recentProfiles = [],
@@ -211,6 +237,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   ]);
   const isFreeRegion = viewerRegion === "chechnya" || viewerRegion === "russia";
   const hasPremiumAccess = isPremium || isPro || isFreeRegion;
+  const swipeStorageKey = React.useMemo(() => {
+    const userId = session?.user?.id;
+    return userId ? `discovery:swipes:${userId}` : null;
+  }, [session?.user?.id]);
+  const isSwipeLocked = !hasPremiumAccess && swipeLimitReached;
   const filters = usePreferencesStore((state) => state.filters);
   const setFilters = usePreferencesStore((state) => state.setFilters);
   const resetFilters = usePreferencesStore((state) => state.resetFilters);
@@ -243,30 +274,63 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     }
   }, [navigation]);
 
+  useEffect(() => {
+    let active = true;
+    if (hasPremiumAccess) {
+      setSwipeLimitReached(false);
+      if (swipeStorageKey) {
+        AsyncStorage.removeItem(swipeStorageKey).catch(() => undefined);
+      }
+      return () => {
+        active = false;
+      };
+    }
+    if (!swipeStorageKey) {
+      setSwipeLimitReached(false);
+      return () => {
+        active = false;
+      };
+    }
+    AsyncStorage.getItem(swipeStorageKey)
+      .then((raw) => {
+        if (!active) {
+          return;
+        }
+        const current = raw ? Number(raw) : 0;
+        const safeCurrent = Number.isFinite(current) ? current : 0;
+        setSwipeLimitReached(safeCurrent >= SWIPE_UPSELL_LIMIT);
+      })
+      .catch((error) => {
+        console.warn("[Discovery] Failed to read swipe count", error);
+      });
+    return () => {
+      active = false;
+    };
+  }, [hasPremiumAccess, swipeStorageKey]);
+
   const incrementSwipeCount = useCallback(async () => {
     if (hasPremiumAccess) {
       return;
     }
-    const userId = session?.user?.id;
-    if (!userId) {
+    if (!swipeStorageKey) {
       return;
     }
-    const key = `discovery:swipes:${userId}`;
     try {
-      const raw = await AsyncStorage.getItem(key);
+      const raw = await AsyncStorage.getItem(swipeStorageKey);
       const current = raw ? Number(raw) : 0;
       const safeCurrent = Number.isFinite(current) ? current : 0;
       const next = safeCurrent + 1;
       if (next >= SWIPE_UPSELL_LIMIT) {
-        await AsyncStorage.setItem(key, String(SWIPE_UPSELL_LIMIT));
+        await AsyncStorage.setItem(swipeStorageKey, String(SWIPE_UPSELL_LIMIT));
+        setSwipeLimitReached(true);
         openPremiumUpsell();
         return;
       }
-      await AsyncStorage.setItem(key, String(next));
+      await AsyncStorage.setItem(swipeStorageKey, String(next));
     } catch (error) {
       console.warn("[Discovery] Failed to update swipe count", error);
     }
-  }, [hasPremiumAccess, openPremiumUpsell, session?.user?.id]);
+  }, [hasPremiumAccess, openPremiumUpsell, swipeStorageKey]);
 
   const isSameQueue = useCallback((next: Profile[], prev: Profile[]) => {
     if (prev.length !== next.length) {
@@ -345,6 +409,10 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     if (!session || !currentProfile || processing || !canInteract) {
       return;
     }
+    if (isSwipeLocked) {
+      openPremiumUpsell();
+      return;
+    }
     setProcessing(true);
     try {
       const result = await sendLike(session.user.id, currentProfile.userId);
@@ -377,6 +445,10 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
 
   const handleSkip = async () => {
     if (!session || !currentProfile || processing || !canInteract) {
+      return;
+    }
+    if (isSwipeLocked) {
+      openPremiumUpsell();
       return;
     }
     setProcessing(true);
@@ -632,7 +704,18 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
             </View>
           </View>
 
-          {isLoading && !visibleProfiles.length ? (
+          {isSwipeLocked ? (
+            <View style={styles.lockedContainer}>
+              <Text style={styles.lockedTitle}>{copy.limits.title}</Text>
+              <Text style={styles.lockedBody}>{copy.limits.body}</Text>
+              <Pressable
+                onPress={openPremiumUpsell}
+                style={({ pressed }) => [styles.lockedButton, pressed && styles.lockedButtonPressed]}
+              >
+                <Text style={styles.lockedButtonText}>{copy.limits.cta}</Text>
+              </Pressable>
+            </View>
+          ) : isLoading && !visibleProfiles.length ? (
             <View style={[styles.center, styles.loader]}>
               <ActivityIndicator size="large" color={PALETTE.gold} />
             </View>
@@ -692,6 +775,44 @@ const styles = StyleSheet.create({
   },
   loader: {
     minHeight: 320
+  },
+  lockedContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    minHeight: 320
+  },
+  lockedTitle: {
+    color: PALETTE.sand,
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 10
+  },
+  lockedBody: {
+    color: "rgba(242,231,215,0.85)",
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 20
+  },
+  lockedButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: PALETTE.gold,
+    backgroundColor: PALETTE.gold,
+    paddingHorizontal: 24,
+    paddingVertical: 10
+  },
+  lockedButtonPressed: {
+    opacity: 0.9
+  },
+  lockedButtonText: {
+    color: PALETTE.deep,
+    fontWeight: "700",
+    fontSize: 14,
+    letterSpacing: 0.5
   },
   headerContainer: {
     backgroundColor: "transparent",
