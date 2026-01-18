@@ -258,7 +258,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       const safeCurrent = Number.isFinite(current) ? current : 0;
       const next = safeCurrent + 1;
       if (next >= SWIPE_UPSELL_LIMIT) {
-        await AsyncStorage.setItem(key, "0");
+        await AsyncStorage.setItem(key, String(SWIPE_UPSELL_LIMIT));
         openPremiumUpsell();
         return;
       }
