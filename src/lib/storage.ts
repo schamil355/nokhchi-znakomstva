@@ -4,7 +4,7 @@ import Constants from "expo-constants";
 const extra = Constants.expoConfig?.extra ?? {};
 
 export const PROFILE_BUCKET =
-  extra?.EXPO_PUBLIC_PROFILE_BUCKET ?? process.env.EXPO_PUBLIC_PROFILE_BUCKET ?? "profile-photos";
+  extra?.EXPO_PUBLIC_PROFILE_BUCKET ?? process.env.EXPO_PUBLIC_PROFILE_BUCKET ?? "photos_private";
 
 export const getPhotoUrl = async (
   storagePath: string,
@@ -17,7 +17,7 @@ export const getPhotoUrl = async (
     : storagePath;
 
   const isPublic =
-    String(extra?.EXPO_PUBLIC_STORAGE_PUBLIC ?? process.env.EXPO_PUBLIC_STORAGE_PUBLIC ?? "true") === "true";
+    String(extra?.EXPO_PUBLIC_STORAGE_PUBLIC ?? process.env.EXPO_PUBLIC_STORAGE_PUBLIC ?? "false") === "true";
 
   if (isPublic) {
     return supabase.storage.from(bucket).getPublicUrl(key).data.publicUrl ?? "";

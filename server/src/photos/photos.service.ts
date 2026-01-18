@@ -29,7 +29,7 @@ export class PhotosService {
   constructor(private readonly rateLimitService: RateLimitService, configService: ConfigService) {
     this.supabase = getSupabaseAdminClient();
     this.signTtlSeconds = Number(configService.get("SIGN_TTL_SECONDS") ?? 120);
-    this.originalBucket = configService.get<string>("PHOTOS_ORIGINAL_BUCKET") ?? "profile-photos";
+    this.originalBucket = configService.get<string>("PHOTOS_ORIGINAL_BUCKET") ?? "photos_private";
     this.blurredBucket = configService.get<string>("PHOTOS_BLURRED_BUCKET") ?? "photos_blurred";
   }
 

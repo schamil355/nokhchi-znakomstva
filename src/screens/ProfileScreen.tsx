@@ -62,6 +62,42 @@ const VERIFIED_BADGE_WRAPPER_SIZE = 36;
 const PROFILE_SCREEN_TOP_PADDING = 90;
 const PROFILE_PHOTO_SLOT_COUNT = 6;
 
+type IncognitoSwitchProps = {
+  value: boolean;
+  onValueChange: (next: boolean) => void;
+  disabled?: boolean;
+};
+
+const IncognitoSwitch = ({ value, onValueChange, disabled }: IncognitoSwitchProps) => {
+  if (Platform.OS === "android") {
+    return (
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        disabled={disabled}
+        trackColor={{ true: PALETTE.deep, false: "rgba(255,255,255,0.25)" }}
+        thumbColor={PALETTE.deep}
+      />
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={() => onValueChange(!value)}
+      disabled={disabled}
+      style={[
+        styles.incognitoToggleTrack,
+        value ? styles.incognitoToggleOn : styles.incognitoToggleOff,
+        disabled && styles.incognitoToggleDisabled
+      ]}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value, disabled }}
+    >
+      <View style={[styles.incognitoToggleThumb, value && styles.incognitoToggleThumbOn]} />
+    </Pressable>
+  );
+};
+
 const VerifiedBadge = ({ size = VERIFIED_BADGE_WRAPPER_SIZE }) => (
   <Image source={VerifiedBadgePng} style={{ width: size, height: size }} resizeMode="contain" />
 );
@@ -1393,12 +1429,7 @@ const ProfileScreen = () => {
       <View style={styles.section}>
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>{copy.labels.incognito}</Text>
-          <Switch
-            value={isIncognito}
-            onValueChange={setIsIncognito}
-            trackColor={{ true: PALETTE.deep, false: "rgba(255,255,255,0.25)" }}
-            thumbColor={PALETTE.deep}
-          />
+          <IncognitoSwitch value={isIncognito} onValueChange={setIsIncognito} />
         </View>
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>{copy.labels.showDistance}</Text>
@@ -1499,12 +1530,10 @@ const ProfileScreen = () => {
           </View>
           <View style={styles.toggleRowHero}>
             <Text style={styles.toggleLabelHero}>{copy.labels.incognito}</Text>
-            <Switch
+            <IncognitoSwitch
               value={isIncognito}
               onValueChange={handleToggleIncognitoDisplay}
               disabled={isUpdatingIncognito || isSigningOut}
-              trackColor={{ true: PALETTE.deep, false: "rgba(255,255,255,0.25)" }}
-              thumbColor={PALETTE.deep}
             />
           </View>
         </View>
@@ -1987,6 +2016,33 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 8
+  },
+  incognitoToggleTrack: {
+    width: 46,
+    height: 26,
+    borderRadius: 13,
+    padding: 3,
+    justifyContent: "center"
+  },
+  incognitoToggleOn: {
+    backgroundColor: PALETTE.deep,
+    alignItems: "flex-end"
+  },
+  incognitoToggleOff: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+    alignItems: "flex-start"
+  },
+  incognitoToggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: PALETTE.sand
+  },
+  incognitoToggleThumbOn: {
+    backgroundColor: PALETTE.deep
+  },
+  incognitoToggleDisabled: {
+    opacity: 0.6
   },
   switchLabel: {
     fontSize: 16,
