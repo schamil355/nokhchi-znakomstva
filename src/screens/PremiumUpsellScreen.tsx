@@ -25,6 +25,8 @@ const translations = {
     subtitle: "Mehr sehen, zuerst vorstellen, anonym bleiben.",
     benefitSeeLikes: "Sieh wer dich geliket hat",
     benefitSeeLikesDesc: "Alle Likes sofort sichtbar.",
+    benefitUnlimitedSwipes: "Unbegrenztes Swipen",
+    benefitUnlimitedSwipesDesc: "Swipe ohne Limit und sieh mehr Profile.",
     benefitInstachats: "Direktnachricht senden",
     benefitInstachatsDesc: "Warte nicht bis zum Match – schreib direkt.",
     benefitHideNearby: "Unsichtbar in der Nähe",
@@ -87,6 +89,8 @@ const translations = {
     subtitle: "Voir plus, initier l'intro, rester discret.",
     benefitSeeLikes: "Voir qui t’a liké",
     benefitSeeLikesDesc: "Tous les likes visibles immédiatement.",
+    benefitUnlimitedSwipes: "Swipe illimité",
+    benefitUnlimitedSwipesDesc: "Swipe sans limite et vois plus de profils.",
     benefitInstachats: "Envoyer un message direct",
     benefitInstachatsDesc: "N’attends pas le match — écris directement.",
     benefitHideNearby: "Invisible à proximité",
@@ -149,6 +153,8 @@ const translations = {
     subtitle: "See more, introduce first, stay hidden.",
     benefitSeeLikes: "See who liked you",
     benefitSeeLikesDesc: "All likes visible instantly.",
+    benefitUnlimitedSwipes: "Unlimited swipes",
+    benefitUnlimitedSwipesDesc: "Swipe without limits and see more profiles.",
     benefitInstachats: "Send a direct message",
     benefitInstachatsDesc: "Don’t wait for a match — message directly.",
     benefitHideNearby: "Invisible to nearby users",
@@ -211,6 +217,8 @@ const translations = {
     subtitle: "Видеть больше, делать первый шаг, оставаться скрытым.",
     benefitSeeLikes: "Смотри, кто тебя лайкнул",
     benefitSeeLikesDesc: "Все лайки сразу видны.",
+    benefitUnlimitedSwipes: "Безлимитные свайпы",
+    benefitUnlimitedSwipesDesc: "Свайпай без ограничений и смотри больше анкет.",
     benefitInstachats: "Отправить прямое сообщение",
     benefitInstachatsDesc: "Не жди матча — пиши напрямую.",
     benefitHideNearby: "Невидимка рядом",
@@ -292,6 +300,7 @@ const PremiumUpsellScreen = () => {
 
   const benefits = [
     { title: copy.benefitSeeLikes, desc: copy.benefitSeeLikesDesc },
+    { title: copy.benefitUnlimitedSwipes, desc: copy.benefitUnlimitedSwipesDesc },
     { title: copy.benefitInstachats, desc: copy.benefitInstachatsDesc },
     { title: copy.benefitHideNearby, desc: copy.benefitHideNearbyDesc },
     { title: copy.benefitAnon, desc: copy.benefitAnonDesc }

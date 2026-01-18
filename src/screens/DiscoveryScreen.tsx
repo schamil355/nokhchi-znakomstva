@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions, LayoutChangeEvent } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import SafeAreaView from "../components/SafeAreaView";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,6 +34,7 @@ const PALETTE = {
 const ACCENT = PALETTE.gold;
 const MAX_DISTANCE_KM = 130;
 const AUTO_EXTEND_STEP = 20;
+const SWIPE_UPSELL_LIMIT = 16;
 
 const DiscoveryScreen = () => {
 type CopyShape = {
@@ -214,6 +216,40 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     setHeaderHeight((prev) => (Math.abs(prev - next) > 1 ? next : prev));
   }, []);
 
+  const openPremiumUpsell = useCallback(() => {
+    const parentNav: any = (navigation as any).getParent?.() ?? navigation;
+    const rootNav: any = parentNav?.getParent?.() ?? parentNav;
+    const navigateToUpsell = rootNav?.navigate ?? navigation?.navigate;
+    if (typeof navigateToUpsell === "function") {
+      navigateToUpsell("PremiumUpsell");
+    }
+  }, [navigation]);
+
+  const incrementSwipeCount = useCallback(async () => {
+    if (hasPremiumAccess) {
+      return;
+    }
+    const userId = session?.user?.id;
+    if (!userId) {
+      return;
+    }
+    const key = `discovery:swipes:${userId}`;
+    try {
+      const raw = await AsyncStorage.getItem(key);
+      const current = raw ? Number(raw) : 0;
+      const safeCurrent = Number.isFinite(current) ? current : 0;
+      const next = safeCurrent + 1;
+      if (next >= SWIPE_UPSELL_LIMIT) {
+        await AsyncStorage.setItem(key, "0");
+        openPremiumUpsell();
+        return;
+      }
+      await AsyncStorage.setItem(key, String(next));
+    } catch (error) {
+      console.warn("[Discovery] Failed to update swipe count", error);
+    }
+  }, [hasPremiumAccess, openPremiumUpsell, session?.user?.id]);
+
   const isSameQueue = useCallback((next: Profile[], prev: Profile[]) => {
     if (prev.length !== next.length) {
       return false;
@@ -312,6 +348,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
         });
       }
       advanceQueue();
+      await incrementSwipeCount();
     } catch (error: any) {
       logError(error, "send-like");
       Alert.alert(copy.errors.title, getErrorMessage(error, errorCopy, copy.errors.likeFallback));
@@ -328,6 +365,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     try {
       await skipProfile(session.user.id, currentProfile.userId);
       advanceQueue();
+      await incrementSwipeCount();
     } catch (error: any) {
       logError(error, "skip-profile");
       Alert.alert(copy.errors.title, getErrorMessage(error, errorCopy, copy.errors.skipFallback));
@@ -341,12 +379,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       return;
     }
     if (!hasPremiumAccess) {
-      const parentNav: any = (navigation as any).getParent?.() ?? navigation;
-      const rootNav: any = parentNav?.getParent?.() ?? parentNav;
-      const navigateToUpsell = rootNav?.navigate ?? navigation?.navigate;
-      if (typeof navigateToUpsell === "function") {
-        navigateToUpsell("PremiumUpsell");
-      }
+      openPremiumUpsell();
       return;
     }
     setIsStartingDirect(true);
@@ -371,6 +404,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     hasPremiumAccess,
     isStartingDirect,
     navigation,
+    openPremiumUpsell,
     session?.user?.id
   ]);
 
