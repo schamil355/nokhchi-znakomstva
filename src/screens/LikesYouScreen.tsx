@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, Image, Pressable, RefreshControl, StyleSheet, Text, View, Dimensions } from "react-native";
+import { Dimensions, FlatList, Image, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import SafeAreaView from "../components/SafeAreaView";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
@@ -11,6 +11,11 @@ import { ensureDirectConversation } from "../services/directChatService";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRevenueCat } from "../hooks/useRevenueCat";
 import { resolveGeoRegion } from "../lib/geo";
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { getPhotoUrl, PROFILE_BUCKET } from "../lib/storage";
+import { getSignedPhotoUrl } from "../services/photoService";
+import { getCachedPhotoUri, setCachedPhotoUri } from "../lib/photoCache";
+import { sleep } from "../lib/timing";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -27,6 +32,138 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 const H_PADDING = 20;
 const GRID_GAP = 16;
 const CARD_WIDTH = (SCREEN_WIDTH - H_PADDING * 2 - GRID_GAP) / 2;
+
+const calculateAge = (birthday?: string | null) => {
+  if (!birthday) return "–";
+  const bday = new Date(birthday);
+  const today = new Date();
+  let age = today.getFullYear() - bday.getFullYear();
+  const m = today.getMonth() - bday.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < bday.getDate())) {
+    age -= 1;
+  }
+  return age;
+};
+
+type LikeCardProps = {
+  profile: Profile;
+  locked: boolean;
+  disabled: boolean;
+  onPress: (profile: Profile) => void;
+};
+
+const LikeCard = ({ profile, locked, disabled, onPress }: LikeCardProps) => {
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const firstPhoto = profile.photos?.[0] ?? null;
+  const inlineUrl = firstPhoto?.url ?? null;
+  const primaryAssetId =
+    typeof profile.primaryPhotoId === "number" && Number.isFinite(profile.primaryPhotoId)
+      ? profile.primaryPhotoId
+      : typeof firstPhoto?.assetId === "number"
+        ? firstPhoto.assetId
+        : Number.isFinite(Number(firstPhoto?.id))
+          ? Number(firstPhoto?.id)
+          : null;
+  const storagePath = profile.primaryPhotoPath ?? firstPhoto?.storagePath ?? null;
+  const cacheKey = useMemo(() => {
+    const variant = locked ? "blur" : "orig";
+    if (inlineUrl) {
+      return `url:${inlineUrl}`;
+    }
+    if (primaryAssetId) {
+      return `asset:${primaryAssetId}:${variant}`;
+    }
+    if (storagePath) {
+      return `path:${storagePath}:${variant}`;
+    }
+    return null;
+  }, [inlineUrl, locked, primaryAssetId, storagePath]);
+
+  useEffect(() => {
+    let active = true;
+    if (inlineUrl) {
+      setAvatarUri(inlineUrl);
+      setCachedPhotoUri(cacheKey, inlineUrl);
+      return () => {
+        active = false;
+      };
+    }
+    const cached = getCachedPhotoUri(cacheKey);
+    if (cached) {
+      setAvatarUri(cached);
+      return () => {
+        active = false;
+      };
+    }
+    const load = async () => {
+      const tryFetch = async <T,>(fn: () => Promise<T>, attempts = 2): Promise<T | null> => {
+        for (let i = 0; i < attempts; i++) {
+          try {
+            return await fn();
+          } catch (err) {
+            if (i === attempts - 1) {
+              throw err;
+            }
+            await sleep(300 * (i + 1));
+          }
+        }
+        return null;
+      };
+      try {
+        if (primaryAssetId) {
+          const signed = await tryFetch(() => getSignedPhotoUrl(primaryAssetId, locked ? "blur" : "original"));
+          if (active && signed?.url) {
+            setAvatarUri(signed.url);
+            setCachedPhotoUri(cacheKey ?? `asset:${primaryAssetId}`, signed.url);
+            return;
+          }
+        }
+        if (storagePath) {
+          const signed = await tryFetch(() => getPhotoUrl(storagePath, supabase, PROFILE_BUCKET));
+          if (active && signed) {
+            setAvatarUri(signed);
+            setCachedPhotoUri(cacheKey ?? `path:${storagePath}`, signed);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn("[LikesYou] Failed to load avatar", error);
+      }
+      if (active) {
+        setAvatarUri(null);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [cacheKey, inlineUrl, locked, primaryAssetId, storagePath, supabase]);
+
+  const displayName = profile.displayName || "Profil";
+  const age = calculateAge(profile.birthday);
+
+  return (
+    <Pressable style={styles.card} onPress={() => onPress(profile)} disabled={disabled}>
+      <View style={styles.avatarWrapper}>
+        {avatarUri ? (
+          <>
+            <Image source={{ uri: avatarUri }} style={styles.avatar} blurRadius={locked ? 70 : 0} resizeMode="cover" />
+            {locked && <View style={styles.blurOverlay} />}
+          </>
+        ) : (
+          <View style={styles.avatarPlaceholder} />
+        )}
+      </View>
+      <View style={styles.metaRow}>
+        <Text style={styles.name} numberOfLines={1}>
+          {`${displayName}, ${age}`}
+        </Text>
+        {profile.verified && <Image source={VerifiedBadgePng} style={styles.verifiedIcon} resizeMode="contain" />}
+      </View>
+    </Pressable>
+  );
+};
 
 const translations = {
   de: {
@@ -83,18 +220,6 @@ const LikesYouScreen = () => {
   const [items, setItems] = useState<Profile[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [isStartingDirect, setIsStartingDirect] = useState(false);
-
-  const calculateAge = (birthday?: string | null) => {
-    if (!birthday) return "–";
-    const bday = new Date(birthday);
-    const today = new Date();
-    let age = today.getFullYear() - bday.getFullYear();
-    const m = today.getMonth() - bday.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < bday.getDate())) {
-      age -= 1;
-    }
-    return age;
-  };
 
   const loadLikes = useCallback(async () => {
     if (!userId) return;
@@ -183,35 +308,13 @@ const LikesYouScreen = () => {
             contentContainerStyle={styles.grid}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
             renderItem={({ item }) => {
-              const avatarUrl = item.photos?.[0]?.url ?? null;
-              const displayName = item.displayName || "Profil";
-              const age = calculateAge(item.birthday);
               return (
-                <Pressable style={styles.card} onPress={() => handleOpenChat(item)} disabled={isStartingDirect}>
-                  <View style={styles.avatarWrapper}>
-                    {avatarUrl ? (
-                      <>
-                        <Image
-                          source={{ uri: avatarUrl }}
-                          style={styles.avatar}
-                          blurRadius={locked ? 70 : 0}
-                          resizeMode="cover"
-                        />
-                        {locked && <View style={styles.blurOverlay} />}
-                      </>
-                    ) : (
-                      <View style={styles.avatarPlaceholder} />
-                    )}
-                  </View>
-                  <View style={styles.metaRow}>
-                    <Text style={styles.name} numberOfLines={1}>
-                      {`${displayName}, ${age}`}
-                    </Text>
-                    {item.verified && (
-                      <Image source={VerifiedBadgePng} style={styles.verifiedIcon} resizeMode="contain" />
-                    )}
-                  </View>
-                </Pressable>
+                <LikeCard
+                  profile={item}
+                  locked={locked}
+                  disabled={isStartingDirect}
+                  onPress={handleOpenChat}
+                />
               );
             }}
             ListEmptyComponent={null}
