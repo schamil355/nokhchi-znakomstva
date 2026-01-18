@@ -14,6 +14,7 @@ import { getPhotoUrl } from "../lib/storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { blockUser, reportUser } from "../services/moderationService";
 import SafeAreaView from "../components/SafeAreaView";
+import { track } from "../lib/analytics";
 
 type Props = NativeStackScreenProps<any>;
 
@@ -264,6 +265,7 @@ const DirectChatScreen = ({ route, navigation }: Props) => {
             setIsBlocking(true);
             try {
               await reportUser(viewerId, otherUserId, "abuse");
+              await track("report_profile", { targetId: otherUserId, source: "direct_chat", action: "block" });
               await blockUser(viewerId, otherUserId);
               Alert.alert(copy.blockSuccess);
               navigation.goBack();

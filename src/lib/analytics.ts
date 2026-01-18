@@ -5,7 +5,7 @@ import { getSupabaseClient } from "./supabaseClient";
 const QUEUE_KEY = "app.events.queue";
 const MAX_BATCH_SEND = 20;
 
-export type EventName = "app_open" | "view_profile" | "like" | "match" | "message_send";
+export type EventName = "app_open" | "view_profile" | "like" | "match" | "message_send" | "report_profile";
 
 type QueuedEvent = {
   user_id: string;

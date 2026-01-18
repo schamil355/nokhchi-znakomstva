@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions, LayoutChangeEvent } from "react-native";
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions, LayoutChangeEvent } from "react-native";
 import SafeAreaView from "../components/SafeAreaView";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,6 +21,7 @@ import { useRevenueCat } from "../hooks/useRevenueCat";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { calculateCompassAlignment } from "../lib/matchEngine";
 import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
+import { track } from "../lib/analytics";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -192,6 +193,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     recent: []
   });
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [reportSheetVisible, setReportSheetVisible] = useState(false);
 
   const {
     data: recentProfiles = [],
@@ -387,8 +389,56 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     session?.user?.id
   ]);
 
+  const showFeedback = useCallback((title: string, message?: string) => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.alert(message ? `${title}\n${message}` : title);
+      return;
+    }
+    Alert.alert(title, message);
+  }, []);
+
+  const runReport = useCallback(
+    async (mode: "report" | "block") => {
+      if (!session?.user?.id || !currentProfile?.userId || isModerating) {
+        return;
+      }
+      setIsModerating(true);
+      try {
+        await reportUser(session.user.id, currentProfile.userId, "abuse");
+        await track("report_profile", { targetId: currentProfile.userId, source: "discovery", action: mode });
+        if (mode === "block") {
+          await blockUser(session.user.id, currentProfile.userId);
+          showFeedback(copy.actions.blockSuccess);
+          advanceQueue();
+        } else {
+          showFeedback(copy.actions.reportSuccess);
+        }
+      } catch (error) {
+        console.warn("Failed to report user from discovery", error);
+        showFeedback(mode === "block" ? copy.actions.blockFailed : copy.actions.reportFailed);
+      } finally {
+        setIsModerating(false);
+      }
+    },
+    [
+      advanceQueue,
+      copy.actions.blockFailed,
+      copy.actions.blockSuccess,
+      copy.actions.reportFailed,
+      copy.actions.reportSuccess,
+      currentProfile?.userId,
+      isModerating,
+      session?.user?.id,
+      showFeedback
+    ]
+  );
+
   const handleReportProfile = useCallback(() => {
     if (!session?.user?.id || !currentProfile?.userId || isModerating) {
+      return;
+    }
+    if (Platform.OS === "web") {
+      setReportSheetVisible(true);
       return;
     }
     Alert.alert(copy.actions.reportTitle, copy.actions.reportBody, [
@@ -396,51 +446,27 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       {
         text: copy.actions.reportOnly,
         style: "default",
-        onPress: async () => {
-          setIsModerating(true);
-          try {
-            await reportUser(session.user.id, currentProfile.userId, "abuse");
-            Alert.alert(copy.actions.reportSuccess);
-          } catch (error) {
-            console.warn("Failed to report user from discovery", error);
-            Alert.alert(copy.actions.reportFailed);
-          } finally {
-            setIsModerating(false);
-          }
+        onPress: () => {
+          void runReport("report");
         }
       },
       {
         text: copy.actions.blockAndReport,
         style: "destructive",
-        onPress: async () => {
-          setIsModerating(true);
-          try {
-            await reportUser(session.user.id, currentProfile.userId, "abuse");
-            await blockUser(session.user.id, currentProfile.userId);
-            Alert.alert(copy.actions.blockSuccess);
-            advanceQueue();
-          } catch (error) {
-            console.warn("Failed to block/report user from discovery", error);
-            Alert.alert(copy.actions.blockFailed);
-          } finally {
-            setIsModerating(false);
-          }
+        onPress: () => {
+          void runReport("block");
         }
       }
     ]);
   }, [
-    advanceQueue,
     copy.actions.reportBody,
     copy.actions.reportCancel,
     copy.actions.reportOnly,
     copy.actions.blockAndReport,
-    copy.actions.reportFailed,
-    copy.actions.reportSuccess,
     copy.actions.reportTitle,
-    copy.actions.blockFailed,
-    copy.actions.blockSuccess,
     currentProfile?.userId,
     isModerating,
+    runReport,
     session?.user?.id
   ]);
 
@@ -502,6 +528,51 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]} topPadding={0}>
+        {Platform.OS === "web" ? (
+          <Modal
+            transparent
+            animationType="fade"
+            visible={reportSheetVisible}
+            onRequestClose={() => setReportSheetVisible(false)}
+          >
+            <View style={styles.reportBackdrop}>
+              <Pressable style={styles.reportBackdropTouchable} onPress={() => setReportSheetVisible(false)} />
+              <View style={styles.reportSheet}>
+                <Text style={styles.reportTitle}>{copy.actions.reportTitle}</Text>
+                <Text style={styles.reportBody}>{copy.actions.reportBody}</Text>
+                <View style={styles.reportActions}>
+                  <Pressable
+                    style={[styles.reportButton, styles.reportButtonGhost]}
+                    onPress={() => setReportSheetVisible(false)}
+                    disabled={isModerating}
+                  >
+                    <Text style={styles.reportButtonText}>{copy.actions.reportCancel}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.reportButton}
+                    onPress={() => {
+                      setReportSheetVisible(false);
+                      void runReport("report");
+                    }}
+                    disabled={isModerating}
+                  >
+                    <Text style={styles.reportButtonText}>{copy.actions.reportOnly}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.reportButton, styles.reportButtonDanger]}
+                    onPress={() => {
+                      setReportSheetVisible(false);
+                      void runReport("block");
+                    }}
+                    disabled={isModerating}
+                  >
+                    <Text style={styles.reportButtonText}>{copy.actions.blockAndReport}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        ) : null}
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={[
@@ -659,6 +730,60 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     alignItems: "center"
+  },
+  reportBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20
+  },
+  reportBackdropTouchable: {
+    ...StyleSheet.absoluteFillObject
+  },
+  reportSheet: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.4)",
+    backgroundColor: "#0b1a12",
+    padding: 18,
+    gap: 12
+  },
+  reportTitle: {
+    color: PALETTE.sand,
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  reportBody: {
+    color: "rgba(242,231,215,0.78)",
+    fontSize: 13,
+    lineHeight: 18
+  },
+  reportActions: {
+    gap: 10
+  },
+  reportButton: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(217,192,143,0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.4)"
+  },
+  reportButtonGhost: {
+    backgroundColor: "transparent"
+  },
+  reportButtonDanger: {
+    backgroundColor: "rgba(235,87,87,0.2)",
+    borderColor: "rgba(235,87,87,0.55)"
+  },
+  reportButtonText: {
+    color: PALETTE.sand,
+    fontWeight: "700",
+    fontSize: 14
   }
 });
 
