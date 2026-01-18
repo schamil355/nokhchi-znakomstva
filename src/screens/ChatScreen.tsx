@@ -282,6 +282,23 @@ const ChatScreen = ({ route, navigation }: Props) => {
     [renderComposer, renderSend]
   );
 
+  const currentMatch = matches.find((item) => item.id === matchId);
+  const matchIsIncognito =
+    headerMeta.isIncognito || Boolean(currentMatch?.otherIsIncognito || !currentMatch?.previewPhotoUrl);
+  const matchName = headerMeta.name || currentMatch?.otherDisplayName || copy.fallbackName;
+  const matchPhoto = matchIsIncognito ? null : headerMeta.photo || currentMatch?.previewPhotoUrl || null;
+  const isTyping = Boolean(typingMatches[matchId]);
+  const online = currentMatch?.lastMessageAt
+    ? Date.now() - new Date(currentMatch.lastMessageAt).getTime() < 5 * 60 * 1000
+    : false;
+  const statusText = isTyping
+    ? copy.typing
+    : online
+    ? copy.online
+    : currentMatch?.lastMessageAt
+    ? copy.lastSeen(new Date(currentMatch.lastMessageAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
+    : "";
+
   const renderAvatar = useCallback(
     (avatarProps: any) => {
       const isOwn = avatarProps?.currentMessage?.user?._id === session?.user?.id;
@@ -484,23 +501,6 @@ const ChatScreen = ({ route, navigation }: Props) => {
         name: message.senderId === session.user.id ? "Du" : copy.fallbackName
       }
     }));
-
-  const currentMatch = matches.find((item) => item.id === matchId);
-  const matchIsIncognito =
-    headerMeta.isIncognito || Boolean(currentMatch?.otherIsIncognito || !currentMatch?.previewPhotoUrl);
-  const matchName = headerMeta.name || currentMatch?.otherDisplayName || copy.fallbackName;
-  const matchPhoto = matchIsIncognito ? null : headerMeta.photo || currentMatch?.previewPhotoUrl || null;
-  const isTyping = Boolean(typingMatches[matchId]);
-  const online = currentMatch?.lastMessageAt
-    ? Date.now() - new Date(currentMatch.lastMessageAt).getTime() < 5 * 60 * 1000
-    : false;
-  const statusText = isTyping
-    ? copy.typing
-    : online
-    ? copy.online
-    : currentMatch?.lastMessageAt
-    ? copy.lastSeen(new Date(currentMatch.lastMessageAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
-    : "";
 
   return (
     <LinearGradient
