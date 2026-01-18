@@ -218,10 +218,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   const refetch = isRecentTab ? refetchRecent : refetchDiscovery;
   const cardHeight = React.useMemo(() => {
     const availableHeight = height - insets.top - insets.bottom - tabBarHeight - headerHeight;
-    const baseHeight = width * 0.85;
-    const maxHeight = availableHeight > 0 ? availableHeight - 16 : baseHeight;
-    const target = Math.min(baseHeight, maxHeight);
-    return Math.round(Math.max(240, target));
+    const target = availableHeight > 0 ? availableHeight - 12 : width * 1.1;
+    return Math.round(Math.max(260, target));
   }, [height, insets.bottom, insets.top, tabBarHeight, headerHeight, width]);
 
   const handleHeaderLayout = React.useCallback((event: LayoutChangeEvent) => {
