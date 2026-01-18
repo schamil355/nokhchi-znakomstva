@@ -39,7 +39,7 @@ import { useOnboardingStore } from "../state/onboardingStore";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { getPhotoUrl, PROFILE_BUCKET } from "../lib/storage";
 import { signOut as signOutService } from "../services/authService";
-import { formatCountryLabel, isWithinChechnyaRadius } from "../lib/geo";
+import { formatCountryLabel, isWithinChechnyaRadius, resolveGeoRegion } from "../lib/geo";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { LinearGradient } from "expo-linear-gradient";
@@ -419,7 +419,6 @@ const ProfileScreen = () => {
   const session = useAuthStore((state) => state.session);
   const isPremium = useAuthStore((state) => state.profile?.isPremium ?? false);
   const { isPro } = useRevenueCat({ loadOfferings: false });
-  const hasPremiumAccess = isPremium || isPro;
   const copy = useLocalizedCopy(translations);
   const compassCopy = useLocalizedCopy({
     en: {
@@ -445,6 +444,19 @@ const ProfileScreen = () => {
   });
   const errorCopy = useErrorCopy();
   const profile = useAuthStore((state) => state.profile);
+  const viewerRegion = useMemo(() => {
+    if (!profile) {
+      return null;
+    }
+    return resolveGeoRegion({
+      countryCode: profile.country ?? null,
+      regionCode: profile.regionCode ?? null,
+      latitude: profile.latitude ?? null,
+      longitude: profile.longitude ?? null
+    });
+  }, [profile?.country, profile?.regionCode, profile?.latitude, profile?.longitude]);
+  const isFreeRegion = viewerRegion === "chechnya" || viewerRegion === "russia";
+  const hasPremiumAccess = isPremium || isPro || isFreeRegion;
   const setProfile = useAuthStore((state) => state.setProfile);
   const onboardingName = useOnboardingStore((state) => state.name);
   const onboardingDob = useOnboardingStore((state) => state.dob);

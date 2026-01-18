@@ -23,6 +23,7 @@ import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { calculateCompassAlignment } from "../lib/matchEngine";
 import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { track } from "../lib/analytics";
+import { resolveGeoRegion } from "../lib/geo";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -192,7 +193,24 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   const viewerProfile = useAuthStore((state) => state.profile);
   const isPremium = useAuthStore((state) => state.profile?.isPremium ?? false);
   const { isPro } = useRevenueCat({ loadOfferings: false });
-  const hasPremiumAccess = isPremium || isPro;
+  const viewerRegion = React.useMemo(() => {
+    if (!viewerProfile) {
+      return null;
+    }
+    return resolveGeoRegion({
+      countryCode: viewerProfile.country ?? null,
+      regionCode: viewerProfile.regionCode ?? null,
+      latitude: viewerProfile.latitude ?? null,
+      longitude: viewerProfile.longitude ?? null
+    });
+  }, [
+    viewerProfile?.country,
+    viewerProfile?.regionCode,
+    viewerProfile?.latitude,
+    viewerProfile?.longitude
+  ]);
+  const isFreeRegion = viewerRegion === "chechnya" || viewerRegion === "russia";
+  const hasPremiumAccess = isPremium || isPro || isFreeRegion;
   const filters = usePreferencesStore((state) => state.filters);
   const setFilters = usePreferencesStore((state) => state.setFilters);
   const resetFilters = usePreferencesStore((state) => state.resetFilters);

@@ -10,6 +10,7 @@ import VerifiedBadgePng from "../../assets/icons/icon.png";
 import { ensureDirectConversation } from "../services/directChatService";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRevenueCat } from "../hooks/useRevenueCat";
+import { resolveGeoRegion } from "../lib/geo";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -62,9 +63,22 @@ const LikesYouScreen = () => {
   const copy = useLocalizedCopy(translations);
   const navigation = useNavigation<any>();
   const session = useAuthStore((state) => state.session);
+  const profile = useAuthStore((state) => state.profile);
   const isPremium = useAuthStore((state) => state.profile?.isPremium ?? false);
   const { isPro } = useRevenueCat({ loadOfferings: false });
-  const hasPremiumAccess = isPremium || isPro;
+  const viewerRegion = useMemo(() => {
+    if (!profile) {
+      return null;
+    }
+    return resolveGeoRegion({
+      countryCode: profile.country ?? null,
+      regionCode: profile.regionCode ?? null,
+      latitude: profile.latitude ?? null,
+      longitude: profile.longitude ?? null
+    });
+  }, [profile?.country, profile?.regionCode, profile?.latitude, profile?.longitude]);
+  const isFreeRegion = viewerRegion === "chechnya" || viewerRegion === "russia";
+  const hasPremiumAccess = isPremium || isPro || isFreeRegion;
   const userId = session?.user?.id ?? null;
   const [items, setItems] = useState<Profile[]>([]);
   const [refreshing, setRefreshing] = useState(false);
