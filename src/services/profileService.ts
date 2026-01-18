@@ -286,7 +286,7 @@ export const mapProfile = (row: any): Profile => {
     verified: Boolean(row.verified),
     verifiedAt: row.verified_at ?? undefined,
     primaryPhotoPath: row.primary_photo_path ?? null,
-    primaryPhotoId: typeof row.primary_photo_id === "number" ? row.primary_photo_id : null,
+    primaryPhotoId: toNumericId(row.primary_photo_id),
     verifiedFaceScore: typeof row.verified_face_score === "number" ? row.verified_face_score : null,
     relationshipCompass,
     regionCode: row.region_code ?? null,

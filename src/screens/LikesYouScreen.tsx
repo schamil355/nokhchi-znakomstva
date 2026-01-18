@@ -57,6 +57,7 @@ const LikeCard = ({ profile, locked, disabled, onPress }: LikeCardProps) => {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const firstPhoto = profile.photos?.[0] ?? null;
   const inlineUrl = firstPhoto?.url ?? null;
+  const remoteInlineUrl = inlineUrl && /^https?:\/\//i.test(inlineUrl) ? inlineUrl : null;
   const primaryAssetId =
     typeof profile.primaryPhotoId === "number" && Number.isFinite(profile.primaryPhotoId)
       ? profile.primaryPhotoId
@@ -68,8 +69,8 @@ const LikeCard = ({ profile, locked, disabled, onPress }: LikeCardProps) => {
   const storagePath = profile.primaryPhotoPath ?? firstPhoto?.storagePath ?? null;
   const cacheKey = useMemo(() => {
     const variant = locked ? "blur" : "orig";
-    if (inlineUrl) {
-      return `url:${inlineUrl}`;
+    if (remoteInlineUrl) {
+      return `url:${remoteInlineUrl}`;
     }
     if (primaryAssetId) {
       return `asset:${primaryAssetId}:${variant}`;
@@ -82,9 +83,9 @@ const LikeCard = ({ profile, locked, disabled, onPress }: LikeCardProps) => {
 
   useEffect(() => {
     let active = true;
-    if (inlineUrl) {
-      setAvatarUri(inlineUrl);
-      setCachedPhotoUri(cacheKey, inlineUrl);
+    if (remoteInlineUrl) {
+      setAvatarUri(remoteInlineUrl);
+      setCachedPhotoUri(cacheKey, remoteInlineUrl);
       return () => {
         active = false;
       };
@@ -138,7 +139,7 @@ const LikeCard = ({ profile, locked, disabled, onPress }: LikeCardProps) => {
     return () => {
       active = false;
     };
-  }, [cacheKey, inlineUrl, locked, primaryAssetId, storagePath, supabase]);
+  }, [cacheKey, locked, primaryAssetId, remoteInlineUrl, storagePath, supabase]);
 
   const displayName = profile.displayName || "Profil";
   const age = calculateAge(profile.birthday);

@@ -1396,8 +1396,8 @@ const ProfileScreen = () => {
           <Switch
             value={isIncognito}
             onValueChange={setIsIncognito}
-            trackColor={{ true: BRAND_GREEN, false: "#d5d7dc" }}
-            thumbColor="#fff"
+            trackColor={{ true: PALETTE.deep, false: "rgba(255,255,255,0.25)" }}
+            thumbColor={PALETTE.deep}
           />
         </View>
         <View style={styles.switchRow}>
@@ -1503,7 +1503,7 @@ const ProfileScreen = () => {
               value={isIncognito}
               onValueChange={handleToggleIncognitoDisplay}
               disabled={isUpdatingIncognito || isSigningOut}
-              trackColor={{ true: PALETTE.gold, false: "rgba(255,255,255,0.25)" }}
+              trackColor={{ true: PALETTE.deep, false: "rgba(255,255,255,0.25)" }}
               thumbColor={PALETTE.deep}
             />
           </View>
