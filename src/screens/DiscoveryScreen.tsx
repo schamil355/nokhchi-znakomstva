@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDiscoveryFeed, useRecentProfiles } from "../hooks/useDiscoveryFeed";
 import { sendLike, skipProfile } from "../services/discoveryService";
 import { ensureDirectConversation } from "../services/directChatService";
-import { blockUser, reportUser } from "../services/moderationService";
+import { reportUser } from "../services/moderationService";
 import { useAuthStore } from "../state/authStore";
 import { usePreferencesStore } from "../state/preferencesStore";
 import { Profile } from "../types";
@@ -56,12 +56,9 @@ type CopyShape = {
     reportTitle: string;
     reportBody: string;
     reportOnly: string;
-    blockAndReport: string;
     reportCancel: string;
     reportSuccess: string;
     reportFailed: string;
-    blockSuccess: string;
-    blockFailed: string;
   };
 };
 
@@ -82,14 +79,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       directChatFailed: "Couldn't start a direct intro.",
       report: "Report",
       reportTitle: "Report this profile?",
-      reportBody: "We will review the report. You can also block this user immediately.",
-      reportOnly: "Report only",
-      blockAndReport: "Block & report",
+      reportBody: "We will review this report.",
+      reportOnly: "Report",
       reportCancel: "Cancel",
       reportSuccess: "Report received. Thank you.",
-      reportFailed: "Report failed. Please try again.",
-      blockSuccess: "User blocked and reported.",
-      blockFailed: "Blocking failed. Please try again."
+      reportFailed: "Report failed. Please try again."
     },
   },
   de: {
@@ -108,14 +102,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       directChatFailed: "Direktkontakt konnte nicht gestartet werden.",
       report: "Melden",
       reportTitle: "Profil melden?",
-      reportBody: "Wir prüfen Meldungen. Du kannst den Nutzer auch sofort blockieren.",
-      reportOnly: "Nur melden",
-      blockAndReport: "Blockieren & melden",
+      reportBody: "Wir prüfen die Meldung.",
+      reportOnly: "Melden",
       reportCancel: "Abbrechen",
       reportSuccess: "Meldung erhalten. Danke!",
-      reportFailed: "Meldung fehlgeschlagen.",
-      blockSuccess: "Nutzer blockiert und gemeldet.",
-      blockFailed: "Blockieren fehlgeschlagen."
+      reportFailed: "Meldung fehlgeschlagen."
     },
   },
   fr: {
@@ -134,14 +125,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       directChatFailed: "Impossible d'ouvrir le contact direct.",
       report: "Signaler",
       reportTitle: "Signaler ce profil ?",
-      reportBody: "Nous examinerons ce signalement. Tu peux aussi bloquer l'utilisateur.",
-      reportOnly: "Signaler seulement",
-      blockAndReport: "Bloquer et signaler",
+      reportBody: "Nous examinerons ce signalement.",
+      reportOnly: "Signaler",
       reportCancel: "Annuler",
       reportSuccess: "Signalement reçu. Merci.",
-      reportFailed: "Échec du signalement. Réessaie.",
-      blockSuccess: "Utilisateur bloqué et signalé.",
-      blockFailed: "Échec du blocage."
+      reportFailed: "Échec du signalement. Réessaie."
     },
   },
   ru: {
@@ -160,14 +148,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       directChatFailed: "Не удалось начать прямую связь.",
       report: "Пожаловаться",
       reportTitle: "Пожаловаться на профиль?",
-      reportBody: "Мы рассмотрим жалобу. Вы также можете заблокировать пользователя.",
-      reportOnly: "Только жалоба",
-      blockAndReport: "Заблокировать и пожаловаться",
+      reportBody: "Мы рассмотрим жалобу.",
+      reportOnly: "Пожаловаться",
       reportCancel: "Отмена",
       reportSuccess: "Жалоба отправлена. Спасибо.",
-      reportFailed: "Не удалось отправить жалобу.",
-      blockSuccess: "Пользователь заблокирован и жалоба отправлена.",
-      blockFailed: "Не удалось заблокировать."
+      reportFailed: "Не удалось отправить жалобу."
     },
   },
 };
@@ -398,32 +383,23 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   }, []);
 
   const runReport = useCallback(
-    async (mode: "report" | "block") => {
+    async () => {
       if (!session?.user?.id || !currentProfile?.userId || isModerating) {
         return;
       }
       setIsModerating(true);
       try {
         await reportUser(session.user.id, currentProfile.userId, "abuse");
-        await track("report_profile", { targetId: currentProfile.userId, source: "discovery", action: mode });
-        if (mode === "block") {
-          await blockUser(session.user.id, currentProfile.userId);
-          showFeedback(copy.actions.blockSuccess);
-          advanceQueue();
-        } else {
-          showFeedback(copy.actions.reportSuccess);
-        }
+        await track("report_profile", { targetId: currentProfile.userId, source: "discovery", action: "report" });
+        showFeedback(copy.actions.reportSuccess);
       } catch (error) {
         console.warn("Failed to report user from discovery", error);
-        showFeedback(mode === "block" ? copy.actions.blockFailed : copy.actions.reportFailed);
+        showFeedback(copy.actions.reportFailed);
       } finally {
         setIsModerating(false);
       }
     },
     [
-      advanceQueue,
-      copy.actions.blockFailed,
-      copy.actions.blockSuccess,
       copy.actions.reportFailed,
       copy.actions.reportSuccess,
       currentProfile?.userId,
@@ -447,14 +423,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
         text: copy.actions.reportOnly,
         style: "default",
         onPress: () => {
-          void runReport("report");
-        }
-      },
-      {
-        text: copy.actions.blockAndReport,
-        style: "destructive",
-        onPress: () => {
-          void runReport("block");
+          void runReport();
         }
       }
     ]);
@@ -462,7 +431,6 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     copy.actions.reportBody,
     copy.actions.reportCancel,
     copy.actions.reportOnly,
-    copy.actions.blockAndReport,
     copy.actions.reportTitle,
     currentProfile?.userId,
     isModerating,
@@ -552,21 +520,11 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
                     style={styles.reportButton}
                     onPress={() => {
                       setReportSheetVisible(false);
-                      void runReport("report");
+                      void runReport();
                     }}
                     disabled={isModerating}
                   >
                     <Text style={styles.reportButtonText}>{copy.actions.reportOnly}</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.reportButton, styles.reportButtonDanger]}
-                    onPress={() => {
-                      setReportSheetVisible(false);
-                      void runReport("block");
-                    }}
-                    disabled={isModerating}
-                  >
-                    <Text style={styles.reportButtonText}>{copy.actions.blockAndReport}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -775,10 +733,6 @@ const styles = StyleSheet.create({
   },
   reportButtonGhost: {
     backgroundColor: "transparent"
-  },
-  reportButtonDanger: {
-    backgroundColor: "rgba(235,87,87,0.2)",
-    borderColor: "rgba(235,87,87,0.55)"
   },
   reportButtonText: {
     color: PALETTE.sand,
