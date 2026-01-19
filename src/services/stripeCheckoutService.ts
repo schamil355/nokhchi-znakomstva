@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import { useAuthStore } from "../state/authStore";
+import { getFreshAccessToken } from "../lib/supabaseClient";
 
 const rawApiBase =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -34,8 +34,8 @@ const extractErrorMessage = (payload: any, fallback: string) => {
   return fallback;
 };
 
-const getAccessToken = () => {
-  const token = useAuthStore.getState().session?.access_token;
+const getAccessToken = async () => {
+  const token = await getFreshAccessToken();
   if (!token) {
     throw withCode("AUTH_REQUIRED", "Not authenticated.");
   }
@@ -70,10 +70,11 @@ export const createStripeCheckoutSession = async (params: {
   planId: StripePlanId;
   currency: StripeCurrency;
 }): Promise<{ url: string }> => {
+  const token = await getAccessToken();
   const response = await fetch(`${ensureApiBase()}/v1/payments/stripe/checkout`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${getAccessToken()}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(params),

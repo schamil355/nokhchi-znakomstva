@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import { useAuthStore } from "../state/authStore";
+import { getFreshAccessToken } from "../lib/supabaseClient";
 
 const rawApiBase =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -31,8 +31,8 @@ const extractErrorMessage = (payload: any, fallback: string) => {
   return fallback;
 };
 
-const getAccessToken = () => {
-  const token = useAuthStore.getState().session?.access_token;
+const getAccessToken = async () => {
+  const token = await getFreshAccessToken();
   if (!token) {
     throw withCode("AUTH_REQUIRED", "Not authenticated.");
   }
@@ -46,10 +46,11 @@ export type VerificationSession = {
 };
 
 export const startVerificationSession = async (): Promise<VerificationSession> => {
+  const token = await getAccessToken();
   const response = await fetch(`${ensureApiBase()}/v1/verification/start`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${getAccessToken()}`,
+      Authorization: `Bearer ${token}`,
     },
   });
 
@@ -74,6 +75,7 @@ export const uploadVerificationSelfie = async (params: {
   mimeType?: string;
   captureFlag?: boolean;
 }): Promise<{ ok: boolean; similarity: number; next: string }> => {
+  const token = await getAccessToken();
   const { sessionId, fileUri, file, mimeType = "image/jpeg", captureFlag = true } = params;
   const formData = new FormData();
   formData.append("sessionId", sessionId);
@@ -97,7 +99,7 @@ export const uploadVerificationSelfie = async (params: {
   const response = await fetch(`${ensureApiBase()}/v1/verification/upload-selfie`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${getAccessToken()}`,
+      Authorization: `Bearer ${token}`,
     },
     body: formData,
   });

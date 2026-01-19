@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
-import { getSupabaseClient } from "../lib/supabaseClient";
+import { getFreshAccessToken, getSupabaseClient } from "../lib/supabaseClient";
 
 const rawApiBase =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -35,6 +35,10 @@ const urlBase64ToUint8Array = (base64String: string) => {
 };
 
 const getAccessToken = async () => {
+  const token = await getFreshAccessToken();
+  if (token) {
+    return token;
+  }
   const supabase = getSupabaseClient();
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;

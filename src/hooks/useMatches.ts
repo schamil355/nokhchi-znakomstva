@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { fetchMatches, sendMessage } from "../services/matchService";
 import { useAuthStore } from "../state/authStore";
@@ -9,13 +10,14 @@ export const useMatches = () => {
   const session = useAuthStore((state) => state.session);
   const viewerIsIncognito = useAuthStore((state) => state.profile?.isIncognito);
   const queryClient = useQueryClient();
+  const isWeb = Platform.OS === "web";
 
   const matchesQuery = useQuery({
     queryKey: ["matches", session?.user.id],
     queryFn: () => (session ? fetchMatches(session.user.id, { viewerIsIncognito }) : []),
     enabled: Boolean(session),
-    refetchInterval: 5_000,
-    refetchIntervalInBackground: true,
+    refetchInterval: isWeb ? 15_000 : 5_000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true
   });

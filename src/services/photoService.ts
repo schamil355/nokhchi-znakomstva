@@ -2,8 +2,7 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import type * as FileSystemType from "expo-file-system";
 import { decode as decodeBase64 } from "base64-arraybuffer";
-import { getSupabaseClient } from "../lib/supabaseClient";
-import { useAuthStore } from "../state/authStore";
+import { getSupabaseClient, getFreshAccessToken } from "../lib/supabaseClient";
 import { getCurrentLocale } from "../localization/LocalizationProvider";
 import { PROFILE_BUCKET } from "../lib/storage";
 import type * as ImageManipulatorType from "expo-image-manipulator";
@@ -81,19 +80,24 @@ const ensureApiBase = () => {
   return API_BASE;
 };
 
-const getAccessToken = () => {
-  const token = useAuthStore.getState().session?.access_token;
+const getAccessToken = async () => {
+  const token = await getFreshAccessToken();
   if (!token) {
     throw withCode("AUTH_REQUIRED", t("notLoggedIn"));
   }
   return token;
 };
 
-const jsonRequest = async <T>(path: string, body: Record<string, unknown>, method: "POST" | "DELETE" | "PATCH" = "POST") => {
+const jsonRequest = async <T>(
+  path: string,
+  body: Record<string, unknown>,
+  method: "POST" | "DELETE" | "PATCH" = "POST"
+) => {
+  const token = await getAccessToken();
   const response = await fetch(`${ensureApiBase()}${path}`, {
     method,
     headers: {
-      Authorization: `Bearer ${getAccessToken()}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json"
     },
     body: method === "DELETE" ? JSON.stringify(body) : JSON.stringify(body)
@@ -212,54 +216,57 @@ export const updatePrivacySettings = (payload: {
 export const changeVisibility = (photoId: number, visibility_mode: VisibilityMode) =>
   jsonRequest<{ ok: boolean }>("/v1/photos/visibility", { photoId, visibility_mode });
 
-export const deletePhoto = (photoId: number) =>
-  fetch(`${ensureApiBase()}/v1/photos/${photoId}`, {
+export const deletePhoto = async (photoId: number) => {
+  const token = await getAccessToken();
+  const res = await fetch(`${ensureApiBase()}/v1/photos/${photoId}`, {
     method: "DELETE",
     headers: {
-      Authorization: `Bearer ${getAccessToken()}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json"
     }
-  }).then(async (res) => {
-    if (res.status === 404) {
-      return {};
-    }
-    if (!res.ok) {
-      const payload = await res.json().catch(() => ({}));
-      throw new Error(payload.error ?? payload.message ?? t("deleteFailed"));
-    }
-    return res.json();
   });
+  if (res.status === 404) {
+    return {};
+  }
+  if (!res.ok) {
+    const payload = await res.json().catch(() => ({}));
+    throw new Error(payload.error ?? payload.message ?? t("deleteFailed"));
+  }
+  return res.json();
+};
 
-export const revokePermission = (photoId: number, viewerId: string) =>
-  fetch(`${ensureApiBase()}/v1/photos/permissions`, {
+export const revokePermission = async (photoId: number, viewerId: string) => {
+  const token = await getAccessToken();
+  const res = await fetch(`${ensureApiBase()}/v1/photos/permissions`, {
     method: "DELETE",
     headers: {
-      Authorization: `Bearer ${getAccessToken()}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({ photoId, viewerId })
-  }).then(async (res) => {
-    if (!res.ok) {
-      const payload = await res.json().catch(() => ({}));
-      throw new Error(payload.error ?? payload.message ?? t("revokeFailed"));
-    }
-    return res.json();
   });
+  if (!res.ok) {
+    const payload = await res.json().catch(() => ({}));
+    throw new Error(payload.error ?? payload.message ?? t("revokeFailed"));
+  }
+  return res.json();
+};
 
-export const revokeAllPermissions = (photoId: number) =>
-  fetch(`${ensureApiBase()}/v1/photos/permissions/all`, {
+export const revokeAllPermissions = async (photoId: number) => {
+  const token = await getAccessToken();
+  const res = await fetch(`${ensureApiBase()}/v1/photos/permissions/all`, {
     method: "DELETE",
     headers: {
-      Authorization: `Bearer ${getAccessToken()}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({ photoId })
-  }).then(async (res) => {
-    if (!res.ok) {
-      const payload = await res.json().catch(() => ({}));
-      throw new Error(payload.error ?? payload.message ?? t("revokeAllFailed"));
-    }
-    return res.json();
   });
+  if (!res.ok) {
+    const payload = await res.json().catch(() => ({}));
+    throw new Error(payload.error ?? payload.message ?? t("revokeAllFailed"));
+  }
+  return res.json();
+};
 
 export const revokeAll = revokeAllPermissions;

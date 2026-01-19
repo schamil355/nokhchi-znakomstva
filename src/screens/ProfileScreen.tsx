@@ -102,6 +102,138 @@ const VerifiedBadge = ({ size = VERIFIED_BADGE_WRAPPER_SIZE }) => (
   <Image source={VerifiedBadgePng} style={{ width: size, height: size }} resizeMode="contain" />
 );
 
+type SelectedWebPhoto = {
+  uri: string;
+  file: File;
+  format: string;
+};
+
+const isHeicFile = (file: File) => {
+  const type = file.type?.toLowerCase() ?? "";
+  if (type === "image/heic" || type === "image/heif") {
+    return true;
+  }
+  const name = file.name?.toLowerCase() ?? "";
+  return name.endsWith(".heic") || name.endsWith(".heif");
+};
+
+const loadWebImage = (src: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const img = document.createElement("img");
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("image-load-failed"));
+    img.src = src;
+  });
+
+const convertHeicToJpeg = async (file: File): Promise<File | null> => {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  let sourceUrl: string | null = null;
+  try {
+    sourceUrl = URL.createObjectURL(file);
+    const img = await loadWebImage(sourceUrl);
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth || img.width || 1;
+    canvas.height = img.naturalHeight || img.height || 1;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return null;
+    }
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.9)
+    );
+    if (!blob) {
+      return null;
+    }
+    const safeName = file.name?.trim()
+      ? file.name.replace(/\.(heic|heif)$/i, ".jpg")
+      : `photo-${Date.now()}.jpg`;
+    return new File([blob], safeName, { type: "image/jpeg" });
+  } catch (error) {
+    console.warn("[Profile] heic convert failed", error);
+    return null;
+  } finally {
+    if (sourceUrl) {
+      URL.revokeObjectURL(sourceUrl);
+    }
+  }
+};
+
+const pickImageWeb = async (): Promise<SelectedWebPhoto | null> => {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    let settled = false;
+
+    const cleanup = () => {
+      if (input.parentNode) {
+        input.parentNode.removeChild(input);
+      }
+    };
+
+    const finish = (result: SelectedWebPhoto | null) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+
+    input.onchange = async () => {
+      const file = input.files?.[0] ?? null;
+      if (!file) {
+        finish(null);
+        return;
+      }
+      let previewUrl = URL.createObjectURL(file);
+      let uploadFile = file;
+      const nameExtension = file.name?.split(".").pop();
+      const rawFormat = file.type?.split("/")[1] ?? nameExtension ?? "jpeg";
+      let format = rawFormat.toLowerCase();
+
+      if (isHeicFile(file)) {
+        const converted = await convertHeicToJpeg(file);
+        if (converted) {
+          URL.revokeObjectURL(previewUrl);
+          uploadFile = converted;
+          previewUrl = URL.createObjectURL(converted);
+          format = "jpeg";
+        }
+      }
+
+      finish({
+        uri: previewUrl,
+        file: uploadFile,
+        format
+      });
+    };
+
+    window.addEventListener(
+      "focus",
+      () => {
+        setTimeout(() => {
+          if (!settled && !(input.files && input.files.length > 0)) {
+            finish(null);
+          }
+        }, 350);
+      },
+      { once: true }
+    );
+
+    document.body.appendChild(input);
+    input.click();
+  });
+};
+
 const dedupeProfilePhotos = (photos: Photo[]): Photo[] => {
   const seen = new Set<string>();
   const result: Photo[] = [];
@@ -856,6 +988,72 @@ const ProfileScreen = () => {
   const handleAddPhoto = async (slotIndex: number | null = null) => {
     const currentProfile = profile;
     if (!session?.user?.id || !currentProfile) {
+      return;
+    }
+    if (Platform.OS === "web") {
+      try {
+        const selected = await pickImageWeb();
+        if (!selected) {
+          return;
+        }
+        setIsUploading(true);
+        setUploadingIndex(typeof slotIndex === "number" ? slotIndex : 0);
+        const activeSession = await ensureSessionOrFail();
+        const file = selected.file;
+        const extensionRaw = selected.format || file.type?.split("/")[1] || "jpg";
+        const extension = extensionRaw.toLowerCase() === "jpeg" ? "jpg" : extensionRaw.toLowerCase();
+        const contentType = file.type || (extension === "jpg" ? "image/jpeg" : "application/octet-stream");
+        const fileBuffer = await file.arrayBuffer();
+        const storagePath = `${activeSession.user.id}/${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}.${extension}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(PROFILE_BUCKET)
+          .upload(storagePath, fileBuffer, { contentType, upsert: true });
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const { photoId } = await registerPhoto(storagePath, visibilityMode);
+        const newPhoto: Photo = {
+          id: String(photoId),
+          assetId: photoId,
+          storagePath,
+          visibilityMode,
+          url: selected.uri,
+          createdAt: new Date().toISOString()
+        };
+        const updatedPhotos = dedupeProfilePhotos([...currentProfile.photos]);
+        const targetIndex = typeof slotIndex === "number" ? slotIndex : 0;
+        const clampedIndex = Math.min(Math.max(targetIndex, 0), Math.max(updatedPhotos.length, 0));
+        updatedPhotos.splice(clampedIndex, 0, newPhoto);
+        const deduped = dedupeProfilePhotos(updatedPhotos);
+
+        let nextPrimaryPath = currentProfile.primaryPhotoPath ?? null;
+        let nextPrimaryId = currentProfile.primaryPhotoId ?? null;
+        const shouldUpdatePrimary = clampedIndex === 0 || !nextPrimaryId;
+        if (shouldUpdatePrimary) {
+          nextPrimaryPath = storagePath;
+          nextPrimaryId = photoId;
+          setPrimaryPhotoPreview(selected.uri);
+        }
+
+        const updatedProfile: Profile = {
+          ...currentProfile,
+          photos: deduped,
+          primaryPhotoPath: nextPrimaryPath,
+          primaryPhotoId: nextPrimaryId
+        };
+        setProfile(updatedProfile);
+        setHasPhotoOrderChanges(true);
+      } catch (error: any) {
+        logError(error, "photo-upload");
+        Alert.alert(copy.alerts.uploadFailedTitle, getErrorMessage(error, errorCopy, copy.alerts.uploadFailedMessage));
+      } finally {
+        setIsUploading(false);
+        setUploadingIndex(null);
+      }
       return;
     }
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();

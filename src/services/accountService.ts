@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import { useAuthStore } from "../state/authStore";
+import { getFreshAccessToken } from "../lib/supabaseClient";
 
 const rawApiBase =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -15,8 +15,8 @@ const ensureApiBase = () => {
   return API_BASE;
 };
 
-const getAccessToken = () => {
-  const token = useAuthStore.getState().session?.access_token;
+const getAccessToken = async () => {
+  const token = await getFreshAccessToken();
   if (!token) {
     throw new Error("Not authenticated.");
   }
@@ -25,10 +25,11 @@ const getAccessToken = () => {
 
 export const deleteAccount = async (opts: { dryRun?: boolean } = {}) => {
   const params = opts.dryRun ? "?dryRun=true" : "";
+  const token = await getAccessToken();
   const response = await fetch(`${ensureApiBase()}/v1/account${params}`, {
     method: "DELETE",
     headers: {
-      Authorization: `Bearer ${getAccessToken()}`
+      Authorization: `Bearer ${token}`
     }
   });
 

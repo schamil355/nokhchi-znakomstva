@@ -101,6 +101,20 @@ export const getSupabaseConfig = () => ({
   supabaseAnonKey
 });
 
+export const getFreshAccessToken = async (): Promise<string | null> => {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.auth.getSession();
+  const token = data?.session?.access_token ?? null;
+  if (token) {
+    return token;
+  }
+  if (error) {
+    // Ignore and attempt refresh.
+  }
+  const refreshed = await supabase.auth.refreshSession();
+  return refreshed.data.session?.access_token ?? null;
+};
+
 /**
  * Ensures we have a valid Supabase session.
  * Returns { session, error } where session can be null if the user is not authenticated.
@@ -108,8 +122,15 @@ export const getSupabaseConfig = () => ({
 export const ensureFreshSession = async () => {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.auth.getSession();
-  if (error) {
-    return { session: null, error };
+  if (data.session) {
+    return { session: data.session, error: null };
   }
-  return { session: data.session, error: null };
+  if (error) {
+    // Ignore and attempt refresh.
+  }
+  const refreshed = await supabase.auth.refreshSession();
+  if (refreshed.data.session) {
+    return { session: refreshed.data.session, error: null };
+  }
+  return { session: null, error: refreshed.error ?? error ?? null };
 };
