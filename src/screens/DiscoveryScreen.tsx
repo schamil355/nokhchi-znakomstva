@@ -335,6 +335,14 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     }
   }, [navigation]);
 
+  const showFeedback = useCallback((title: string, message?: string) => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.alert(message ? `${title}\n${message}` : title);
+      return;
+    }
+    Alert.alert(title, message);
+  }, []);
+
   const lastMatchBannerIdRef = useRef<string | null>(null);
   const showMatchBanner = useCallback(
     (payload: { matchId: string; otherUserId: string | null; name: string; avatarUrl: string | null }) => {
@@ -624,14 +632,6 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     openPremiumUpsell,
     session?.user?.id
   ]);
-
-  const showFeedback = useCallback((title: string, message?: string) => {
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      window.alert(message ? `${title}\n${message}` : title);
-      return;
-    }
-    Alert.alert(title, message);
-  }, []);
 
   const lastNotificationIdRef = useRef<string | null>(null);
   const notificationsReadyRef = useRef(false);
