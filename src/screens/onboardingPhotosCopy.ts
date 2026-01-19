@@ -17,6 +17,7 @@ type OnboardingPhotosCopy = {
   selectionTitle: string;
   permissionDenied: string;
   uploadError: string;
+  unsupportedFormat: string;
   instructions: string;
   sessionExpiredTitle: string;
   sessionExpiredMessage: string;
@@ -45,6 +46,7 @@ export const onboardingPhotosTranslations: Record<string, OnboardingPhotosCopy> 
     selectionTitle: "Select source",
     permissionDenied: "Permission denied. Please enable it in settings.",
     uploadError: "Could not upload photos. Please try again.",
+    unsupportedFormat: "Unsupported image format. Please choose a JPG or PNG photo.",
     instructions: "Tap to add, tap the X to remove.",
     sessionExpiredTitle: "Session expired",
     sessionExpiredMessage: "Please sign in again to upload your photos.",
@@ -71,6 +73,7 @@ export const onboardingPhotosTranslations: Record<string, OnboardingPhotosCopy> 
     selectionTitle: "Quelle auswählen",
     permissionDenied: "Berechtigung verweigert. Bitte in den Einstellungen aktivieren.",
     uploadError: "Fotos konnten nicht hochgeladen werden. Bitte versuche es erneut.",
+    unsupportedFormat: "Bildformat nicht unterstützt. Bitte wähle ein JPG- oder PNG-Foto.",
     instructions: "Tippen zum Hinzufügen, X zum Entfernen.",
     sessionExpiredTitle: "Sitzung abgelaufen",
     sessionExpiredMessage: "Bitte melde dich erneut an, um deine Fotos hochzuladen.",
@@ -97,6 +100,7 @@ export const onboardingPhotosTranslations: Record<string, OnboardingPhotosCopy> 
     selectionTitle: "Choisir la source",
     permissionDenied: "Autorisation refusée. Active-la dans les réglages.",
     uploadError: "Impossible de téléverser les photos. Réessaie.",
+    unsupportedFormat: "Format d'image non pris en charge. Choisis une photo JPG ou PNG.",
     instructions: "Touchez pour ajouter, appuyez sur le X pour supprimer.",
     sessionExpiredTitle: "Session expirée",
     sessionExpiredMessage: "Merci de te reconnecter pour téléverser tes photos.",
@@ -123,6 +127,7 @@ export const onboardingPhotosTranslations: Record<string, OnboardingPhotosCopy> 
     selectionTitle: "Выбери источник",
     permissionDenied: "Разрешение отклонено. Включи его в настройках.",
     uploadError: "Не удалось загрузить фото. Попробуй ещё раз.",
+    unsupportedFormat: "Формат фото не поддерживается. Выберите JPG или PNG.",
     instructions: "Нажми, чтобы добавить; нажми X, чтобы удалить.",
     sessionExpiredTitle: "Сессия истекла",
     sessionExpiredMessage: "Пожалуйста, войди снова, чтобы загрузить фото.",

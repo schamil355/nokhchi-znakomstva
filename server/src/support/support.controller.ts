@@ -27,7 +27,7 @@ export class SupportController {
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>Support für Нохчи Знакомства</h1>
+      <h1>Support für nokhchi-znakomstva</h1>
       <p>Wenn Sie Fragen haben oder Probleme melden möchten, erreichen Sie uns hier:</p>
 
       <h2>Kontaktmöglichkeiten</h2>

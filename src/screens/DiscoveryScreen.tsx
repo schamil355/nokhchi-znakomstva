@@ -133,7 +133,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     tabs: { forYou: "Für dich", recent: "Kürzlich verifiziert" },
     limits: {
       title: "Limit erreicht",
-      body: "Du hast 16 Profile gesehen. Mit Premium kannst du unbegrenzt swipen.",
+      body: "Mit Premium kannst du unbegrenzt swipen.",
       cta: "Premium freischalten"
     },
     matchTitle: "Neues Match!",

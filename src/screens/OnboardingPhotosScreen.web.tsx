@@ -32,6 +32,9 @@ const PALETTE = {
   sand: "#f2e7d7"
 };
 
+const SUPPORTED_WEB_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
+const SUPPORTED_WEB_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp"]);
+
 type Props = NativeStackScreenProps<any>;
 
 type PhotoTile = {
@@ -77,6 +80,24 @@ const isHeicFile = (file: File) => {
   return name.endsWith(".heic") || name.endsWith(".heif");
 };
 
+const getFileExtension = (file: File) => {
+  const name = file.name ?? "";
+  const dotIndex = name.lastIndexOf(".");
+  if (dotIndex <= 0) {
+    return "";
+  }
+  return name.slice(dotIndex + 1).toLowerCase();
+};
+
+const isSupportedWebImage = (file: File) => {
+  const type = file.type?.toLowerCase() ?? "";
+  if (type && SUPPORTED_WEB_TYPES.has(type)) {
+    return true;
+  }
+  const extension = getFileExtension(file);
+  return Boolean(extension && SUPPORTED_WEB_EXTENSIONS.has(extension));
+};
+
 const loadImage = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const img = document.createElement("img");
@@ -85,7 +106,7 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
     img.src = src;
   });
 
-const convertHeicToJpeg = async (file: File): Promise<File | null> => {
+const convertFileToJpeg = async (file: File): Promise<File | null> => {
   if (typeof document === "undefined") {
     return null;
   }
@@ -112,7 +133,7 @@ const convertHeicToJpeg = async (file: File): Promise<File | null> => {
       : `photo-${Date.now()}.jpg`;
     return new File([blob], safeName, { type: "image/jpeg" });
   } catch (error) {
-    console.warn("[Photos] heic convert failed", error);
+    console.warn("[Photos] image convert failed", error);
     return null;
   } finally {
     if (sourceUrl) {
@@ -260,18 +281,23 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
         }
         let previewUrl = URL.createObjectURL(file);
         let uploadFile = file;
-        const nameExtension = file.name?.split(".").pop();
+        const nameExtension = getFileExtension(file);
         const rawFormat = file.type?.split("/")[1] ?? nameExtension ?? "jpeg";
         let format = rawFormat.toLowerCase();
+        const needsConversion = isHeicFile(file) || !isSupportedWebImage(file);
 
-        if (isHeicFile(file)) {
-          const converted = await convertHeicToJpeg(file);
-          if (converted) {
+        if (needsConversion) {
+          const converted = await convertFileToJpeg(file);
+          if (!converted) {
             URL.revokeObjectURL(previewUrl);
-            uploadFile = converted;
-            previewUrl = URL.createObjectURL(converted);
-            format = "jpeg";
+            Alert.alert(copy.uploadError, copy.unsupportedFormat);
+            finish(null);
+            return;
           }
+          URL.revokeObjectURL(previewUrl);
+          uploadFile = converted;
+          previewUrl = URL.createObjectURL(converted);
+          format = "jpeg";
         }
         finish({
           uri: previewUrl,

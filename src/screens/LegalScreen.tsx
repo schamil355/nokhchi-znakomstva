@@ -127,7 +127,7 @@ const translations = {
 
 const LEGAL_CONTENT: Record<string, { privacy: string; terms: string }> = {
   en: {
-    privacy: `Privacy Policy – App "Нохчийн"
+    privacy: `Privacy Policy – App "nokhchi-znakomstva"
 
 Controller: Soul, Mirabellplatz 4, 5020 Salzburg, Austria, E-Mail: support@nokhchi-znakomstva.com
 
@@ -161,7 +161,7 @@ Contact: support@nokhchi-znakomstva.com`,
     terms: TERMS_TEXT
   },
   fr: {
-    privacy: `Politique de confidentialité – App "Нохчийн"
+    privacy: `Politique de confidentialité – App "nokhchi-znakomstva"
 
 Responsable : Soul, Mirabellplatz 4, 5020 Salzburg, Autriche, E-mail : support@nokhchi-znakomstva.com
 
@@ -191,7 +191,7 @@ Contact : support@nokhchi-znakomstva.com`,
 13. Contact : support@nokhchi-znakomstva.com`
   },
   ru: {
-    privacy: `Политика конфиденциальности – приложение "Нохчийн"
+    privacy: `Политика конфиденциальности – приложение "nokhchi-znakomstva"
 
 Оператор: Soul, Mirabellplatz 4, 5020 Зальцбург, Австрия, E-mail: support@nokhchi-znakomstva.com
 
@@ -204,7 +204,7 @@ Contact : support@nokhchi-znakomstva.com`,
 Права: доступ, исправление, удаление, ограничение, переносимость, возражение против законных интересов, отзыв согласий, жалоба в австрийский надзор.
 Несовершеннолетние: 18+; аккаунты младше удаляются.
 Контакт: support@nokhchi-znakomstva.com`,
-    terms: `Условия (AGB) – приложение "Нохчийн"
+    terms: `Условия (AGB) – приложение "nokhchi-znakomstva"
 
 1. Провайдер: Soul, Mirabellplatz 4, 5020 Зальцбург, Австрия.
 2. Сервис: приложение для сообщественных знакомств и проверенных связей с профилями, фото, подсказками по локации, чатом и верификацией.
