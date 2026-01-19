@@ -1,5 +1,20 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions, LayoutChangeEvent } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  LayoutChangeEvent,
+  Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SafeAreaView from "../components/SafeAreaView";
 import { useNavigation } from "@react-navigation/native";
@@ -24,6 +39,7 @@ import { calculateCompassAlignment } from "../lib/matchEngine";
 import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { track } from "../lib/analytics";
 import { resolveGeoRegion } from "../lib/geo";
+import { sendMessage } from "../services/matchService";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -51,6 +67,13 @@ type CopyShape = {
   matchTitle: string;
   matchBody: (name: string) => string;
   matchAlertBody: string;
+  matchBanner: {
+    placeholder: string;
+    send: string;
+    openChat: string;
+    empty: string;
+    sendError: string;
+  };
   fallbackName: string;
   errors: {
     title: string;
@@ -81,6 +104,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     matchTitle: "New match!",
     matchBody: (name) => `You and ${name} are now connected.`,
     matchAlertBody: "A mutual introduction was created. You can start chatting now.",
+    matchBanner: {
+      placeholder: "Write a message...",
+      send: "Send",
+      openChat: "Open chat",
+      empty: "Please enter a message.",
+      sendError: "Message could not be sent.",
+    },
     fallbackName: "someone",
     errors: {
       title: "Error",
@@ -109,6 +139,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     matchTitle: "Neues Match!",
     matchBody: (name) => `Du und ${name} seid jetzt verbunden.`,
     matchAlertBody: "Es gibt eine gegenseitige Einführung. Ihr könnt jetzt chatten.",
+    matchBanner: {
+      placeholder: "Nachricht schreiben...",
+      send: "Senden",
+      openChat: "Chat öffnen",
+      empty: "Bitte eine Nachricht eingeben.",
+      sendError: "Nachricht konnte nicht gesendet werden.",
+    },
     fallbackName: "jemand",
     errors: {
       title: "Fehler",
@@ -137,6 +174,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     matchTitle: "Nouveau match !",
     matchBody: (name) => `Toi et ${name} êtes désormais connectés.`,
     matchAlertBody: "Une introduction mutuelle a été créée. Tu peux discuter maintenant.",
+    matchBanner: {
+      placeholder: "Écris un message...",
+      send: "Envoyer",
+      openChat: "Ouvrir le chat",
+      empty: "Merci d’écrire un message.",
+      sendError: "Le message n’a pas pu être envoyé.",
+    },
     fallbackName: "quelqu'un",
     errors: {
       title: "Erreur",
@@ -165,6 +209,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     matchTitle: "Новый матч!",
     matchBody: (name) => `Вы и ${name} теперь на связи.`,
     matchAlertBody: "Создана взаимная связь. Можно начинать диалог.",
+    matchBanner: {
+      placeholder: "Напишите сообщение...",
+      send: "Отправить",
+      openChat: "Открыть чат",
+      empty: "Введите сообщение.",
+      sendError: "Не удалось отправить сообщение.",
+    },
     fallbackName: "кто-то",
     errors: {
       title: "Ошибка",
@@ -208,6 +259,15 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   const [headerHeight, setHeaderHeight] = useState(0);
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
   const [swipeLimitReached, setSwipeLimitReached] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const [matchBanner, setMatchBanner] = useState<{
+    matchId: string;
+    otherUserId: string | null;
+    name: string;
+    avatarUrl: string | null;
+  } | null>(null);
+  const [matchBannerText, setMatchBannerText] = useState("");
+  const [isSendingMatchBanner, setIsSendingMatchBanner] = useState(false);
 
   const {
     data: recentProfiles = [],
@@ -273,6 +333,64 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       navigateToUpsell("PremiumUpsell");
     }
   }, [navigation]);
+
+  const showMatchBanner = useCallback(
+    (payload: { matchId: string; otherUserId: string | null; name: string; avatarUrl: string | null }) => {
+      setMatchBanner(payload);
+      setMatchBannerText("");
+      setIsSendingMatchBanner(false);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    },
+    []
+  );
+
+  const handleMatchBannerSend = useCallback(async () => {
+    if (!session?.user?.id || !matchBanner || isSendingMatchBanner) {
+      return;
+    }
+    const message = matchBannerText.trim();
+    if (!message) {
+      showFeedback(copy.errors.title, copy.matchBanner.empty);
+      return;
+    }
+    setIsSendingMatchBanner(true);
+    try {
+      await sendMessage(matchBanner.matchId, session.user.id, message);
+      setMatchBanner(null);
+      setMatchBannerText("");
+    } catch (error: any) {
+      logError(error, "match-banner-send");
+      showFeedback(copy.errors.title, getErrorMessage(error, errorCopy, copy.matchBanner.sendError));
+    } finally {
+      setIsSendingMatchBanner(false);
+    }
+  }, [
+    copy.errors.title,
+    copy.matchBanner.empty,
+    copy.matchBanner.sendError,
+    errorCopy,
+    isSendingMatchBanner,
+    matchBanner,
+    matchBannerText,
+    session?.user?.id,
+    showFeedback
+  ]);
+
+  const handleMatchBannerOpenChat = useCallback(() => {
+    if (!matchBanner) {
+      return;
+    }
+    const parentNav: any = (navigation as any).getParent?.() ?? navigation;
+    const rootNav: any = parentNav?.getParent?.() ?? parentNav;
+    const navigateToChat = rootNav?.navigate ?? navigation?.navigate;
+    if (typeof navigateToChat === "function") {
+      navigateToChat("Chat", {
+        matchId: matchBanner.matchId,
+        participantId: matchBanner.otherUserId ?? ""
+      });
+    }
+    setMatchBanner(null);
+  }, [matchBanner, navigation]);
 
   useEffect(() => {
     let active = true;
@@ -416,10 +534,15 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     setProcessing(true);
     try {
       const result = await sendLike(session.user.id, currentProfile.userId);
-      if (result.match) {
+      if (result.match?.id) {
         const title = copy.matchTitle;
-        Alert.alert(title, copy.matchAlertBody);
         const now = new Date().toISOString();
+        showMatchBanner({
+          matchId: result.match.id,
+          otherUserId: currentProfile.userId,
+          name: currentProfile.displayName ?? copy.fallbackName,
+          avatarUrl: currentProfile.photos?.[0]?.url ?? null
+        });
         addNotification({
           id: `match-${result.match.id ?? now}`,
           title,
@@ -429,6 +552,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
             type: "match",
             matchId: result.match.id ?? "",
             otherUserId: currentProfile.userId,
+            otherDisplayName: currentProfile.displayName ?? null,
             avatarUrl: currentProfile.photos?.[0]?.url ?? null
           }
         });
@@ -656,6 +780,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
           </Modal>
         ) : null}
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={[
             styles.content,
@@ -703,6 +828,51 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
               ))}
             </View>
           </View>
+
+          {matchBanner ? (
+            <View style={styles.matchBanner}>
+              <View style={styles.matchBannerHeader}>
+                {matchBanner.avatarUrl ? (
+                  <Image source={{ uri: matchBanner.avatarUrl }} style={styles.matchBannerAvatar} />
+                ) : (
+                  <View style={styles.matchBannerAvatarPlaceholder} />
+                )}
+                <View style={styles.matchBannerTextBlock}>
+                  <Text style={styles.matchBannerTitle}>{copy.matchTitle}</Text>
+                  <Text style={styles.matchBannerBody}>
+                    {copy.matchBody(matchBanner.name || copy.fallbackName)}
+                  </Text>
+                </View>
+                <Pressable onPress={() => setMatchBanner(null)} style={styles.matchBannerClose}>
+                  <Ionicons name="close" size={18} color={PALETTE.sand} />
+                </Pressable>
+              </View>
+              <View style={styles.matchBannerInputRow}>
+                <TextInput
+                  style={styles.matchBannerInput}
+                  placeholder={copy.matchBanner.placeholder}
+                  placeholderTextColor="rgba(242,231,215,0.6)"
+                  value={matchBannerText}
+                  onChangeText={setMatchBannerText}
+                  autoCapitalize="sentences"
+                  editable={!isSendingMatchBanner}
+                />
+                <Pressable
+                  style={[
+                    styles.matchBannerSendButton,
+                    (!matchBannerText.trim() || isSendingMatchBanner) && styles.matchBannerSendDisabled
+                  ]}
+                  onPress={handleMatchBannerSend}
+                  disabled={!matchBannerText.trim() || isSendingMatchBanner}
+                >
+                  <Text style={styles.matchBannerSendText}>{copy.matchBanner.send}</Text>
+                </Pressable>
+              </View>
+              <Pressable style={styles.matchBannerChatButton} onPress={handleMatchBannerOpenChat}>
+                <Text style={styles.matchBannerChatText}>{copy.matchBanner.openChat}</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           {isSwipeLocked ? (
             <View style={styles.lockedContainer}>
@@ -817,6 +987,106 @@ const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: "transparent",
     paddingBottom: 6
+  },
+  matchBanner: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.35)",
+    backgroundColor: "rgba(15,59,44,0.95)",
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4
+  },
+  matchBannerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12
+  },
+  matchBannerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)"
+  },
+  matchBannerAvatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)"
+  },
+  matchBannerTextBlock: {
+    flex: 1
+  },
+  matchBannerTitle: {
+    color: PALETTE.sand,
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 2
+  },
+  matchBannerBody: {
+    color: "rgba(242,231,215,0.85)",
+    fontSize: 13
+  },
+  matchBannerClose: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)"
+  },
+  matchBannerInputRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  matchBannerInput: {
+    flex: 1,
+    minHeight: 40,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.35)",
+    backgroundColor: "rgba(0,0,0,0.2)",
+    color: PALETTE.sand,
+    fontSize: 14
+  },
+  matchBannerSendButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: PALETTE.gold
+  },
+  matchBannerSendDisabled: {
+    opacity: 0.6
+  },
+  matchBannerSendText: {
+    color: PALETTE.deep,
+    fontWeight: "700",
+    fontSize: 13
+  },
+  matchBannerChatButton: {
+    marginTop: 10,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.5)"
+  },
+  matchBannerChatText: {
+    color: PALETTE.sand,
+    fontSize: 13,
+    fontWeight: "600"
   },
   headerRow: {
     flexDirection: "row",
