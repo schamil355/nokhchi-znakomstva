@@ -283,7 +283,7 @@ export const mapProfile = (row: any): Profile => {
     showDistance: row.show_distance ?? true,
     showLastSeen: row.show_last_seen ?? true,
     lastActiveAt: row.last_active_at ?? undefined,
-    verified: Boolean(row.verified),
+    verified: Boolean(row.verified) || Boolean(row.verified_at),
     verifiedAt: row.verified_at ?? undefined,
     primaryPhotoPath: row.primary_photo_path ?? null,
     primaryPhotoId: toNumericId(row.primary_photo_id),

@@ -57,7 +57,7 @@ export class StripeController {
   }
 
   @Get("plans")
-  getPlans(@Query("currency") currency?: string) {
+  async getPlans(@Query("currency") currency?: string) {
     const normalized = typeof currency === "string" ? currency.toUpperCase() : "EUR";
     const resolved = normalized === "NOK" ? "NOK" : "EUR";
     return this.stripePayments.getAvailablePlans(resolved);

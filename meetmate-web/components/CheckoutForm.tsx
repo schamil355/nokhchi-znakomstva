@@ -26,7 +26,7 @@ type Props = {
 
 const PLAN_AMOUNTS: Record<SupportedCurrency, Record<PlanId, number>> = {
   EUR: {
-    monthly: 1499,
+    monthly: 999,
     yearly: 9999
   },
   NOK: {

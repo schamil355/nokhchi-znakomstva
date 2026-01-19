@@ -9,7 +9,12 @@ import type { PurchasesPackage } from "react-native-purchases";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { useAuthStore } from "../state/authStore";
 import { refetchProfile } from "../services/profileService";
-import { createStripeCheckoutSession, fetchStripePlanAvailability } from "../services/stripeCheckoutService";
+import {
+  createStripeCheckoutSession,
+  fetchStripePlanAvailability,
+  type StripeCurrency,
+  type StripePlanSummary
+} from "../services/stripeCheckoutService";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -22,7 +27,7 @@ const PALETTE = {
 const translations = {
   de: {
     title: "Premium freischalten",
-    subtitle: "Mehr sehen, zuerst vorstellen, anonym bleiben.",
+    subtitle: "Mehr entdecken, zuerst schreiben, anonym bleiben.",
     benefitSeeLikes: "Sieh wer dich geliket hat",
     benefitSeeLikesDesc: "Alle Likes sofort sichtbar.",
     benefitUnlimitedSwipes: "Unbegrenztes Swipen",
@@ -289,11 +294,11 @@ const PremiumUpsellScreen = () => {
   const packages = useMemo(() => currentOffering?.availablePackages ?? [], [currentOffering]);
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [webPlanId, setWebPlanId] = useState<"monthly" | "yearly">("monthly");
-  const [webCurrency, setWebCurrency] = useState<"EUR" | "NOK">("EUR");
+  const [webCurrency, setWebCurrency] = useState<StripeCurrency>("EUR");
   const [webLoading, setWebLoading] = useState(false);
   const [webError, setWebError] = useState<string | null>(null);
   const [webNotice, setWebNotice] = useState<string | null>(null);
-  const [webPlanIds, setWebPlanIds] = useState<("monthly" | "yearly")[] | null>(null);
+  const [webPlanDetails, setWebPlanDetails] = useState<StripePlanSummary[] | null>(null);
   const [webPlanError, setWebPlanError] = useState<string | null>(null);
   const [webCurrencyNotice, setWebCurrencyNotice] = useState<string | null>(null);
   const didAutoCloseRef = useRef(false);
@@ -322,39 +327,28 @@ const PremiumUpsellScreen = () => {
   }, [profile?.country, session?.user?.user_metadata?.country]);
 
   const webPlans = useMemo(() => {
-    const amounts =
-      webCurrency === "NOK"
-        ? { monthly: 15900, yearly: 99900 }
-        : { monthly: 1499, yearly: 9999 };
-    const plans = [
-      {
-        id: "monthly" as const,
-        label: copy.planMonthly,
-        periodLabel: copy.perMonth,
-        durationLabel: copy.durationMonth,
-        amountMinor: amounts.monthly
-      },
-      {
-        id: "yearly" as const,
-        label: copy.planAnnual,
-        periodLabel: copy.perYear,
-        durationLabel: copy.durationYear,
-        amountMinor: amounts.yearly
-      }
-    ];
-    if (webPlanIds) {
-      return plans.filter((plan) => webPlanIds.includes(plan.id));
+    if (!webPlanDetails?.length) {
+      return [];
     }
-    return plans;
+    const withCopy = webPlanDetails
+      .filter((plan) => typeof plan.amountMinor === "number" && Number.isFinite(plan.amountMinor))
+      .map((plan) => ({
+        id: plan.id,
+        label: plan.id === "monthly" ? copy.planMonthly : copy.planAnnual,
+        periodLabel: plan.id === "monthly" ? copy.perMonth : copy.perYear,
+        durationLabel: plan.id === "monthly" ? copy.durationMonth : copy.durationYear,
+        amountMinor: plan.amountMinor,
+        currency: plan.currency
+      }));
+    return withCopy.sort((a, b) => (a.id === "monthly" ? -1 : b.id === "monthly" ? 1 : 0));
   }, [
-    webCurrency,
     copy.planMonthly,
     copy.planAnnual,
     copy.perMonth,
     copy.perYear,
     copy.durationMonth,
     copy.durationYear,
-    webPlanIds
+    webPlanDetails
   ]);
 
   useEffect(() => {
@@ -372,7 +366,7 @@ const PremiumUpsellScreen = () => {
     if (!isWeb) return;
     let active = true;
     const preferredCurrency = currency === "NOK" ? "NOK" : "EUR";
-    setWebPlanIds(null);
+    setWebPlanDetails(null);
     setWebPlanError(null);
     setWebCurrencyNotice(null);
     setWebCurrency(preferredCurrency);
@@ -382,7 +376,8 @@ const PremiumUpsellScreen = () => {
         const data = await fetchStripePlanAvailability(preferredCurrency);
         if (!active) return;
         if (data.plans?.length) {
-          setWebPlanIds(data.plans);
+          setWebPlanDetails(data.plans);
+          setWebCurrency(data.currency);
           if (preferredCurrency === "EUR" && currency !== "EUR") {
             setWebCurrencyNotice(copy.webFallback);
           }
@@ -393,17 +388,17 @@ const PremiumUpsellScreen = () => {
           const fallback = await fetchStripePlanAvailability("EUR");
           if (!active) return;
           if (fallback.plans?.length) {
-            setWebCurrency("EUR");
-            setWebPlanIds(fallback.plans ?? []);
+            setWebCurrency(fallback.currency);
+            setWebPlanDetails(fallback.plans ?? []);
             setWebCurrencyNotice(copy.webFallback);
             return;
           }
         }
 
-        setWebPlanIds([]);
+        setWebPlanDetails([]);
       } catch (planError) {
         if (!active) return;
-        setWebPlanIds(null);
+        setWebPlanDetails(null);
         setWebPlanError(getErrorMessage(planError, errorCopy, copy.webUnavailable));
       }
     };
@@ -507,15 +502,16 @@ const PremiumUpsellScreen = () => {
 
   const formatTotalPrice = (pkg: PurchasesPackage) => pkg.product?.priceString ?? "";
 
-  const formatWebPrice = (amountMinor: number) => {
+  const formatWebPrice = (amountMinor: number, currencyOverride?: StripeCurrency) => {
+    const displayCurrency = currencyOverride ?? webCurrency;
     const amount = amountMinor / 100;
     if (typeof Intl === "undefined") {
-      return `${amount.toFixed(2)} ${webCurrency}`;
+      return `${amount.toFixed(2)} ${displayCurrency}`;
     }
     try {
-      return new Intl.NumberFormat(undefined, { style: "currency", currency: webCurrency }).format(amount);
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: displayCurrency }).format(amount);
     } catch {
-      return `${amount.toFixed(2)} ${webCurrency}`;
+      return `${amount.toFixed(2)} ${displayCurrency}`;
     }
   };
 
@@ -529,7 +525,7 @@ const PremiumUpsellScreen = () => {
     try {
       const { url } = await createStripeCheckoutSession({
         planId: webSelectedPlan.id,
-        currency: webCurrency,
+        currency: webSelectedPlan.currency ?? webCurrency,
       });
       if (typeof window !== "undefined") {
         window.location.assign(url);
@@ -608,13 +604,13 @@ const PremiumUpsellScreen = () => {
               <>
                 {webNotice ? <Text style={styles.noticeText}>{webNotice}</Text> : null}
                 {webCurrencyNotice ? <Text style={styles.noticeText}>{webCurrencyNotice}</Text> : null}
-                {webPlanIds === null && !webPlanError ? (
+                {webPlanDetails === null && !webPlanError ? (
                   <View style={styles.loadingRow}>
                     <ActivityIndicator color={PALETTE.gold} />
                     <Text style={styles.loadingText}>{copy.loadingOffers}</Text>
                   </View>
                 ) : null}
-                {!webPlanError && webPlanIds !== null && !webPlans.length ? (
+                {!webPlanError && webPlanDetails !== null && !webPlans.length ? (
                   <Text style={styles.emptyText}>{copy.webUnavailable}</Text>
                 ) : null}
                 {webPlans.length ? (
@@ -633,7 +629,9 @@ const PremiumUpsellScreen = () => {
                               {isSelected ? <View style={styles.planCheckDot} /> : null}
                             </View>
                           </View>
-                          <Text style={styles.planPrice}>{formatWebPrice(plan.amountMinor)}</Text>
+                          <Text style={styles.planPrice}>
+                            {formatWebPrice(plan.amountMinor, plan.currency)}
+                          </Text>
                           {plan.periodLabel ? <Text style={styles.planPeriod}>{plan.periodLabel}</Text> : null}
                         </Pressable>
                       );

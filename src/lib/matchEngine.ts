@@ -72,7 +72,8 @@ export const isProfileEligible = (candidate: Profile, filters: EligibilityFilter
   if (!matchesBasic) {
     return false;
   }
-  if (!candidate.verified) {
+  const isVerified = Boolean(candidate.verified) || Boolean(candidate.verifiedAt);
+  if (!isVerified) {
     return false;
   }
   if (filters.distanceRange && filters.origin) {

@@ -6,6 +6,7 @@ import { getSupabaseAdminClient } from "../../common/supabase-admin";
 type PlanId = "monthly" | "yearly";
 type Currency = "EUR" | "NOK";
 type StripeSubscription = Stripe.Subscription & { current_period_end?: number | null };
+type PlanSummary = { id: PlanId; amountMinor: number; currency: Currency };
 
 type CheckoutParams = {
   userId: string;
@@ -78,17 +79,33 @@ export class StripePaymentService {
     return { url: session.url };
   }
 
-  getAvailablePlans(currency: Currency): { currency: Currency; plans: PlanId[] } {
+  async getAvailablePlans(currency: Currency): Promise<{ currency: Currency; plans: PlanSummary[] }> {
     if (!this.stripe) {
       return { currency, plans: [] };
     }
-    const plans: PlanId[] = [];
-    if (this.getPriceId(currency, "monthly")) {
-      plans.push("monthly");
+    const stripe = this.getStripe();
+    const plans: PlanSummary[] = [];
+    const planIds: PlanId[] = ["monthly", "yearly"];
+
+    for (const planId of planIds) {
+      const priceId = this.getPriceId(currency, planId);
+      if (!priceId) {
+        continue;
+      }
+      try {
+        const price = await stripe.prices.retrieve(priceId);
+        const amountMinor = price.unit_amount;
+        if (typeof amountMinor !== "number") {
+          this.logger.warn(`Stripe price ${priceId} missing unit_amount.`);
+          continue;
+        }
+        plans.push({ id: planId, amountMinor, currency });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown Stripe error";
+        this.logger.warn(`Failed to load Stripe price ${priceId}: ${message}`);
+      }
     }
-    if (this.getPriceId(currency, "yearly")) {
-      plans.push("yearly");
-    }
+
     return { currency, plans };
   }
 

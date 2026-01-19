@@ -44,10 +44,15 @@ const getAccessToken = async () => {
 
 export type StripePlanId = "monthly" | "yearly";
 export type StripeCurrency = "EUR" | "NOK";
+export type StripePlanSummary = {
+  id: StripePlanId;
+  amountMinor: number;
+  currency: StripeCurrency;
+};
 
 export const fetchStripePlanAvailability = async (
   currency: StripeCurrency
-): Promise<{ currency: StripeCurrency; plans: StripePlanId[] }> => {
+): Promise<{ currency: StripeCurrency; plans: StripePlanSummary[] }> => {
   const response = await fetch(
     `${ensureApiBase()}/v1/payments/stripe/plans?currency=${encodeURIComponent(currency)}`
   );
@@ -63,7 +68,37 @@ export const fetchStripePlanAvailability = async (
     throw withCode("PLANS_FAILED", message);
   }
 
-  return (await response.json()) as { currency: StripeCurrency; plans: StripePlanId[] };
+  const payload = (await response.json()) as {
+    currency?: StripeCurrency;
+    plans?: Array<StripePlanSummary | StripePlanId>;
+  };
+  const resolvedCurrency = payload.currency ?? currency;
+  const fallbackAmounts: Record<StripeCurrency, Record<StripePlanId, number>> = {
+    EUR: { monthly: 999, yearly: 9999 },
+    NOK: { monthly: 15900, yearly: 99900 }
+  };
+  const normalizedPlans =
+    payload.plans
+      ?.map((plan) => {
+        if (typeof plan === "string") {
+          const amountMinor = fallbackAmounts[resolvedCurrency]?.[plan];
+          if (typeof amountMinor !== "number") {
+            return null;
+          }
+          return { id: plan, amountMinor, currency: resolvedCurrency } satisfies StripePlanSummary;
+        }
+        if (plan && typeof plan === "object" && plan.id) {
+          return {
+            id: plan.id,
+            amountMinor: plan.amountMinor,
+            currency: plan.currency ?? resolvedCurrency
+          } satisfies StripePlanSummary;
+        }
+        return null;
+      })
+      .filter(Boolean) ?? [];
+
+  return { currency: resolvedCurrency, plans: normalizedPlans as StripePlanSummary[] };
 };
 
 export const createStripeCheckoutSession = async (params: {

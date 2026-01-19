@@ -20,7 +20,7 @@ This Next.js workspace adds a simple web checkout that feeds into the Supabase e
 {
   "productId": "monthly",
   "currency": "EUR",
-  "amountMinor": 1499,
+  "amountMinor": 999,
   "source": "web"
 }
 ```

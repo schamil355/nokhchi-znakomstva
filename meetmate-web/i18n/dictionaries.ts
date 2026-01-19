@@ -72,7 +72,7 @@ const dictionaries: Record<SupportedLang, Dictionary> = {
         },
         {
           name: "Premium",
-          price: "14,99 € / Monat",
+          price: "9,99 € / Monat",
           features: ["Unbegrenzte Swipes", "Boost & Super-Likes", "Erweiterte Filter"],
           cta: "Premium holen"
         }
@@ -124,7 +124,7 @@ const dictionaries: Record<SupportedLang, Dictionary> = {
         },
         {
           name: "Premium",
-          price: "14,99 € / mois",
+          price: "9,99 € / mois",
           features: ["Swipes illimités", "Boost & Super-Likes", "Filtres avancés"],
           cta: "Devenir Premium"
         }
@@ -280,7 +280,7 @@ const dictionaries: Record<SupportedLang, Dictionary> = {
         },
         {
           name: "Premium",
-          price: "14,99 € / maand",
+          price: "9,99 € / maand",
           features: ["Onbeperkte swipes", "Boost & Super-Likes", "Uitgebreide filters"],
           cta: "Word Premium"
         }
