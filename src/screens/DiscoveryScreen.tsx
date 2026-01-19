@@ -307,6 +307,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   const resetFilters = usePreferencesStore((state) => state.resetFilters);
   const addNotification = useNotificationsStore((state) => state.addNotification);
   const hasUnseenNotifications = useNotificationsStore((state) => state.hasUnseen);
+  const notifications = useNotificationsStore((state) => state.items);
 
   const isRecentTab = activeTab === "recent";
   const canInteract = !isRecentTab;
@@ -334,8 +335,10 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     }
   }, [navigation]);
 
+  const lastMatchBannerIdRef = useRef<string | null>(null);
   const showMatchBanner = useCallback(
     (payload: { matchId: string; otherUserId: string | null; name: string; avatarUrl: string | null }) => {
+      lastMatchBannerIdRef.current = payload.matchId;
       setMatchBanner(payload);
       setMatchBannerText("");
       setIsSendingMatchBanner(false);
@@ -629,6 +632,83 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     }
     Alert.alert(title, message);
   }, []);
+
+  const lastNotificationIdRef = useRef<string | null>(null);
+  const notificationsReadyRef = useRef(false);
+
+  useEffect(() => {
+    if (!notifications.length) {
+      if (!notificationsReadyRef.current) {
+        notificationsReadyRef.current = true;
+      }
+      return;
+    }
+    if (!notificationsReadyRef.current) {
+      lastNotificationIdRef.current = notifications[0]?.id ?? null;
+      notificationsReadyRef.current = true;
+      return;
+    }
+    const newest = notifications[0];
+    if (!newest || newest.id === lastNotificationIdRef.current) {
+      return;
+    }
+    lastNotificationIdRef.current = newest.id;
+    const typeRaw = newest.data?.type?.toString().toLowerCase?.() ?? "";
+    if (!typeRaw.includes("match")) {
+      return;
+    }
+    const isIncognitoMatch = Boolean(
+      newest.data?.liker_incognito ??
+        newest.data?.likerIncognito ??
+        newest.data?.other_incognito ??
+        newest.data?.otherIncognito ??
+        newest.data?.match_incognito ??
+        newest.data?.matchIncognito ??
+        false
+    );
+    if (isIncognitoMatch) {
+      return;
+    }
+    const matchIdRaw = newest.data?.matchId ?? newest.data?.match_id ?? newest.data?.match ?? null;
+    if (!matchIdRaw) {
+      return;
+    }
+    const matchId = String(matchIdRaw);
+    if (matchId === lastMatchBannerIdRef.current) {
+      return;
+    }
+    const otherUserIdRaw =
+      newest.data?.other_user_id ??
+      newest.data?.otherUserId ??
+      newest.data?.liker_id ??
+      newest.data?.likerId ??
+      newest.data?.other_user ??
+      newest.data?.otherUser ??
+      null;
+    const displayName =
+      newest.data?.other_display_name ??
+      newest.data?.otherDisplayName ??
+      newest.data?.liker_name ??
+      newest.data?.likerName ??
+      newest.data?.display_name ??
+      newest.data?.displayName ??
+      copy.fallbackName;
+    const avatarRaw =
+      newest.data?.avatarUrl ??
+      newest.data?.avatar_url ??
+      newest.data?.avatar_path ??
+      newest.data?.avatarPath ??
+      newest.data?.avatar ??
+      null;
+    const avatarUrl =
+      typeof avatarRaw === "string" && /^https?:\/\//.test(avatarRaw) ? avatarRaw : null;
+    showMatchBanner({
+      matchId,
+      otherUserId: otherUserIdRaw ? String(otherUserIdRaw) : null,
+      name: displayName || copy.fallbackName,
+      avatarUrl
+    });
+  }, [copy.fallbackName, notifications, showMatchBanner]);
 
   const runReport = useCallback(
     async () => {
