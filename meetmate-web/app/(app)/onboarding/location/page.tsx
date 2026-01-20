@@ -75,8 +75,19 @@ const getWebPosition = (): Promise<{ latitude: number; longitude: number }> =>
     );
   });
 
+const getGeoErrorCode = (error: unknown): number | string | null => {
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+  const code = (error as { code?: unknown }).code;
+  if (typeof code === "number" || typeof code === "string") {
+    return code;
+  }
+  return null;
+};
+
 const mapWebErrorStatus = (error: unknown): LocationStatus => {
-  const code = typeof error === "object" && error ? (error as any).code : null;
+  const code = getGeoErrorCode(error);
   if (code === 1) {
     return "denied";
   }

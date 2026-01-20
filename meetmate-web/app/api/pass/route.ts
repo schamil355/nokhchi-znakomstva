@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { SUPABASE_ENABLED } from "@/lib/env";
 import { getAuthenticatedUser, getServerClient } from "@/lib/supabaseServer";
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
 export async function POST(req: Request) {
   if (!SUPABASE_ENABLED) return NextResponse.json({ ok: true, demo: true });
 
@@ -10,13 +13,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   }
 
-  let payload: any;
+  let payload: unknown;
   try {
     payload = await req.json();
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
-  const passeeId = payload?.passee_id;
+  const passeeId = isRecord(payload) ? payload.passee_id : null;
   if (!passeeId || typeof passeeId !== "string") {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
