@@ -8,6 +8,7 @@ const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"];
 const FileSystem =
   Platform.OS === "web"
     ? null
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Native-only module on web.
     : (require("expo-file-system") as typeof FileSystemType);
 
 type ImageCopy = {

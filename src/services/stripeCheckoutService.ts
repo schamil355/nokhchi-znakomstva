@@ -70,7 +70,7 @@ export const fetchStripePlanAvailability = async (
 
   const payload = (await response.json()) as {
     currency?: StripeCurrency;
-    plans?: Array<StripePlanSummary | StripePlanId>;
+    plans?: (StripePlanSummary | StripePlanId)[];
   };
   const resolvedCurrency = payload.currency ?? currency;
   const fallbackAmounts: Record<StripeCurrency, Record<StripePlanId, number>> = {

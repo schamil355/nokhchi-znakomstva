@@ -10,10 +10,12 @@ import type * as ImageManipulatorType from "expo-image-manipulator";
 const FileSystem =
   Platform.OS === "web"
     ? null
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Native-only module on web.
     : (require("expo-file-system") as typeof FileSystemType);
 const ImageManipulator =
   Platform.OS === "web"
     ? null
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Native-only module on web.
     : (require("expo-image-manipulator") as typeof ImageManipulatorType);
 
 const rawApiBase =

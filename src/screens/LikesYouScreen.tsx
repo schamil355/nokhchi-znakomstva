@@ -79,7 +79,7 @@ const LikeCard = ({ profile, locked, disabled, onPress }: LikeCardProps) => {
       return `path:${storagePath}:${variant}`;
     }
     return null;
-  }, [inlineUrl, locked, primaryAssetId, storagePath]);
+  }, [remoteInlineUrl, locked, primaryAssetId, storagePath]);
 
   useEffect(() => {
     let active = true;
@@ -214,7 +214,7 @@ const LikesYouScreen = () => {
       latitude: profile.latitude ?? null,
       longitude: profile.longitude ?? null
     });
-  }, [profile?.country, profile?.regionCode, profile?.latitude, profile?.longitude]);
+  }, [profile]);
   const isFreeRegion = viewerRegion === "chechnya" || viewerRegion === "russia";
   const hasPremiumAccess = isPremium || isPro || isFreeRegion;
   const userId = session?.user?.id ?? null;

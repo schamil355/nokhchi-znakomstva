@@ -629,7 +629,7 @@ const ProfileScreen = () => {
       latitude: profile.latitude ?? null,
       longitude: profile.longitude ?? null
     });
-  }, [profile?.country, profile?.regionCode, profile?.latitude, profile?.longitude]);
+  }, [profile]);
   const isFreeRegion = viewerRegion === "chechnya" || viewerRegion === "russia";
   const hasPremiumAccess = isPremium || isPro || isFreeRegion;
   const setProfile = useAuthStore((state) => state.setProfile);

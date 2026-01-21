@@ -42,14 +42,17 @@ const MAX_DIMENSION = 1280; // downscale to speed up uploads
 const ImagePicker =
   Platform.OS === "web"
     ? null
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Native-only module on web.
     : (require("expo-image-picker") as typeof ImagePickerType);
 const ImageManipulator =
   Platform.OS === "web"
     ? null
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Native-only module on web.
     : (require("expo-image-manipulator") as typeof ImageManipulatorType);
 const FileSystem =
   Platform.OS === "web"
     ? null
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Native-only module on web.
     : (require("expo-file-system") as typeof FileSystemType);
 const DEFAULT_SAVE_FORMAT = (ImageManipulator?.SaveFormat?.JPEG ?? "jpeg") as string;
 

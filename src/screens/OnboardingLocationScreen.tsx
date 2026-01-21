@@ -36,6 +36,7 @@ const HERO = require("../../assets/onboarding/step5/female_male_avatar_step_5.pn
 const Location =
   Platform.OS === "web"
     ? null
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Native-only module on web.
     : (require("expo-location") as typeof LocationType);
 
 type Props = NativeStackScreenProps<any>;

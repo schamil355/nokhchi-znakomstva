@@ -479,27 +479,6 @@ const PremiumUpsellScreen = () => {
     }
   };
 
-  const getDurationLabel = (pkg: PurchasesPackage) => {
-    switch (pkg.packageType) {
-      case "WEEKLY":
-        return copy.durationWeek;
-      case "MONTHLY":
-        return copy.durationMonth;
-      case "TWO_MONTH":
-        return copy.durationTwoMonths;
-      case "THREE_MONTH":
-        return copy.durationThreeMonths;
-      case "SIX_MONTH":
-        return copy.durationSixMonths;
-      case "ANNUAL":
-        return copy.durationYear;
-      case "LIFETIME":
-        return copy.durationLifetime;
-      default:
-        return "";
-    }
-  };
-
   const formatTotalPrice = (pkg: PurchasesPackage) => pkg.product?.priceString ?? "";
 
   const formatWebPrice = (amountMinor: number, currencyOverride?: StripeCurrency) => {

@@ -49,7 +49,7 @@ const PwaInstallBanner = () => {
   const isIOS = useMemo(() => (Platform.OS === "web" ? isIOSDevice() : false), []);
   const isAndroid = useMemo(() => (Platform.OS === "web" ? isAndroidDevice() : false), []);
   const bodyText = isIOS ? copy.iosBody : isAndroid ? copy.androidBody : copy.body;
-  const guideSteps = useMemo<Array<keyof typeof Ionicons.glyphMap>>(() => {
+  const guideSteps = useMemo<(keyof typeof Ionicons.glyphMap)[]>(() => {
     if (isIOS) {
       return ["ellipsis-horizontal", "share-outline", "home-outline"];
     }

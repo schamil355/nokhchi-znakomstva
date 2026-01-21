@@ -289,12 +289,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
       latitude: viewerProfile.latitude ?? null,
       longitude: viewerProfile.longitude ?? null
     });
-  }, [
-    viewerProfile?.country,
-    viewerProfile?.regionCode,
-    viewerProfile?.latitude,
-    viewerProfile?.longitude
-  ]);
+  }, [viewerProfile]);
   const isFreeRegion = viewerRegion === "chechnya" || viewerRegion === "russia";
   const hasPremiumAccess = isPremium || isPro || isFreeRegion;
   const swipeStorageKey = React.useMemo(() => {
