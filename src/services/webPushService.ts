@@ -14,6 +14,8 @@ const rawVapidKey =
   (Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_WEB_PUSH_VAPID_KEY ??
   "";
 
+const SERVICE_WORKER_READY_TIMEOUT_MS = 8000;
+
 const isSupportedEnvironment = () => {
   if (Platform.OS !== "web") return false;
   if (!("serviceWorker" in navigator)) return false;
@@ -21,6 +23,20 @@ const isSupportedEnvironment = () => {
   if (!("Notification" in window)) return false;
   if (!API_BASE || !rawVapidKey) return false;
   return true;
+};
+
+const waitForServiceWorkerReady = async (): Promise<ServiceWorkerRegistration> => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_resolve, reject) => {
+    timeoutId = setTimeout(() => reject(new Error("SERVICE_WORKER_TIMEOUT")), SERVICE_WORKER_READY_TIMEOUT_MS);
+  });
+  try {
+    return (await Promise.race([navigator.serviceWorker.ready, timeoutPromise])) as ServiceWorkerRegistration;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 };
 
 const urlBase64ToUint8Array = (base64String: string) => {
@@ -71,9 +87,14 @@ export const getWebPushStatus = async () => {
   if (!isSupportedEnvironment()) {
     return { supported: false, subscribed: false };
   }
-  const registration = await navigator.serviceWorker.ready;
-  const subscription = await registration.pushManager.getSubscription();
-  return { supported: true, subscribed: Boolean(subscription) };
+  try {
+    const registration = await waitForServiceWorkerReady();
+    const subscription = await registration.pushManager.getSubscription();
+    return { supported: true, subscribed: Boolean(subscription) };
+  } catch (error) {
+    console.warn("[WebPush] service worker not ready", error);
+    return { supported: true, subscribed: false };
+  }
 };
 
 export const subscribeWebPush = async () => {
@@ -86,7 +107,7 @@ export const subscribeWebPush = async () => {
     return { status: permission } as const;
   }
 
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await waitForServiceWorkerReady();
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(rawVapidKey)
@@ -104,7 +125,7 @@ export const unsubscribeWebPush = async () => {
   if (!isSupportedEnvironment()) {
     return { status: "unsupported" } as const;
   }
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await waitForServiceWorkerReady();
   const subscription = await registration.pushManager.getSubscription();
   if (subscription) {
     await apiFetch("/v1/web-push/unsubscribe", {
@@ -119,6 +140,7 @@ export const sendWebPushTest = async () => {
   if (!isSupportedEnvironment()) {
     throw new Error("WEB_PUSH_UNSUPPORTED");
   }
+  await waitForServiceWorkerReady();
   await apiFetch("/v1/web-push/test", {
     title: "Test notification",
     body: "Your PWA can receive web push."

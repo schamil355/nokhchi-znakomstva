@@ -288,8 +288,7 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
       return true;
     } catch (error) {
       console.warn("[Location] VPN check failed", error);
-      setMessage(copy.errorGeneric);
-      return false;
+      return true;
     }
   };
 
@@ -541,10 +540,13 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
   };
 
   const showSettingsCta =
-    status === "denied" || status === "blocked" || status === "unavailable";
+    Platform.OS !== "web" && (status === "denied" || status === "blocked" || status === "unavailable");
 
   const handleOpenSettings = () => {
-    Linking.openSettings();
+    if (Platform.OS === "web") {
+      return;
+    }
+    Linking.openSettings().catch(() => undefined);
   };
 
   return (

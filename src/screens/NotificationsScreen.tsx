@@ -168,6 +168,7 @@ const NotificationsScreen = () => {
     [notifications]
   );
   const notificationsEnabled = permissionStatus === "granted" || permissionStatus === "provisional";
+  const showActivateCta = Platform.OS !== "web";
   const supabase = useMemo(() => getSupabaseClient(), []);
   const [avatarCache, setAvatarCache] = useState<Record<string, string | null>>({});
 
@@ -395,7 +396,7 @@ const NotificationsScreen = () => {
             <Text style={styles.headerTitle}>{copy.headerTitle}</Text>
           </View>
 
-          {!notificationsEnabled && (
+          {!notificationsEnabled && showActivateCta && (
             <View style={styles.banner}>
               <View style={styles.bannerTop}>
                 <View style={styles.bannerIcon}>
@@ -404,16 +405,18 @@ const NotificationsScreen = () => {
                 <Text style={styles.bannerTitle}>{copy.bannerTitle}</Text>
               </View>
               <Text style={styles.bannerSubtitle}>{copy.bannerSubtitle}</Text>
-              <Pressable style={({ pressed }) => [styles.activateButton, pressed && styles.activateButtonPressed]} onPress={handleActivate}>
-                <LinearGradient
-                  colors={[PALETTE.gold, "#8b6c2a"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.activateButtonInner}
-                >
-                  <Text style={styles.activateButtonText}>{copy.activate}</Text>
-                </LinearGradient>
-              </Pressable>
+              {showActivateCta && (
+                <Pressable style={({ pressed }) => [styles.activateButton, pressed && styles.activateButtonPressed]} onPress={handleActivate}>
+                  <LinearGradient
+                    colors={[PALETTE.gold, "#8b6c2a"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.activateButtonInner}
+                  >
+                    <Text style={styles.activateButtonText}>{copy.activate}</Text>
+                  </LinearGradient>
+                </Pressable>
+              )}
             </View>
           )}
 

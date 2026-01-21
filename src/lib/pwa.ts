@@ -9,6 +9,9 @@ export const registerServiceWorker = () => {
   if (Platform.OS !== "web") {
     return;
   }
+  if (typeof window === "undefined") {
+    return;
+  }
   if (!("serviceWorker" in navigator)) {
     return;
   }
@@ -21,12 +24,23 @@ export const registerServiceWorker = () => {
     window.location.reload();
   });
 
-  window.addEventListener("load", () => {
+  let registered = false;
+  const register = () => {
+    if (registered) {
+      return;
+    }
+    registered = true;
     navigator.serviceWorker
       .register("/service-worker.js", { updateViaCache: "none" })
       .then((registration) => registration.update())
       .catch((error) => console.warn("[PWA] service worker registration failed", error));
-  });
+  };
+
+  if (document.readyState === "complete") {
+    register();
+  } else {
+    window.addEventListener("load", register, { once: true });
+  }
 };
 
 export const isStandaloneMode = () => {
