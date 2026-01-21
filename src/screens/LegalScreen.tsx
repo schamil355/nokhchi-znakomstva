@@ -9,12 +9,12 @@ import { PRIVACY_URL, TERMS_URL } from "../lib/legalLinks";
 import { useAuthStore } from "../state/authStore";
 import { useOnboardingStore } from "../state/onboardingStore";
 
-const PRIVACY_TEXT = `Datenschutzerklärung für die App "Нохчийн"
+const PRIVACY_TEXT = `Datenschutzerklärung für die App "nokhchi-znakomstva"
 
 Verantwortlicher: Soul, Mirabellplatz 4, 5020 Salzburg, Österreich, E-Mail: support@nokhchi-znakomstva.com
 
 1. Geltung
-Diese Erklärung gilt für die mobile App "Нохчийн".
+Diese Erklärung gilt für die mobile App "nokhchi-znakomstva".
 
 2. Verarbeitete Daten
 - Konto/Profil: Telefonnummer, Anzeigename, Geschlecht, Geburtsdatum/Alter, Intention, Interessen, Bio.
@@ -57,7 +57,7 @@ Nutzung ab 18 Jahren; Konten Minderjähriger werden gelöscht.
 12. Kontakt
 Datenschutzanfragen: support@nokhchi-znakomstva.com`;
 
-const TERMS_TEXT = `Allgemeine Geschäftsbedingungen (AGB) – App "Нохчийн"
+const TERMS_TEXT = `Allgemeine Geschäftsbedingungen (AGB) – App "nokhchi-znakomstva"
 
 1. Anbieter
 Soul, Mirabellplatz 4, 5020 Salzburg, Österreich.

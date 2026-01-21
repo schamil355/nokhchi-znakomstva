@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
   Platform,
@@ -24,6 +23,7 @@ import { getSupabaseClient } from "../lib/supabaseClient";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { GeoRegion, usePreferencesStore } from "../state/preferencesStore";
 import { resolveGeoRegion } from "../lib/geo";
+import { checkVpnStatus } from "../services/vpnService";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -278,6 +278,21 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const lastReverseGeocodeRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
 
+  const ensureNoVpn = async () => {
+    try {
+      const result = await checkVpnStatus();
+      if (result?.blocked) {
+        setMessage(copy.vpnWarning);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.warn("[Location] VPN check failed", error);
+      setMessage(copy.errorGeneric);
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (!selectedGender) {
       navigation.replace("OnboardingGender");
@@ -367,8 +382,9 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
               gpsIso: normalizedGpsIso,
               ipIso: normalizedIpIso
             });
-            setMessage(copy.vpnWarning);
-            Alert.alert(copy.vpnWarning);
+          }
+
+          if (!(await ensureNoVpn())) {
             return;
           }
 
@@ -496,9 +512,9 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
           gpsIso: normalizedGpsIso,
           ipIso: normalizedIpIso
         });
-        setMessage(copy.vpnWarning);
-        Alert.alert(copy.vpnWarning);
-        setLoading(false);
+      }
+
+      if (!(await ensureNoVpn())) {
         return;
       }
 

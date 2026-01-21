@@ -31,6 +31,8 @@ const PALETTE = {
   gold: "#d9c08f",
   sand: "#f2e7d7"
 };
+const MAX_WEB_DIMENSION = 1280;
+const WEB_JPEG_QUALITY = 0.85;
 
 const SUPPORTED_WEB_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
 const SUPPORTED_WEB_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp"]);
@@ -115,15 +117,20 @@ const convertFileToJpeg = async (file: File): Promise<File | null> => {
     sourceUrl = URL.createObjectURL(file);
     const img = await loadImage(sourceUrl);
     const canvas = document.createElement("canvas");
-    canvas.width = img.naturalWidth || img.width || 1;
-    canvas.height = img.naturalHeight || img.height || 1;
+    const width = img.naturalWidth || img.width || 1;
+    const height = img.naturalHeight || img.height || 1;
+    const scale = Math.min(1, MAX_WEB_DIMENSION / Math.max(width, height));
+    const targetWidth = Math.max(1, Math.round(width * scale));
+    const targetHeight = Math.max(1, Math.round(height * scale));
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       return null;
     }
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
     const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.9)
+      canvas.toBlob(resolve, "image/jpeg", WEB_JPEG_QUALITY)
     );
     if (!blob) {
       return null;
@@ -376,7 +383,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
             throw new Error("missing-file");
           }
 
-          const fileBuffer = await selected.file.arrayBuffer();
+          const fileBody = selected.file;
           const extensionRaw = selected.file.type?.split("/")[1]?.toLowerCase() ?? "";
           const format = (selected.format ?? extensionRaw ?? "jpg").toLowerCase();
           const extension = format === "jpeg" ? "jpg" : format;
@@ -392,7 +399,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
             try {
               const { error: uploadError } = await supabase.storage
                 .from(PROFILE_BUCKET)
-                .upload(key, fileBuffer, { contentType, upsert: true });
+                .upload(key, fileBody, { contentType, upsert: true });
               if (!uploadError) {
                 return;
               }

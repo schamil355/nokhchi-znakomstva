@@ -46,3 +46,26 @@ export const deleteAccount = async (opts: { dryRun?: boolean } = {}) => {
 
   return response.json();
 };
+
+export const registerEmailAccount = async (email: string, password: string) => {
+  const response = await fetch(`${ensureApiBase()}/v1/account/register/email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ email, password })
+  });
+
+  if (!response.ok) {
+    let message = "Failed to register account.";
+    try {
+      const payload = await response.json();
+      message = payload.error ?? payload.message ?? message;
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(message);
+  }
+
+  return response.json();
+};

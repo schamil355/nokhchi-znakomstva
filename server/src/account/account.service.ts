@@ -282,11 +282,81 @@ export class AccountService {
       password: payload.password,
       email_confirm: true,
     });
-    if (error) {
-      const message = error.message ?? "USER_NOT_CREATED";
-      this.logger.warn(`Failed to create user ${email}: ${message}`);
-      throw new BadRequestException(message);
+    if (!error) {
+      return { userId: data.user?.id, email: data.user?.email };
     }
-    return { userId: data.user?.id, email: data.user?.email };
+
+    const message = error.message ?? "USER_NOT_CREATED";
+    if (this.isUserAlreadyRegistered(error)) {
+      const existing = await this.findUserByEmail(email);
+      if (!existing?.id) {
+        this.logger.warn(`User already registered but not found in listUsers: ${email}`);
+        throw new BadRequestException("USER_NOT_FOUND");
+      }
+
+      if (!this.canAutoConfirm(existing)) {
+        throw new BadRequestException("USER_ALREADY_REGISTERED");
+      }
+
+      const { data: updated, error: updateError } = await this.supabase.auth.admin.updateUserById(existing.id, {
+        email_confirm: true,
+      });
+      if (updateError) {
+        this.logger.error(`Failed to confirm existing user ${email}`, updateError);
+        throw new InternalServerErrorException("USER_CONFIRM_FAILED");
+      }
+
+      return { userId: updated.user?.id ?? existing.id, email: updated.user?.email ?? existing.email };
+    }
+
+    this.logger.warn(`Failed to create user ${email}: ${message}`);
+    throw new BadRequestException(message);
+  }
+
+  private isUserAlreadyRegistered(error: unknown) {
+    const message = typeof (error as any)?.message === "string" ? (error as any).message.toLowerCase() : "";
+    const code = typeof (error as any)?.code === "string" ? (error as any).code.toLowerCase() : "";
+    return message.includes("already registered") || code === "user_already_exists";
+  }
+
+  private async findUserByEmail(email: string) {
+    const normalized = email.trim().toLowerCase();
+    let page = 1;
+    const perPage = 1000;
+
+    while (page) {
+      const { data, error } = await this.supabase.auth.admin.listUsers({ page, perPage });
+      if (error) {
+        this.logger.error(`Failed to list users for ${normalized}`, error);
+        throw new InternalServerErrorException("USER_LOOKUP_FAILED");
+      }
+
+      const match = data.users.find((user) => user.email?.toLowerCase() === normalized);
+      if (match) {
+        return match;
+      }
+
+      if (!data.nextPage) {
+        break;
+      }
+      page = data.nextPage;
+    }
+
+    return null;
+  }
+
+  private canAutoConfirm(user: { created_at?: string | null; confirmed_at?: string | null; email_confirmed_at?: string | null }) {
+    if (user.confirmed_at || user.email_confirmed_at) {
+      return false;
+    }
+    if (!user.created_at) {
+      return false;
+    }
+    const createdAt = Date.parse(user.created_at);
+    if (Number.isNaN(createdAt)) {
+      return false;
+    }
+    const tenMinutesMs = 10 * 60 * 1000;
+    return Date.now() - createdAt <= tenMinutesMs;
   }
 }

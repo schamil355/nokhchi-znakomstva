@@ -36,6 +36,11 @@ npm install
   - `STRIPE_WEBHOOK_SECRET`
   - `STRIPE_PRICE_ID_EUR_MONTHLY`, `STRIPE_PRICE_ID_EUR_YEARLY`
   - `STRIPE_PRICE_ID_NOK_MONTHLY`, `STRIPE_PRICE_ID_NOK_YEARLY`
+- VPN checks (optional but recommended if you want to block VPNs at onboarding):
+  - `IPQS_API_KEY`
+  - `VPN_CHECK_STRICT=true`
+  - `VPN_CHECK_FAIL_OPEN=false`
+  - `VPN_CHECK_CACHE_TTL_MS=600000`
 
 If you do not want Redis locally, set `ENABLE_REDIS=false` to avoid warnings.
 

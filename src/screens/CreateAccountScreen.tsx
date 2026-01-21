@@ -16,7 +16,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { useAuthStore } from "../state/authStore";
-import { getEmailRedirectUrl } from "../services/authService";
+import { getEmailRedirectUrl, signInWithPassword } from "../services/authService";
+import { registerEmailAccount } from "../services/accountService";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getErrorDetails, getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
@@ -111,6 +112,11 @@ const CreateAccountScreen = ({ navigation }: Props) => {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const setSession = useAuthStore((state) => state.setSession);
 
+  const isEmailSendFailure = (error: any) => {
+    const code = String(error?.code ?? error?.errorCode ?? "").toLowerCase();
+    return code === "unexpected_failure";
+  };
+
   const showError = (title: string, message: string) => {
     if (Platform.OS === "web") {
       setSubmitError(message);
@@ -152,8 +158,20 @@ const CreateAccountScreen = ({ navigation }: Props) => {
       showError(copy.signupFailed, copy.tryAgain);
     } catch (err: any) {
       logError(err, "sign-up");
-      const baseMessage = getErrorMessage(err, errorCopy, copy.tryAgain);
-      const detailedMessage = Platform.OS === "web" ? getErrorDetails(err) : null;
+      let errorToShow = err;
+      if (isEmailSendFailure(err)) {
+        try {
+          await registerEmailAccount(emailTrimmed, password);
+          await signInWithPassword(emailTrimmed, password);
+          navigation.navigate("OnboardingGender");
+          return;
+        } catch (fallbackError: any) {
+          logError(fallbackError, "sign-up-fallback");
+          errorToShow = fallbackError;
+        }
+      }
+      const baseMessage = getErrorMessage(errorToShow, errorCopy, copy.tryAgain);
+      const detailedMessage = Platform.OS === "web" ? getErrorDetails(errorToShow) : null;
       const useDetails =
         Boolean(detailedMessage) &&
         (baseMessage === copy.tryAgain || baseMessage === errorCopy.unknown);

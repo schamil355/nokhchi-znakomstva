@@ -20,6 +20,21 @@ type CountryInfo = {
   code: string | null;
 };
 
+const VPN_CHECK_URL = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/v1/security/vpn-check`
+  : null;
+
+const checkVpnStatus = async (): Promise<{ blocked: boolean }> => {
+  if (!VPN_CHECK_URL) {
+    return { blocked: false };
+  }
+  const response = await fetch(VPN_CHECK_URL, { method: "GET" });
+  if (!response.ok) {
+    throw new Error("vpn-check-failed");
+  }
+  return response.json();
+};
+
 const fetchIpCountry = async (): Promise<CountryInfo> => {
   try {
     const response = await fetch("https://ipapi.co/json/");
@@ -154,6 +169,16 @@ export default function OnboardingLocationPage() {
             normalizedGpsCountry !== normalizedIpCountry
         );
       if (hasIsoMismatch || hasFallbackMismatch) {
+        console.warn("[Location] Country mismatch detected", {
+          gpsCountry: normalizedGpsCountry,
+          ipCountry: normalizedIpCountry,
+          gpsIso: normalizedGpsIso,
+          ipIso: normalizedIpIso
+        });
+      }
+
+      const vpnStatus = await checkVpnStatus();
+      if (vpnStatus.blocked) {
         setStatus("blocked");
         setMessage("VPN erkannt. Bitte deaktiviere dein VPN, um fortzufahren.");
         return;
@@ -182,6 +207,11 @@ export default function OnboardingLocationPage() {
       setStatus("saved");
       router.replace("/discover");
     } catch (error) {
+      if (error instanceof Error && error.message === "vpn-check-failed") {
+        setStatus("error");
+        setMessage("VPN-Prüfung nicht verfügbar. Bitte später erneut versuchen.");
+        return;
+      }
       if (error instanceof Error && error.message === "save-failed") {
         setStatus("error");
         setMessage("Standort konnte nicht gespeichert werden. Bitte versuche es erneut.");

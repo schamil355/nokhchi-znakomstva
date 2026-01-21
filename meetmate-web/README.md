@@ -32,6 +32,8 @@ Create `.env.local` with:
 ```
 NEXT_PUBLIC_SUPABASE_URL=<https://your-project.supabase.co>
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+# Optional: NestJS API base for VPN checks on onboarding location.
+# NEXT_PUBLIC_API_URL=https://nokhchi-znakomstva.onrender.com
 # Optional override if the edge function lives on a different path:
 # SUPABASE_PSP_WEBHOOK_PATH=/functions/v1/psp/webhook
 ```
