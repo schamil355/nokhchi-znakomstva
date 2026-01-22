@@ -8,7 +8,6 @@ import { useNavigation } from "@react-navigation/native";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { signOut } from "../services/authService";
-import { deleteAccount } from "../services/accountService";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -28,14 +27,6 @@ type CopyShape = {
   signOutLoading: string;
   signOutErrorTitle: string;
   signOutError: string;
-  delete: string;
-  deleteLoading: string;
-  deleteConfirmTitle: string;
-  deleteConfirmMessage: string;
-  deleteConfirmYes: string;
-  deleteErrorTitle: string;
-  deleteError: string;
-  cancel: string;
 };
 
 const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
@@ -45,15 +36,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     signOut: "Sign out",
     signOutLoading: "Signing out…",
     signOutErrorTitle: "Sign-out failed",
-    signOutError: "Please try again.",
-    delete: "Delete account",
-    deleteLoading: "Deleting…",
-    deleteConfirmTitle: "Delete account?",
-    deleteConfirmMessage: "This will remove your account and data.",
-    deleteConfirmYes: "Delete",
-    deleteErrorTitle: "Deletion failed",
-    deleteError: "Please try again.",
-    cancel: "Cancel"
+    signOutError: "Please try again."
   },
   de: {
     title: "Einstellungen",
@@ -61,15 +44,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     signOut: "Abmelden",
     signOutLoading: "Melde ab…",
     signOutErrorTitle: "Abmelden fehlgeschlagen",
-    signOutError: "Bitte versuche es erneut.",
-    delete: "Account löschen",
-    deleteLoading: "Lösche…",
-    deleteConfirmTitle: "Account löschen?",
-    deleteConfirmMessage: "Das löscht deinen Account und deine Daten.",
-    deleteConfirmYes: "Löschen",
-    deleteErrorTitle: "Löschen fehlgeschlagen",
-    deleteError: "Bitte versuche es erneut.",
-    cancel: "Abbrechen"
+    signOutError: "Bitte versuche es erneut."
   },
   fr: {
     title: "Réglages",
@@ -77,15 +52,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     signOut: "Se déconnecter",
     signOutLoading: "Déconnexion…",
     signOutErrorTitle: "Échec de la déconnexion",
-    signOutError: "Veuillez réessayer.",
-    delete: "Supprimer le compte",
-    deleteLoading: "Suppression…",
-    deleteConfirmTitle: "Supprimer le compte ?",
-    deleteConfirmMessage: "Cela supprimera ton compte et tes données.",
-    deleteConfirmYes: "Supprimer",
-    deleteErrorTitle: "Échec de la suppression",
-    deleteError: "Veuillez réessayer.",
-    cancel: "Annuler"
+    signOutError: "Veuillez réessayer."
   },
   ru: {
     title: "Настройки",
@@ -93,15 +60,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     signOut: "Выйти",
     signOutLoading: "Выходим…",
     signOutErrorTitle: "Не удалось выйти",
-    signOutError: "Попробуй еще раз.",
-    delete: "Удалить аккаунт",
-    deleteLoading: "Удаляем…",
-    deleteConfirmTitle: "Удалить аккаунт?",
-    deleteConfirmMessage: "Это удалит твой аккаунт и данные.",
-    deleteConfirmYes: "Удалить",
-    deleteErrorTitle: "Не удалось удалить",
-    deleteError: "Попробуй еще раз.",
-    cancel: "Отмена"
+    signOutError: "Попробуй еще раз."
   }
 };
 
@@ -111,7 +70,6 @@ const SettingsScreen = () => {
   const copy = useLocalizedCopy(translations);
   const errorCopy = useErrorCopy();
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleClose = useCallback(() => {
     if (navigation.canGoBack()) {
@@ -123,7 +81,7 @@ const SettingsScreen = () => {
 
 
   const handleSignOut = useCallback(async () => {
-    if (isSigningOut || isDeleting) return;
+    if (isSigningOut) return;
     setIsSigningOut(true);
     try {
       await signOut();
@@ -133,37 +91,7 @@ const SettingsScreen = () => {
     } finally {
       setIsSigningOut(false);
     }
-  }, [copy.signOutError, copy.signOutErrorTitle, errorCopy, isDeleting, isSigningOut]);
-
-  const handleDelete = useCallback(async () => {
-    setIsDeleting(true);
-    try {
-      await deleteAccount();
-      await signOut();
-    } catch (error: any) {
-      logError(error, "delete-account");
-      Alert.alert(copy.deleteErrorTitle, getErrorMessage(error, errorCopy, copy.deleteError));
-    } finally {
-      setIsDeleting(false);
-      setIsSigningOut(false);
-    }
-  }, [copy.deleteError, copy.deleteErrorTitle, errorCopy]);
-
-  const confirmDelete = useCallback(() => {
-    if (isSigningOut || isDeleting) return;
-    Alert.alert(copy.deleteConfirmTitle, copy.deleteConfirmMessage, [
-      { text: copy.cancel, style: "cancel" },
-      { text: copy.deleteConfirmYes, style: "destructive", onPress: handleDelete }
-    ]);
-  }, [
-    copy.cancel,
-    copy.deleteConfirmMessage,
-    copy.deleteConfirmTitle,
-    copy.deleteConfirmYes,
-    handleDelete,
-    isDeleting,
-    isSigningOut
-  ]);
+  }, [copy.signOutError, copy.signOutErrorTitle, errorCopy, isSigningOut]);
 
   return (
     <LinearGradient
@@ -199,10 +127,10 @@ const SettingsScreen = () => {
               style={({ pressed }) => [
                 styles.primaryButton,
                 pressed && styles.buttonPressed,
-                (isSigningOut || isDeleting) && styles.disabled
+                isSigningOut && styles.disabled
               ]}
               onPress={handleSignOut}
-              disabled={isSigningOut || isDeleting}
+              disabled={isSigningOut}
             >
               <LinearGradient
                 colors={["#0f0f0f", "#0a0a0a"]}
@@ -214,19 +142,6 @@ const SettingsScreen = () => {
                   {isSigningOut ? copy.signOutLoading : copy.signOut}
                 </Text>
               </LinearGradient>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.dangerButton,
-                pressed && styles.buttonPressed,
-                (isSigningOut || isDeleting) && styles.disabled
-              ]}
-              onPress={confirmDelete}
-              disabled={isSigningOut || isDeleting}
-            >
-              <Text style={styles.dangerText}>
-                {isDeleting ? copy.deleteLoading : copy.delete}
-              </Text>
             </Pressable>
           </View>
         </ScrollView>
