@@ -206,9 +206,7 @@ const en = {
     },
     gender: {
       female: "Female",
-      male: "Male",
-      nonbinary: "Non-binary",
-      other: "Other"
+      male: "Male"
     },
     orientation: {
       women: "Interested in women",

@@ -9,7 +9,7 @@ export type DiscoveryPreferences = {
 export const defaultDiscoveryPreferences: DiscoveryPreferences = {
   radiusKm: 25,
   maxResults: 50,
-  interestedIn: ["female", "male", "nonbinary", "other"],
+  interestedIn: ["female", "male"],
 };
 
 export type DiscoveryCandidate = {

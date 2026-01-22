@@ -5,6 +5,7 @@ module.exports = {
       preset: "ts-jest",
       testEnvironment: "node",
       testMatch: ["<rootDir>/__tests__/unit/**/*.test.ts"],
+      setupFiles: ["<rootDir>/jest.env.js"],
       moduleNameMapper: {
         "^react-native$": "react-native-web",
         "^expo-localization$": "../__mocks__/expo-localization",
@@ -29,6 +30,7 @@ module.exports = {
           "<rootDir>/__mocks__/async-storage.ts",
         "^expo-constants$": "<rootDir>/__mocks__/expo-constants.ts",
       },
+      setupFiles: ["<rootDir>/jest.env.js"],
       setupFilesAfterEnv: [],
       transformIgnorePatterns: [
         "node_modules/(?!(@react-native|react-native|@react-native-async-storage|@react-native-community|expo(nent)?|@expo|expo-modules-core|react-native-reanimated|react-native-worklets)/)",

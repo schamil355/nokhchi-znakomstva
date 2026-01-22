@@ -1,4 +1,4 @@
-export type Gender = "male" | "female" | "nonbinary";
+export type Gender = "male" | "female";
 export type Intention = "serious" | "casual" | "friendship";
 
 export const RELATIONSHIP_COMPASS_KEYS = [

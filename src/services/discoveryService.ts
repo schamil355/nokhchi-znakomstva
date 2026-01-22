@@ -76,7 +76,7 @@ export const fetchDiscoveryFeed = async (userId: string, filters: DiscoveryFilte
       .filter((profile) => profile.userId !== userId)
       .filter((profile) =>
         isProfileEligible(profile, {
-          genders: genders ?? ["female", "male", "nonbinary"],
+          genders: genders ?? ["female", "male"],
           ageRange: filters.ageRange, // already enforced server-side, keep for safety
           region: filters.region,
           distanceRange: [filters.minDistanceKm, filters.distanceKm],
@@ -115,7 +115,7 @@ export const fetchRecentProfiles = async (userId: string, filters: DiscoveryFilt
       .filter((profile) => profile.userId !== userId)
       .filter((profile) =>
         isProfileEligible(profile, {
-          genders: genders ?? ["female", "male", "nonbinary"],
+          genders: genders ?? ["female", "male"],
           ageRange: filters.ageRange, // already enforced server-side, keep for safety
           region: filters.region,
           distanceRange: [filters.minDistanceKm, filters.distanceKm],

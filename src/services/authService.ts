@@ -50,6 +50,12 @@ const tAuth = (key: keyof typeof authCopy.en) => {
   return authCopy[locale]?.[key] ?? authCopy.en[key];
 };
 
+const resolveGender = (value: unknown) => {
+  if (typeof value !== "string") return "male";
+  const normalized = value.toLowerCase();
+  return normalized === "female" || normalized === "male" ? normalized : "male";
+};
+
 const withCode = (code: string, message?: string) => Object.assign(new Error(message ?? code), { code });
 
 const ensureSupabaseConfig = () => {
@@ -107,11 +113,12 @@ export const signInWithPassword = async (email: string, password: string): Promi
       if (!profile) {
         const userMeta = data.session.user.user_metadata ?? {};
         const displayName = getFallbackDisplayName(data.session.user);
+        const gender = resolveGender(userMeta.gender);
         profile = await upsertProfile(data.session.user.id, {
           displayName,
           birthday: "1990-01-01",
           bio: "",
-          gender: (userMeta.gender as any) || "nonbinary",
+          gender,
           intention: (userMeta.intention as any) || "serious",
           interests: [],
           photos: [],
@@ -180,11 +187,12 @@ export const bootstrapSession = async (): Promise<Session | null> => {
     if (!profile) {
       const userMeta = data.session.user.user_metadata ?? {};
       const displayName = getFallbackDisplayName(data.session.user);
+      const gender = resolveGender(userMeta.gender);
       profile = await upsertProfile(data.session.user.id, {
         displayName,
         birthday: "1990-01-01",
         bio: "",
-        gender: (userMeta.gender as any) || "nonbinary",
+        gender,
         intention: (userMeta.intention as any) || "serious",
         interests: [],
         photos: [],

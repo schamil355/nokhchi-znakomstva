@@ -65,6 +65,8 @@ const toSignedPhotos = async (
   }));
 };
 
+const isBinaryGender = (value?: string | null) => value === "female" || value === "male";
+
 const toCandidate = async (
   row: PublicProfileRow,
   distanceKm?: number,
@@ -162,7 +164,7 @@ export const mapPublicProfilesToCandidates = async (
   viewerLocation?: Coordinates | null,
 ) => {
   const hydrated = await Promise.all(
-    rows.map(async (row) => {
+    rows.filter((row) => isBinaryGender(row.gender)).map(async (row) => {
       const age = differenceInYears(new Date(), new Date(row.birthdate));
       if (age < 18) {
         return null;

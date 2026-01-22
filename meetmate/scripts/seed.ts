@@ -15,7 +15,7 @@ type DemoProfile = {
   password: string;
   displayName: string;
   bio: string;
-  gender: "female" | "male" | "nonbinary";
+  gender: "female" | "male";
   orientation: "women" | "men" | "everyone";
   interests: string[];
   country: "RU" | "FR" | "DE" | "AT" | "NO" | "BE";
@@ -76,18 +76,6 @@ const demoProfiles: DemoProfile[] = [
     photoUrl: "https://images.unsplash.com/photo-1529665253569-6d01c0eaf7b6"
   },
   {
-    email: "vienna.vibes@example.com",
-    password: process.env.SEED_USER_PASSWORD ?? "Password123!",
-    displayName: "Vienna Creative",
-    bio: "Designer in Wien – liebt Kaffeehäuser und Klassik.",
-    gender: "nonbinary",
-    orientation: "everyone",
-    interests: ["Kunst", "Reisen", "Fotografie", "Musik"],
-    country: "AT",
-    location: { latitude: 48.2082, longitude: 16.3738 },
-    photoUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e"
-  },
-  {
     email: "oslo.adventurer@example.com",
     password: process.env.SEED_USER_PASSWORD ?? "Password123!",
     displayName: "Oslo Adventurer",
@@ -98,7 +86,7 @@ const demoProfiles: DemoProfile[] = [
     country: "NO",
     location: { latitude: 59.9139, longitude: 10.7522 },
     photoUrl: "https://images.unsplash.com/photo-1506790409786-287062b21cfe"
-  }
+  },
   {
     email: "moscow.insider@example.com",
     password: process.env.SEED_USER_PASSWORD ?? "Password123!",

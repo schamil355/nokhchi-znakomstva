@@ -206,9 +206,7 @@ const de = {
     },
     gender: {
       female: "Weiblich",
-      male: "Männlich",
-      nonbinary: "Nicht-binär",
-      other: "Sonstiges"
+      male: "Männlich"
     },
     orientation: {
       women: "Interessiert an Frauen",

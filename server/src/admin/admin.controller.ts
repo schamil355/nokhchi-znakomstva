@@ -28,7 +28,6 @@ export class AdminController {
       gender: {
         male: payload.gender?.male ?? 0,
         female: payload.gender?.female ?? 0,
-        nonbinary: payload.gender?.nonbinary ?? 0,
         unknown: payload.gender?.unknown ?? 0,
       },
       incognito: payload.incognito ?? 0,

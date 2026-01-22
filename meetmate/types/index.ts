@@ -4,7 +4,7 @@ export type User = {
   createdAt: string;
 };
 
-export type Gender = "female" | "male" | "nonbinary" | "other";
+export type Gender = "female" | "male";
 export type Orientation = "women" | "men" | "everyone";
 
 export type Coordinates = {

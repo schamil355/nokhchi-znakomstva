@@ -148,7 +148,6 @@ export async function GET() {
   const gender = {
     male: metrics?.gender?.male ?? 0,
     female: metrics?.gender?.female ?? 0,
-    nonbinary: metrics?.gender?.nonbinary ?? 0,
     unknown: metrics?.gender?.unknown ?? 0
   };
   const platform = {

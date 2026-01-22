@@ -25,7 +25,7 @@ type PreferencesState = {
 };
 
 const createDefaultFilters = (): DiscoveryFilters => ({
-  genders: ["female", "male", "nonbinary"],
+  genders: ["female", "male"],
   intentions: ["serious", "casual", "friendship"],
   ageRange: [18, 45],
   minDistanceKm: 0,

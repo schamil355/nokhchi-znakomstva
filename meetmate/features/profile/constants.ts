@@ -1,11 +1,6 @@
 import { Gender, Orientation } from "../../types";
 
-export const GENDERS = [
-  "female",
-  "male",
-  "nonbinary",
-  "other",
-] as const satisfies ReadonlyArray<Gender>;
+export const GENDERS = ["female", "male"] as const satisfies ReadonlyArray<Gender>;
 
 export const ORIENTATION_OPTIONS = [
   "women",

@@ -3,7 +3,7 @@
 import React from "react";
 
 type MetricPayload = {
-  gender: { male: number; female: number; nonbinary?: number; unknown?: number };
+  gender: { male: number; female: number; unknown?: number };
   regions: { ingushetia: number; chechnya: number; russia: number; europe: number; other: number };
   incognito: number;
   platform?: { ios?: number; android?: number };
@@ -193,7 +193,6 @@ const MetricsPage = () => {
   const gender = {
     male: data.gender?.male ?? 0,
     female: data.gender?.female ?? 0,
-    nonbinary: data.gender?.nonbinary ?? 0,
     unknown: data.gender?.unknown ?? 0
   };
   const regions = data.regions;
@@ -207,7 +206,6 @@ const MetricsPage = () => {
   const totalProfiles =
     gender.male +
     gender.female +
-    gender.nonbinary +
     gender.unknown;
   const femaleShare = totalProfiles ? Math.round((gender.female / totalProfiles) * 100) : 0;
   const maleShare = totalProfiles ? Math.round((gender.male / totalProfiles) * 100) : 0;
