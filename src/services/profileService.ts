@@ -112,7 +112,10 @@ export const upsertProfile = async (userId: string, input: ProfileInput): Promis
       photos: parsed.photos,
       primary_photo_path: parsed.primaryPhotoPath ?? null,
       primary_photo_id: parsed.primaryPhotoId ?? null,
-      is_premium: parsed.photos.length >= 3 ? true : parsed.photos.some((photo) => photo.url.includes("premium")),
+      is_premium:
+        parsed.photos.length >= 3
+          ? true
+          : parsed.photos.some((photo) => typeof photo.url === "string" && photo.url.includes("premium")),
       updated_at: new Date().toISOString()
     };
     if (parsed.relationshipCompass !== undefined) {
