@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { env, SUPABASE_ENABLED } from "@/lib/env";
+import { SUPABASE_ENABLED } from "@/lib/env";
+import { getAuthenticatedUser, getServerClient } from "@/lib/supabaseServer";
 
 export async function GET(req: Request) {
   if (!SUPABASE_ENABLED) return NextResponse.json({ items: [] });
@@ -9,35 +10,58 @@ export async function GET(req: Request) {
 
   if (!match_id) return NextResponse.json({ items: [] }, { status: 400 });
 
-  const url = `${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/messages?match_id=eq.${match_id}&select=*&order=created_at.asc`;
-  const res = await fetch(url, {
-    headers: {
-      apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-    },
-  });
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    return NextResponse.json({ items: [] }, { status: 401 });
+  }
 
-  const items = res.ok ? await res.json() : [];
-  return NextResponse.json({ items });
+  const supabase = getServerClient();
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("match_id", match_id)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("Failed to load messages", error);
+    return NextResponse.json({ items: [] }, { status: 200 });
+  }
+
+  return NextResponse.json({ items: data ?? [] });
 }
 
 export async function POST(req: Request) {
   if (!SUPABASE_ENABLED) return NextResponse.json({ ok: true, demo: true });
 
-  const { match_id, sender_id, content } = await req.json();
-  if (!match_id || !sender_id || !content) return NextResponse.json({ ok: false }, { status: 400 });
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+  }
 
-  const url = `${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/messages`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-      "Content-Type": "application/json",
-      Prefer: "return=minimal",
-    },
-    body: JSON.stringify({ match_id, sender_id, content }),
+  let payload: unknown;
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 400 });
+  }
+  const match_id = (payload as Record<string, unknown>)?.match_id;
+  const contentRaw = (payload as Record<string, unknown>)?.content;
+  const content = typeof contentRaw === "string" ? contentRaw.trim() : "";
+  if (!match_id || typeof match_id !== "string" || !content) {
+    return NextResponse.json({ ok: false }, { status: 400 });
+  }
+
+  const supabase = getServerClient();
+  const { error } = await supabase.from("messages").insert({
+    match_id,
+    sender_id: user.id,
+    content
   });
 
-  return NextResponse.json({ ok: res.ok });
+  if (error) {
+    console.error("Failed to send message", error);
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

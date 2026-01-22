@@ -1,8 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SwipeDeck } from "@/components/SwipeDeck";
 import { SUPABASE_ENABLED } from "@/lib/env";
 import { resolveGeoRegion, type GeoRegion } from "@/lib/geoRegion";
@@ -20,7 +21,14 @@ type Candidate = {
   distance_km?: number | null;
 };
 
+type MatchNotice = {
+  id: string;
+  name?: string | null;
+  avatar_url?: string | null;
+};
+
 const DEFAULT_REGION: GeoRegion = "chechnya";
+const FEED_REFRESH_MS = 30_000;
 
 const REGION_LABELS: Record<GeoRegion, string> = {
   chechnya: "Tschetschenien",
@@ -36,6 +44,8 @@ const PHOTO_POOL = [
   "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=800&q=80",
   "https://images.unsplash.com/photo-1521577352947-9bb58764b69a?auto=format&fit=crop&w=800&q=80",
 ];
+
+const MATCH_AVATAR_FALLBACK = PHOTO_POOL[0];
 
 const DEMO_MALE_CREDENTIALS = {
   userId: "mock-eu-m-01",
@@ -261,36 +271,58 @@ export default function DiscoverPage() {
   const [candidates, setCandidates] = useState<Candidate[]>(() => (SUPABASE_ENABLED ? [] : MOCK_FEED));
   const [loading, setLoading] = useState(SUPABASE_ENABLED);
   const [message, setMessage] = useState<string | null>(null);
+  const [matchNotice, setMatchNotice] = useState<MatchNotice | null>(null);
   const [region, setRegion] = useState<GeoRegion>(DEFAULT_REGION);
+  const candidatesRef = useRef<Candidate[]>([]);
+  const hasLoadedRef = useRef(false);
+
+  useEffect(() => {
+    candidatesRef.current = candidates;
+  }, [candidates]);
 
   useEffect(() => {
     if (!SUPABASE_ENABLED) return;
 
     let cancelled = false;
-    const fetchFeed = async () => {
-      setLoading(true);
-      setMessage(null);
+    let inFlight = false;
+    hasLoadedRef.current = false;
+    const fetchFeed = async (showLoading: boolean) => {
+      if (inFlight) return;
+      inFlight = true;
+      if (showLoading) {
+        setLoading(true);
+        setMessage(null);
+      }
       try {
         const res = await fetch(`/api/feed?region=${region}`);
         if (!res.ok) throw new Error(`Feed request failed (${res.status})`);
         const data = await res.json();
         if (!cancelled) {
           setCandidates(data.items ?? []);
+          hasLoadedRef.current = true;
+          setMessage(null);
         }
       } catch (error) {
         console.warn("Failed to load feed", error);
         if (!cancelled) {
-          setMessage("Feed konnte nicht geladen werden. Demo-Modus aktiv.");
-          setCandidates(MOCK_FEED);
+          if (!candidatesRef.current.length) {
+            setMessage("Feed konnte nicht geladen werden. Demo-Modus aktiv.");
+            setCandidates(MOCK_FEED);
+          }
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        inFlight = false;
+        if (!cancelled && showLoading) setLoading(false);
       }
     };
 
-    fetchFeed();
+    fetchFeed(true);
+    const intervalId = setInterval(() => {
+      void fetchFeed(!hasLoadedRef.current);
+    }, FEED_REFRESH_MS);
     return () => {
       cancelled = true;
+      clearInterval(intervalId);
     };
   }, [region]);
 
@@ -356,6 +388,11 @@ export default function DiscoverPage() {
         if (!res.ok) {
           throw new Error(`Like failed (${res.status})`);
         }
+        setMessage(null);
+        const data = (await res.json()) as { match?: MatchNotice };
+        if (data?.match?.id) {
+          setMatchNotice(data.match);
+        }
       } catch (error) {
         console.warn("Like failed", error);
         setMessage("Like fehlgeschlagen.");
@@ -376,6 +413,7 @@ export default function DiscoverPage() {
         if (!res.ok) {
           throw new Error(`Pass failed (${res.status})`);
         }
+        setMessage(null);
       } catch (error) {
         console.warn("Pass failed", error);
         setMessage("Pass konnte nicht verarbeitet werden.");
@@ -406,6 +444,47 @@ export default function DiscoverPage() {
             </Link>
           </div>
         </header>
+
+        {matchNotice ? (
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface)]">
+                  <Image
+                    src={matchNotice.avatar_url ?? MATCH_AVATAR_FALLBACK}
+                    alt={matchNotice.name ?? "Match"}
+                    width={56}
+                    height={56}
+                    className="h-14 w-14 object-cover"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-[var(--muted)]">
+                    Ihr habt ein Match
+                  </div>
+                  <div className="text-lg font-semibold text-[var(--text)]">
+                    Du und {matchNotice.name ?? "eurem Match"} könnt jetzt chatten.
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={`/chat/${matchNotice.id}`}
+                  className="rounded-full bg-[var(--primary-600)] px-4 py-2 text-xs font-semibold text-white hover:brightness-110"
+                >
+                  Nachricht senden
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setMatchNotice(null)}
+                  className="rounded-full border border-[var(--border)] px-4 py-2 text-xs font-semibold text-[var(--text)] hover:border-[var(--primary-400)]"
+                >
+                  Später
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {message ? (
           <div className="rounded-lg border border-[var(--border)] bg-[var(--accent-100)] px-4 py-3 text-sm text-[var(--text)]">

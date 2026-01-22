@@ -49,8 +49,15 @@ const MOCK_MESSAGES: Message[] = [
   }
 ];
 
-const getOtherProfileName = (match: Match | null, viewerId: string) => {
+const getOtherProfileName = (match: Match | null, viewerId: string | null) => {
   if (!match) return "Match";
+  if (!viewerId) {
+    return (
+      match.user_a_profile?.display_name ??
+      match.user_b_profile?.display_name ??
+      "Match"
+    );
+  }
   const other = match.user_a === viewerId ? match.user_b_profile : match.user_a_profile;
   return other?.display_name ?? "Match";
 };
@@ -58,7 +65,9 @@ const getOtherProfileName = (match: Match | null, viewerId: string) => {
 export default function ChatThreadPage() {
   const params = useParams<{ matchId: string }>();
   const router = useRouter();
-  const [viewerId] = useState(DEMO_VIEWER_ID);
+  const [viewerId, setViewerId] = useState<string | null>(
+    SUPABASE_ENABLED ? null : DEMO_VIEWER_ID
+  );
   const [match, setMatch] = useState<Match | null>(() =>
     SUPABASE_ENABLED ? null : MOCK_MATCH
   );
@@ -75,19 +84,24 @@ export default function ChatThreadPage() {
   const fetchMatch = useCallback(async () => {
     if (!SUPABASE_ENABLED) return;
     try {
-      const res = await fetch(`/api/matches?uid=${viewerId}`);
+      const res = await fetch("/api/matches");
+      if (res.status === 401 || res.status === 403) {
+        setStatus("forbidden");
+        return;
+      }
       if (!res.ok) throw new Error(`matches ${res.status}`);
-      const data = (await res.json()) as { items: Match[] };
+      const data = (await res.json()) as { items: Match[]; viewer_id?: string };
       const found = data.items?.find((item) => item.id === matchId) ?? null;
       if (!found) {
         setStatus("forbidden");
         return;
       }
       setMatch(found);
+      setViewerId(data.viewer_id ?? null);
     } catch (error) {
       console.warn("fetchMatch failed", error);
     }
-  }, [matchId, viewerId]);
+  }, [matchId]);
 
   const fetchMessages = useCallback(async () => {
     if (!SUPABASE_ENABLED) return;
@@ -113,24 +127,27 @@ export default function ChatThreadPage() {
     fetchMatch();
   }, [fetchMatch]);
 
-useEffect(() => {
-  if (!SUPABASE_ENABLED) return;
-  fetchMessages();
-  const interval = setInterval(fetchMessages, 5000);
-  return () => clearInterval(interval);
-}, [fetchMessages]);
+  useEffect(() => {
+    if (!SUPABASE_ENABLED) return;
+    if (!match) return;
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 5000);
+    return () => clearInterval(interval);
+  }, [fetchMessages, match]);
 
-  const viewerProfile = match
-    ? match.user_a === viewerId
-      ? match.user_a_profile
-      : match.user_b_profile
-    : null;
+  const viewerProfile =
+    match && viewerId
+      ? match.user_a === viewerId
+        ? match.user_a_profile
+        : match.user_b_profile
+      : null;
   const isVerified = Boolean(viewerProfile?.verified_at);
-  const showGate = !isVerified;
+  const showGate = Boolean(match && viewerId && !isVerified);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!input.trim()) return;
+    if (!viewerId) return;
     if (showGate) return;
 
     const optimistic: Message = {
@@ -152,7 +169,6 @@ useEffect(() => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           match_id: matchId,
-          sender_id: viewerId,
           content: optimistic.content
         })
       });
@@ -206,7 +222,7 @@ useEffect(() => {
 
         <div className="flex-1 space-y-3 overflow-y-auto px-6 py-4">
           {messages.map((message) => {
-            const isOwn = message.sender_id === viewerId;
+            const isOwn = viewerId ? message.sender_id === viewerId : false;
             return (
               <div
                 key={message.id}
@@ -216,7 +232,7 @@ useEffect(() => {
                     : "bg-white text-[var(--text)] border border-[var(--border)]"
                 }`}
               >
-            <div className="text-[10px] opacity-70">
+                <div className="text-[10px] opacity-70">
                   {formatTime(message.created_at)}
                 </div>
                 <div>{message.content}</div>
@@ -236,12 +252,12 @@ useEffect(() => {
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder="Nachricht schreiben …"
-              disabled={showGate}
+              disabled={showGate || !viewerId}
               className="min-h-[44px] flex-1 resize-none rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary-600)] disabled:opacity-60"
             />
             <button
               type="submit"
-              disabled={showGate}
+              disabled={showGate || !viewerId}
               className="rounded-xl bg-[var(--primary-600)] px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Senden

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { SUPABASE_ENABLED } from "@/lib/env";
 import { formatDateISO } from "@/lib/date";
 
 const DEMO_VIEWER_ID = "00000000-0000-0000-0000-000000000001";
+const MATCHES_REFRESH_MS = 30_000;
 
 type Match = {
   id: string;
@@ -38,47 +39,75 @@ const MOCK_MATCHES: Match[] = [
   }
 ];
 
-const getDisplayName = (match: Match, viewerId: string) => {
-  const otherProfile =
-    match.user_a === viewerId ? match.user_b_profile : match.user_a_profile;
+const getDisplayName = (match: Match, viewerId: string | null) => {
+  if (!viewerId) {
+    return (
+      match.user_a_profile?.display_name ??
+      match.user_b_profile?.display_name ??
+      "Unbekanntes Match"
+    );
+  }
+  const otherProfile = match.user_a === viewerId ? match.user_b_profile : match.user_a_profile;
   return otherProfile?.display_name ?? "Unbekanntes Match";
 };
 
 export default function MatchesPage() {
-  const [viewerId] = useState(DEMO_VIEWER_ID);
+  const [viewerId, setViewerId] = useState<string | null>(
+    SUPABASE_ENABLED ? null : DEMO_VIEWER_ID
+  );
   const [matches, setMatches] = useState<Match[]>(() => (SUPABASE_ENABLED ? [] : MOCK_MATCHES));
   const [status, setStatus] = useState<"idle" | "loading" | "error">(
     SUPABASE_ENABLED ? "loading" : "idle"
   );
+  const matchesRef = useRef<Match[]>(matches);
+
+  useEffect(() => {
+    matchesRef.current = matches;
+  }, [matches]);
 
   useEffect(() => {
     if (!SUPABASE_ENABLED) return;
 
     let cancelled = false;
-    const fetchMatches = async () => {
-      setStatus("loading");
+    let inFlight = false;
+    const fetchMatches = async (showLoading: boolean) => {
+      if (inFlight) return;
+      inFlight = true;
+      if (showLoading) {
+        setStatus("loading");
+      }
       try {
-        const res = await fetch(`/api/matches?uid=${viewerId}`);
+        const res = await fetch("/api/matches");
         if (!res.ok) throw new Error(`Matches request failed (${res.status})`);
-        const data = await res.json();
+        const data = (await res.json()) as { items?: Match[]; viewer_id?: string };
         if (!cancelled) {
           setMatches(data.items ?? []);
+          setViewerId(data.viewer_id ?? null);
           setStatus("idle");
         }
       } catch (error) {
         console.warn("Failed to load matches", error);
         if (!cancelled) {
-          setMatches(MOCK_MATCHES);
+          if (!matchesRef.current.length) {
+            setMatches(MOCK_MATCHES);
+            setViewerId(DEMO_VIEWER_ID);
+          }
           setStatus("error");
         }
+      } finally {
+        inFlight = false;
       }
     };
 
-    fetchMatches();
+    fetchMatches(true);
+    const intervalId = setInterval(() => {
+      void fetchMatches(false);
+    }, MATCHES_REFRESH_MS);
     return () => {
       cancelled = true;
+      clearInterval(intervalId);
     };
-  }, [viewerId]);
+  }, []);
 
   const subtitle = useMemo(() => {
     if (status === "loading") return "Lade deine Matches …";
