@@ -354,6 +354,9 @@ type CopyShape = {
     revokeShares: string;
     deletePhoto: string;
     photoActionsTitle: string;
+    photoRequiredTitle: string;
+    photoRequiredMessage: string;
+    photoRequiredCta: string;
   };
 };
 
@@ -440,7 +443,10 @@ const baseCopy: CopyShape = {
     changeVisibility: "Change visibility",
     revokeShares: "Revoke access",
     deletePhoto: "Delete photo",
-    photoActionsTitle: "Photo actions"
+    photoActionsTitle: "Photo actions",
+    photoRequiredTitle: "You need a profile photo",
+    photoRequiredMessage: "To remove your profile photo, please replace it with a new one.",
+    photoRequiredCta: "Upload new photo"
   },
 };
 
@@ -530,7 +536,10 @@ const translations: Record<string, CopyShape> = {
       changeVisibility: "Sichtbarkeit ändern",
       revokeShares: "Freigaben widerrufen",
       deletePhoto: "Foto löschen",
-      photoActionsTitle: "Foto-Aktionen"
+      photoActionsTitle: "Foto-Aktionen",
+      photoRequiredTitle: "Du musst ein Profilbild haben.",
+      photoRequiredMessage: "Damit du das Profilbild löschen kannst, musst du es durch ein neues ersetzen.",
+      photoRequiredCta: "Neues Foto hochladen"
     },
   },
   fr: {
@@ -554,7 +563,10 @@ const translations: Record<string, CopyShape> = {
       signOut: "Se déconnecter"
     },
     alerts: {
-      ...baseCopy.alerts
+      ...baseCopy.alerts,
+      photoRequiredTitle: "Tu dois avoir une photo de profil",
+      photoRequiredMessage: "Pour supprimer ta photo de profil, remplace-la par une nouvelle.",
+      photoRequiredCta: "Téléverser une nouvelle photo"
     }
   },
   ru: {
@@ -584,7 +596,10 @@ const translations: Record<string, CopyShape> = {
       signOutConfirmTitle: "Выйти",
       signOutConfirmMessage: "Вы уверены, что хотите выйти?",
       cancel: "Отмена",
-      confirmSignOut: "Выйти"
+      confirmSignOut: "Выйти",
+      photoRequiredTitle: "Нужно фото профиля",
+      photoRequiredMessage: "Чтобы удалить фото профиля, сначала загрузите новое.",
+      photoRequiredCta: "Загрузить новое фото"
     }
   },
 };
@@ -1236,6 +1251,14 @@ const ProfileScreen = () => {
   const handleDeletePhoto = async (photo: Photo) => {
     const currentProfile = profile;
     if (!currentProfile || !session?.user?.id) {
+      return;
+    }
+    const totalPhotos = (currentProfile.photos ?? []).filter(Boolean).length;
+    if (totalPhotos <= 1) {
+      Alert.alert(copy.alerts.photoRequiredTitle, copy.alerts.photoRequiredMessage, [
+        { text: copy.alerts.photoRequiredCta, onPress: () => handleAddPhoto(0) },
+        { text: copy.alerts.cancel, style: "cancel" }
+      ]);
       return;
     }
     if (!photo.assetId) {
