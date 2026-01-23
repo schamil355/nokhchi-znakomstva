@@ -11,6 +11,7 @@ import { fetchProfile } from "../services/profileService";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { getPhotoUrl } from "../lib/storage";
+import { getSignedPhotoUrl } from "../services/photoService";
 import { LinearGradient } from "expo-linear-gradient";
 import { blockUser, reportUser } from "../services/moderationService";
 import SafeAreaView from "../components/SafeAreaView";
@@ -117,6 +118,31 @@ const DirectChatScreen = ({ route, navigation }: Props) => {
         profilePhotoUrl && !/^https?:\/\//.test(profilePhotoUrl) ? profilePhotoUrl : null,
         otherProfile?.photos?.[0]?.url && !/^https?:\/\//.test(otherProfile.photos[0].url) ? otherProfile.photos[0].url : null
       ].filter(Boolean);
+
+      const rawPhotoId =
+        otherProfile?.primaryPhotoId ??
+        otherProfile?.photos?.[0]?.assetId ??
+        otherProfile?.photos?.[0]?.photoId ??
+        otherProfile?.photos?.[0]?.photo_id ??
+        null;
+      const photoId =
+        typeof rawPhotoId === "number"
+          ? rawPhotoId
+          : rawPhotoId && Number.isFinite(Number(rawPhotoId))
+            ? Number(rawPhotoId)
+            : null;
+
+      if (photoId) {
+        try {
+          const signed = await getSignedPhotoUrl(photoId);
+          if (isMounted && signed?.url) {
+            setOtherAvatarUri(signed.url);
+            return;
+          }
+        } catch (err) {
+          console.warn("DirectChat avatar signed-url failed", err);
+        }
+      }
 
       for (const candidate of candidates as string[]) {
         try {

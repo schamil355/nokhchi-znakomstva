@@ -71,6 +71,7 @@ export const fetchProfile = async (userId: string): Promise<Profile | null> => {
       verified_face_score,
       relationship_compass,
       primary_photo_path,
+      primary_photo_id,
       region_code,
       country,
       latitude,

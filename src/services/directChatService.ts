@@ -3,6 +3,7 @@ import { DirectConversation, DirectMessage, Profile } from "../types";
 import { fetchProfile } from "./profileService";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getPhotoUrl } from "../lib/storage";
+import { getSignedPhotoUrl } from "./photoService";
 
 const mapMessage = (row: any): DirectMessage => ({
   id: row.id,
@@ -25,6 +26,28 @@ const mapConversation = (row: any, viewerId: string): DirectConversation => ({
 const resolveProfilePhoto = async (profile: Profile | null, supabase: ReturnType<typeof getSupabaseClient>) => {
   if (!profile) return null;
   const firstPhoto = profile.photos?.[0];
+  const rawPhotoId =
+    profile.primaryPhotoId ??
+    firstPhoto?.assetId ??
+    (firstPhoto as any)?.photoId ??
+    (firstPhoto as any)?.photo_id ??
+    null;
+  const photoId =
+    typeof rawPhotoId === "number"
+      ? rawPhotoId
+      : rawPhotoId && Number.isFinite(Number(rawPhotoId))
+        ? Number(rawPhotoId)
+        : null;
+  if (photoId) {
+    try {
+      const signed = await getSignedPhotoUrl(photoId);
+      if (signed?.url) {
+        return signed.url;
+      }
+    } catch {
+      // fall through to storage attempt
+    }
+  }
   if (firstPhoto?.url && /^https?:\/\//.test(firstPhoto.url)) {
     return firstPhoto.url;
   }
