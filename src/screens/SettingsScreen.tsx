@@ -131,19 +131,28 @@ const SettingsScreen = () => {
     }
   }, [copy.signOutError, copy.signOutErrorTitle, errorCopy, isSigningOut]);
 
+  const resetToWelcome = useCallback(() => {
+    const parentNav: any = (navigation as any).getParent?.() ?? navigation;
+    const rootNav: any = parentNav?.getParent?.() ?? parentNav;
+    if (rootNav?.reset) {
+      rootNav.reset({ index: 0, routes: [{ name: "Auth", params: { screen: "Welcome" } }] });
+    }
+  }, [navigation]);
+
   const performDeleteAccount = useCallback(async () => {
     if (isDeletingAccount) return;
     setIsDeletingAccount(true);
     try {
       await deleteAccount();
       await signOut();
+      resetToWelcome();
     } catch (error: any) {
       logError(error, "delete-account");
       Alert.alert(copy.deleteAccountErrorTitle, getErrorMessage(error, errorCopy, copy.deleteAccountError));
     } finally {
       setIsDeletingAccount(false);
     }
-  }, [copy.deleteAccountError, copy.deleteAccountErrorTitle, errorCopy, isDeletingAccount]);
+  }, [copy.deleteAccountError, copy.deleteAccountErrorTitle, errorCopy, isDeletingAccount, resetToWelcome]);
 
   const confirmDeleteAccount = useCallback(() => {
     if (Platform.OS === "web") {
