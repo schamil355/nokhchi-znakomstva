@@ -22,7 +22,6 @@ import { getSupabaseClient } from "./lib/supabaseClient";
 import { configureRevenueCat } from "./lib/revenuecat";
 import PwaInstallBanner from "./components/PwaInstallBanner";
 import { registerServiceWorker } from "./lib/pwa";
-import { isWebPwaLaunch } from "./lib/launchContext";
 
 type NotificationCopy = {
   defaultTitle: string;
@@ -109,7 +108,7 @@ const ONBOARDING_ROUTES = new Set<string>([
 ]);
 
 const LAST_ONBOARDING_KEY = "onboarding:lastRoute";
-const ONBOARDING_RESUME_ENABLED = Platform.OS === "web" && isWebPwaLaunch();
+const ONBOARDING_RESUME_ENABLED = Platform.OS === "web";
 
 const App = (): JSX.Element => {
   const queryClient = useMemo(

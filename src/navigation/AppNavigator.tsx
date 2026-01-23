@@ -6,11 +6,10 @@ import {
 } from "@react-navigation/bottom-tabs";
 import { useAuthStore } from "../state/authStore";
 import { useOnboardingStore } from "../state/onboardingStore";
-import { Image, Platform, StyleSheet, View } from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 import type { ImageSourcePropType } from "react-native";
 import type { SvgProps } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
-import { isWebPwaLaunch } from "../lib/launchContext";
 import HomePng from "../../assets/tab-icons/ICONS/home-filled.png";
 import MatchesPng from "../../assets/tab-icons/ICONS/matches.png";
 import SettingsPng from "../../assets/tab-icons/ICONS/settings.png";
@@ -78,8 +77,7 @@ const AuthNavigator = () => {
   const verifiedOverride = useAuthStore((state) => state.verifiedOverride);
   const isVerified = Boolean(profile?.verified) || verifiedOverride;
   const needsOnboarding = !profile || !isVerified;
-  const allowOnboardingEntry = Platform.OS !== "web" || isWebPwaLaunch();
-  const startOnboarding = Boolean(session) && needsOnboarding && allowOnboardingEntry;
+  const startOnboarding = Boolean(session) && needsOnboarding;
   const navigatorKey = session ? "auth-session" : "auth-guest";
   return (
     <AuthStack.Navigator
