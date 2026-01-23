@@ -76,7 +76,8 @@ export const isProfileEligible = (candidate: Profile, filters: EligibilityFilter
   if (!isVerified) {
     return false;
   }
-  if (filters.distanceRange && filters.origin) {
+  const applyDistance = filters.region !== "chechnya";
+  if (applyDistance && filters.distanceRange && filters.origin) {
     const [minDistance, maxDistance] = filters.distanceRange;
     const { latitude: originLat, longitude: originLng } = filters.origin;
     if (
