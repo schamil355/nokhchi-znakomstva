@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { NativeModules } from "react-native";
-import Purchases, {
+import { NativeModules, Platform } from "react-native";
+import type {
   CustomerInfo,
   PurchasesError,
   PurchasesOffering,
@@ -18,18 +18,35 @@ type UseRevenueCatOptions = {
 
 export const useRevenueCat = (options: UseRevenueCatOptions = {}) => {
   const { loadOfferings = true } = options;
-  const isAvailable = Boolean(NativeModules?.RNPurchases);
+  const [purchasesModule, setPurchasesModule] = useState<null | typeof import("react-native-purchases")>(null);
+  const isAvailable = Boolean(purchasesModule?.default);
   const [offerings, setOfferings] = useState<PurchasesOfferings | null>(null);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<unknown | null>(null);
 
+  useEffect(() => {
+    if (Platform.OS === "web" || !NativeModules?.RNPurchases) {
+      return;
+    }
+    let active = true;
+    void import("react-native-purchases").then((mod) => {
+      if (active) {
+        setPurchasesModule(mod);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const refresh = useCallback(async () => {
-    if (!isAvailable) {
+    if (!purchasesModule?.default) {
       return;
     }
     setStatus("loading");
     setError(null);
+    const Purchases = purchasesModule.default;
     const offeringsPromise = loadOfferings ? Purchases.getOfferings() : Promise.resolve(null);
     const [offeringsResult, infoResult] = await Promise.allSettled([
       offeringsPromise,
@@ -59,9 +76,10 @@ export const useRevenueCat = (options: UseRevenueCatOptions = {}) => {
   }, [isAvailable, loadOfferings]);
 
   useEffect(() => {
-    if (!isAvailable) {
+    if (!purchasesModule?.default) {
       return;
     }
+    const Purchases = purchasesModule.default;
     void refresh();
     const listener = (info: CustomerInfo) => {
       setCustomerInfo(info);
@@ -70,7 +88,7 @@ export const useRevenueCat = (options: UseRevenueCatOptions = {}) => {
     return () => {
       Purchases.removeCustomerInfoUpdateListener(listener);
     };
-  }, [isAvailable, refresh]);
+  }, [purchasesModule, refresh]);
 
   const isPro = useMemo(() => {
     const entitlements = customerInfo?.entitlements.active ?? {};
@@ -91,12 +109,13 @@ export const useRevenueCat = (options: UseRevenueCatOptions = {}) => {
   }, [isPro]);
 
   const purchasePackage = useCallback(async (pkg: PurchasesPackage) => {
-    if (!isAvailable) {
+    if (!purchasesModule?.default) {
       const unavailable = new Error("RevenueCat not available");
       return { ok: false, error: unavailable };
     }
     try {
       setStatus("loading");
+      const Purchases = purchasesModule.default;
       const { customerInfo: info } = await Purchases.purchasePackage(pkg);
       setCustomerInfo(info);
       return { ok: true, info };
@@ -110,15 +129,16 @@ export const useRevenueCat = (options: UseRevenueCatOptions = {}) => {
     } finally {
       setStatus("idle");
     }
-  }, [isAvailable]);
+  }, [purchasesModule]);
 
   const restore = useCallback(async () => {
-    if (!isAvailable) {
+    if (!purchasesModule?.default) {
       const unavailable = new Error("RevenueCat not available");
       return { ok: false, error: unavailable };
     }
     try {
       setStatus("loading");
+      const Purchases = purchasesModule.default;
       const info = await Purchases.restorePurchases();
       setCustomerInfo(info);
       return { ok: true, info };
@@ -128,7 +148,7 @@ export const useRevenueCat = (options: UseRevenueCatOptions = {}) => {
     } finally {
       setStatus("idle");
     }
-  }, [isAvailable]);
+  }, [purchasesModule]);
 
   const currentOffering: PurchasesOffering | null = offerings?.current ?? null;
 

@@ -1,4 +1,4 @@
-import { NativeModules } from "react-native";
+import { NativeModules, Platform } from "react-native";
 
 // RevenueCat Production Public API Key
 const RC_PUBLIC_API_KEY = "appl_eGZvLlqKXEVDwDoJdkBwkIzMNiZ";
@@ -7,6 +7,9 @@ const RC_PUBLIC_API_KEY = "appl_eGZvLlqKXEVDwDoJdkBwkIzMNiZ";
 export const RC_ENTITLEMENT_ID = "nokhchi_znakomstva_pro";
 
 const isRevenueCatAvailable = (): boolean => {
+  if (Platform.OS === "web") {
+    return false;
+  }
   return Boolean(NativeModules?.RNPurchases);
 };
 
