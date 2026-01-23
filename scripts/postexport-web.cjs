@@ -149,4 +149,25 @@ if (shouldUploadSourcemaps) {
   console.log("[postexport] Sentry sourcemaps upload skipped (missing SENTRY_AUTH_TOKEN/SENTRY_ORG/SENTRY_PROJECT)");
 }
 
+const removeSourceMaps = (dir) => {
+  if (!fs.existsSync(dir)) return 0;
+  let removed = 0;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      removed += removeSourceMaps(fullPath);
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith(".map")) {
+      fs.unlinkSync(fullPath);
+      removed += 1;
+    }
+  }
+  return removed;
+};
+
+const removedMaps = removeSourceMaps(OUT_DIR);
+console.log(`[postexport] removed ${removedMaps} sourcemap files from ${OUT_DIR}`);
+
 console.log("[postexport] completed");

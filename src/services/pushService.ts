@@ -36,6 +36,9 @@ Notifications.setNotificationHandler({
 
 export const registerPushNotifications = async () => {
   try {
+    if (Platform.OS === "web") {
+      return;
+    }
     if (!Device.isDevice) {
       return;
     }

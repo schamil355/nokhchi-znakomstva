@@ -202,9 +202,11 @@ const App = (): JSX.Element => {
       }
 
       // Non-blocking startup work
-      void registerPushNotifications().catch((error) => {
-        console.warn("Failed to register push notifications", error);
-      });
+      if (Platform.OS !== "web") {
+        void registerPushNotifications().catch((error) => {
+          console.warn("Failed to register push notifications", error);
+        });
+      }
       void (async () => {
         try {
           await track("app_open");
@@ -271,6 +273,9 @@ const App = (): JSX.Element => {
   }, []);
 
   useEffect(() => {
+    if (Platform.OS === "web") {
+      return;
+    }
     const receivedSub = Notifications.addNotificationReceivedListener((event) => {
       const identifier = event.request.identifier || `push-${Date.now()}`;
       const type = event.request.content.data?.type?.toString().toLowerCase() ?? "";
