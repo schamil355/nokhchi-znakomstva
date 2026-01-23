@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import SafeAreaView from "../components/SafeAreaView";
@@ -107,6 +107,7 @@ const SettingsScreen = () => {
   const errorCopy = useErrorCopy();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
 
   const handleClose = useCallback(() => {
     if (navigation.canGoBack()) {
@@ -145,6 +146,10 @@ const SettingsScreen = () => {
   }, [copy.deleteAccountError, copy.deleteAccountErrorTitle, errorCopy, isDeletingAccount]);
 
   const confirmDeleteAccount = useCallback(() => {
+    if (Platform.OS === "web") {
+      setIsDeleteConfirmVisible(true);
+      return;
+    }
     Alert.alert(copy.deleteAccountConfirmTitle, copy.deleteAccountConfirmMessage, [
       { text: copy.cancel, style: "cancel" },
       { text: copy.deleteAccount, style: "destructive", onPress: () => performDeleteAccount() }
@@ -216,6 +221,47 @@ const SettingsScreen = () => {
             </Pressable>
           </View>
         </ScrollView>
+        {Platform.OS === "web" ? (
+          <Modal
+            visible={isDeleteConfirmVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setIsDeleteConfirmVisible(false)}
+          >
+            <View style={styles.confirmBackdrop}>
+              <Pressable
+                style={styles.confirmBackdropTouchable}
+                onPress={() => setIsDeleteConfirmVisible(false)}
+              />
+              <View style={styles.confirmCard}>
+                <Text style={styles.confirmTitle}>{copy.deleteAccountConfirmTitle}</Text>
+                <Text style={styles.confirmMessage}>{copy.deleteAccountConfirmMessage}</Text>
+                <View style={styles.confirmButtons}>
+                  <Pressable
+                    style={[styles.confirmButton, styles.confirmButtonPrimary]}
+                    onPress={() => {
+                      setIsDeleteConfirmVisible(false);
+                      void performDeleteAccount();
+                    }}
+                    disabled={isDeletingAccount}
+                  >
+                    <Text style={[styles.confirmButtonText, styles.confirmButtonTextPrimary]}>
+                      {isDeletingAccount ? copy.deleteAccountLoading : copy.deleteAccount}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.confirmButton, styles.confirmButtonSecondary]}
+                    onPress={() => setIsDeleteConfirmVisible(false)}
+                  >
+                    <Text style={[styles.confirmButtonText, styles.confirmButtonTextSecondary]}>
+                      {copy.cancel}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        ) : null}
       </SafeAreaView>
     </LinearGradient>
   );
@@ -306,6 +352,71 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.6
+  },
+  confirmBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24
+  },
+  confirmBackdropTouchable: {
+    ...StyleSheet.absoluteFillObject
+  },
+  confirmCard: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 20,
+    backgroundColor: "#ffffff",
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    gap: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1d2932",
+    textAlign: "center"
+  },
+  confirmMessage: {
+    fontSize: 14,
+    color: "rgba(29,41,50,0.75)",
+    textAlign: "center",
+    lineHeight: 20
+  },
+  confirmButtons: {
+    width: "100%",
+    gap: 12,
+    marginTop: 8
+  },
+  confirmButton: {
+    width: "100%",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  confirmButtonPrimary: {
+    backgroundColor: PALETTE.danger
+  },
+  confirmButtonSecondary: {
+    backgroundColor: "#f4f5f7"
+  },
+  confirmButtonText: {
+    fontSize: 15,
+    fontWeight: "600"
+  },
+  confirmButtonTextPrimary: {
+    color: "#ffffff"
+  },
+  confirmButtonTextSecondary: {
+    color: "#2b3440"
   }
 });
 
