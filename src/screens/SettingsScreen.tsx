@@ -8,6 +8,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { signOut } from "../services/authService";
+import { deleteAccount } from "../services/accountService";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -27,6 +28,13 @@ type CopyShape = {
   signOutLoading: string;
   signOutErrorTitle: string;
   signOutError: string;
+  deleteAccount: string;
+  deleteAccountLoading: string;
+  deleteAccountConfirmTitle: string;
+  deleteAccountConfirmMessage: string;
+  deleteAccountErrorTitle: string;
+  deleteAccountError: string;
+  cancel: string;
 };
 
 const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
@@ -36,7 +44,14 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     signOut: "Sign out",
     signOutLoading: "Signing out…",
     signOutErrorTitle: "Sign-out failed",
-    signOutError: "Please try again."
+    signOutError: "Please try again.",
+    deleteAccount: "Delete account",
+    deleteAccountLoading: "Deleting account…",
+    deleteAccountConfirmTitle: "Delete account?",
+    deleteAccountConfirmMessage: "This permanently deletes your account and profile. This cannot be undone.",
+    deleteAccountErrorTitle: "Account deletion failed",
+    deleteAccountError: "Please try again.",
+    cancel: "Cancel"
   },
   de: {
     title: "Einstellungen",
@@ -44,7 +59,14 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     signOut: "Abmelden",
     signOutLoading: "Melde ab…",
     signOutErrorTitle: "Abmelden fehlgeschlagen",
-    signOutError: "Bitte versuche es erneut."
+    signOutError: "Bitte versuche es erneut.",
+    deleteAccount: "Account löschen",
+    deleteAccountLoading: "Account wird gelöscht…",
+    deleteAccountConfirmTitle: "Account löschen?",
+    deleteAccountConfirmMessage: "Dein Account und Profil werden dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.",
+    deleteAccountErrorTitle: "Löschen fehlgeschlagen",
+    deleteAccountError: "Bitte versuche es erneut.",
+    cancel: "Abbrechen"
   },
   fr: {
     title: "Réglages",
@@ -52,7 +74,14 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     signOut: "Se déconnecter",
     signOutLoading: "Déconnexion…",
     signOutErrorTitle: "Échec de la déconnexion",
-    signOutError: "Veuillez réessayer."
+    signOutError: "Veuillez réessayer.",
+    deleteAccount: "Supprimer le compte",
+    deleteAccountLoading: "Suppression du compte…",
+    deleteAccountConfirmTitle: "Supprimer le compte ?",
+    deleteAccountConfirmMessage: "Votre compte et votre profil seront supprimés définitivement. Cette action est irréversible.",
+    deleteAccountErrorTitle: "Échec de la suppression",
+    deleteAccountError: "Veuillez réessayer.",
+    cancel: "Annuler"
   },
   ru: {
     title: "Настройки",
@@ -60,7 +89,14 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
     signOut: "Выйти",
     signOutLoading: "Выходим…",
     signOutErrorTitle: "Не удалось выйти",
-    signOutError: "Попробуй еще раз."
+    signOutError: "Попробуй еще раз.",
+    deleteAccount: "Удалить аккаунт",
+    deleteAccountLoading: "Удаление аккаунта…",
+    deleteAccountConfirmTitle: "Удалить аккаунт?",
+    deleteAccountConfirmMessage: "Аккаунт и профиль будут удалены навсегда. Это действие нельзя отменить.",
+    deleteAccountErrorTitle: "Не удалось удалить",
+    deleteAccountError: "Попробуй еще раз.",
+    cancel: "Отмена"
   }
 };
 
@@ -70,6 +106,7 @@ const SettingsScreen = () => {
   const copy = useLocalizedCopy(translations);
   const errorCopy = useErrorCopy();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const handleClose = useCallback(() => {
     if (navigation.canGoBack()) {
@@ -92,6 +129,27 @@ const SettingsScreen = () => {
       setIsSigningOut(false);
     }
   }, [copy.signOutError, copy.signOutErrorTitle, errorCopy, isSigningOut]);
+
+  const performDeleteAccount = useCallback(async () => {
+    if (isDeletingAccount) return;
+    setIsDeletingAccount(true);
+    try {
+      await deleteAccount();
+      await signOut();
+    } catch (error: any) {
+      logError(error, "delete-account");
+      Alert.alert(copy.deleteAccountErrorTitle, getErrorMessage(error, errorCopy, copy.deleteAccountError));
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  }, [copy.deleteAccountError, copy.deleteAccountErrorTitle, errorCopy, isDeletingAccount]);
+
+  const confirmDeleteAccount = useCallback(() => {
+    Alert.alert(copy.deleteAccountConfirmTitle, copy.deleteAccountConfirmMessage, [
+      { text: copy.cancel, style: "cancel" },
+      { text: copy.deleteAccount, style: "destructive", onPress: () => performDeleteAccount() }
+    ]);
+  }, [copy.cancel, copy.deleteAccount, copy.deleteAccountConfirmMessage, copy.deleteAccountConfirmTitle, performDeleteAccount]);
 
   return (
     <LinearGradient
@@ -142,6 +200,19 @@ const SettingsScreen = () => {
                   {isSigningOut ? copy.signOutLoading : copy.signOut}
                 </Text>
               </LinearGradient>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.dangerButton,
+                pressed && styles.buttonPressed,
+                (isDeletingAccount || isSigningOut) && styles.disabled
+              ]}
+              onPress={confirmDeleteAccount}
+              disabled={isDeletingAccount || isSigningOut}
+            >
+              <Text style={styles.dangerText}>
+                {isDeletingAccount ? copy.deleteAccountLoading : copy.deleteAccount}
+              </Text>
             </Pressable>
           </View>
         </ScrollView>
