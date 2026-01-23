@@ -1,6 +1,6 @@
 -- Backfill missing primary_photo_id so match avatars can be resolved via /v1/photos/view
 -- 1) Prefer mapping via primary_photo_path
-update public.profile p
+update public.profiles p
 set primary_photo_id = pa.id
 from public.photo_assets pa
 where p.primary_photo_id is null
@@ -18,11 +18,11 @@ with candidate as (
       elem->>'photoId',
       elem->>'photo_id'
     ) as asset_id_text
-  from public.profile p
-  cross join lateral unnest(p.photos) as elem
+  from public.profiles p
+  cross join lateral jsonb_array_elements(coalesce(to_jsonb(p.photos), '[]'::jsonb)) as elem
   where p.primary_photo_id is null
 )
-update public.profile p
+update public.profiles p
 set primary_photo_id = candidate.asset_id_text::bigint
 from candidate
 where p.id = candidate.profile_id
@@ -37,7 +37,7 @@ with latest as (
   from public.photo_assets
   order by owner_id, created_at desc nulls last, id desc
 )
-update public.profile p
+update public.profiles p
 set primary_photo_id = latest.id,
     primary_photo_path = coalesce(p.primary_photo_path, latest.storage_path)
 from latest
