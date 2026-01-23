@@ -155,32 +155,35 @@ const OnboardingBirthdayScreen = ({ navigation }: Props) => {
     }
   }, [copy.dateLocale, earliestAllowed, latestAllowed, selectedDate]);
 
-  const ensureProfileSeed = useCallback(
+  const syncProfileBasics = useCallback(
     async (birthdayIso: string) => {
       if (!session?.user?.id) {
         return;
       }
-      if (profile) {
-        return;
-      }
+      const trimmedName = name.trim();
       const phoneSuffix = session.user.phone?.replace(/\D/g, "").slice(-4);
       const fallbackName =
-        name.trim() ||
+        profile?.displayName ||
         session.user.user_metadata?.display_name ||
+        session.user.user_metadata?.full_name ||
         (phoneSuffix ? `User ${phoneSuffix}` : "Neues Profil");
-      const resolvedGender = selectedGender ?? "male";
+      const displayName = trimmedName.length >= 2 ? trimmedName : fallbackName;
+      const resolvedGender = selectedGender ?? profile?.gender ?? "male";
       try {
         await upsertProfile(session.user.id, {
-          displayName: fallbackName,
+          displayName,
           birthday: birthdayIso,
-          bio: "",
+          bio: profile?.bio ?? "",
           gender: resolvedGender,
-          intention: "serious",
-          interests: [],
-          photos: []
+          intention: profile?.intention ?? "serious",
+          interests: profile?.interests ?? [],
+          photos: profile?.photos ?? [],
+          primaryPhotoPath: profile?.primaryPhotoPath ?? null,
+          primaryPhotoId: profile?.primaryPhotoId ?? null,
+          relationshipCompass: profile?.relationshipCompass ?? null
         });
       } catch (error) {
-        console.warn("[OnboardingBirthday] Failed to seed profile", error);
+        console.warn("[OnboardingBirthday] Failed to sync profile basics", error);
       }
     },
     [name, profile, selectedGender, session]
@@ -194,7 +197,7 @@ const OnboardingBirthdayScreen = ({ navigation }: Props) => {
     setDob(birthdayIso);
     setAge(age);
     setIsSaving(true);
-    await ensureProfileSeed(birthdayIso);
+    await syncProfileBasics(birthdayIso);
     setIsSaving(false);
     navigation.navigate("OnboardingNotifications");
   };
