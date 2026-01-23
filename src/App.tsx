@@ -149,7 +149,7 @@ const App = (): JSX.Element => {
   const isVerified = Boolean(profile?.verified) || verifiedOverride;
   const needsOnboarding = !profile || !isVerified;
   const shouldStayInOnboarding = !session || needsOnboarding || showVerifySuccess;
-
+  const canResumeOnboarding = Boolean(session) && (needsOnboarding || showVerifySuccess);
 
   useEffect(() => {
     if (!ONBOARDING_RESUME_ENABLED) {
@@ -163,6 +163,19 @@ const App = (): JSX.Element => {
       })
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!ONBOARDING_RESUME_ENABLED) {
+      return;
+    }
+    if (session || !lastOnboardingRoute) {
+      return;
+    }
+    hasAppliedOnboardingRouteRef.current = false;
+    void AsyncStorage.removeItem(LAST_ONBOARDING_KEY)
+      .then(() => setLastOnboardingRoute(null))
+      .catch(() => undefined);
+  }, [lastOnboardingRoute, session]);
 
   useEffect(() => {
     let mounted = true;
@@ -323,12 +336,13 @@ const App = (): JSX.Element => {
   // Persist the last visited onboarding route on navigation changes.
   const handleNavStateChange = useCallback(() => {
     if (!ONBOARDING_RESUME_ENABLED) return;
+    if (!session) return;
     const route = navigationRef.getCurrentRoute();
     const name = route?.name;
     if (name && ONBOARDING_ROUTES.has(name)) {
       void AsyncStorage.setItem(LAST_ONBOARDING_KEY, name).catch(() => undefined);
     }
-  }, []);
+  }, [session]);
 
   // RevenueCat initialisieren, sobald eine Session verfügbar ist.
   useEffect(() => {
@@ -340,12 +354,12 @@ const App = (): JSX.Element => {
     if (!ONBOARDING_RESUME_ENABLED) return;
     if (!navReady || !navigationRef.isReady()) return;
     if (hasAppliedOnboardingRouteRef.current) return;
-    if (!shouldStayInOnboarding) return;
+    if (!shouldStayInOnboarding || !canResumeOnboarding) return;
     if (lastOnboardingRoute && ONBOARDING_ROUTES.has(lastOnboardingRoute)) {
       navigationRef.navigate("Auth", { screen: lastOnboardingRoute });
       hasAppliedOnboardingRouteRef.current = true;
     }
-  }, [lastOnboardingRoute, navReady, shouldStayInOnboarding]);
+  }, [canResumeOnboarding, lastOnboardingRoute, navReady, shouldStayInOnboarding]);
 
   useEffect(() => {
     if (!session?.user?.id) {

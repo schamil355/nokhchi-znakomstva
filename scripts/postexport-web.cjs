@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { execSync } = require("child_process");
 
 const OUT_DIR = process.argv[2] || "dist";
 const ROOT_DIR = process.cwd();
@@ -92,6 +93,31 @@ if (moduleScriptRegex.test(html)) {
   html = html.replace(moduleScriptRegex, '<script type="module" $1></script>');
   fs.writeFileSync(indexPath, html);
   console.log("[postexport] marked web bundle as type=module");
+}
+
+const shouldUploadSourcemaps =
+  Boolean(process.env.SENTRY_AUTH_TOKEN) &&
+  Boolean(process.env.SENTRY_ORG) &&
+  Boolean(process.env.SENTRY_PROJECT);
+
+if (shouldUploadSourcemaps) {
+  console.log("[postexport] uploading sourcemaps to Sentry");
+  try {
+    execSync(`npx sentry-cli sourcemaps inject ${OUT_DIR}`, {
+      stdio: "inherit",
+      env: process.env
+    });
+    execSync(`npx sentry-cli sourcemaps upload ${OUT_DIR}`, {
+      stdio: "inherit",
+      env: process.env
+    });
+    console.log("[postexport] Sentry sourcemaps uploaded");
+  } catch (error) {
+    console.error("[postexport] Sentry sourcemaps upload failed");
+    throw error;
+  }
+} else {
+  console.log("[postexport] Sentry sourcemaps upload skipped (missing SENTRY_AUTH_TOKEN/SENTRY_ORG/SENTRY_PROJECT)");
 }
 
 console.log("[postexport] completed");
