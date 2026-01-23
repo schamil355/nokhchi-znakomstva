@@ -1,13 +1,7 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { getFreshAccessToken, getSupabaseClient } from "../lib/supabaseClient";
-
-const rawApiBase =
-  process.env.EXPO_PUBLIC_API_URL ??
-  (Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_API_URL ??
-  (Constants.expoConfig?.extra as any)?.apiUrl ??
-  null;
-const API_BASE = rawApiBase ? String(rawApiBase).replace(/\/$/, "") : null;
+import { getApiBase } from "../lib/apiBase";
 
 const rawVapidKey =
   process.env.EXPO_PUBLIC_WEB_PUSH_VAPID_KEY ??
@@ -21,7 +15,7 @@ const isSupportedEnvironment = () => {
   if (!("serviceWorker" in navigator)) return false;
   if (!("PushManager" in window)) return false;
   if (!("Notification" in window)) return false;
-  if (!API_BASE || !rawVapidKey) return false;
+  if (!getApiBase() || !rawVapidKey) return false;
   return true;
 };
 
@@ -61,14 +55,15 @@ const getAccessToken = async () => {
 };
 
 const apiFetch = async (path: string, body?: Record<string, any>) => {
-  if (!API_BASE) {
+  const apiBase = getApiBase();
+  if (!apiBase) {
     throw new Error("API_BASE_MISSING");
   }
   const token = await getAccessToken();
   if (!token) {
     throw new Error("AUTH_REQUIRED");
   }
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${apiBase}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

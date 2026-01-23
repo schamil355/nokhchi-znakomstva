@@ -1,9 +1,9 @@
-import Constants from "expo-constants";
 import { Platform } from "react-native";
 import type * as FileSystemType from "expo-file-system";
 import { decode as decodeBase64 } from "base64-arraybuffer";
 import { getSupabaseClient, getFreshAccessToken } from "../lib/supabaseClient";
 import { getCurrentLocale } from "../localization/LocalizationProvider";
+import { getApiBase } from "../lib/apiBase";
 import { PROFILE_BUCKET } from "../lib/storage";
 import type * as ImageManipulatorType from "expo-image-manipulator";
 
@@ -17,13 +17,6 @@ const ImageManipulator =
     ? null
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- Native-only module on web.
     : (require("expo-image-manipulator") as typeof ImageManipulatorType);
-
-const rawApiBase =
-  process.env.EXPO_PUBLIC_API_URL ??
-  (Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_API_URL ??
-  Constants.expoConfig?.extra?.apiUrl ??
-  null;
-const API_BASE = rawApiBase ? rawApiBase.replace(/\/$/, "") : null;
 
 const serviceCopy: Record<string, Record<string, string>> = {
   en: {
@@ -76,10 +69,11 @@ const t = (key: keyof typeof serviceCopy.en) => {
 const withCode = (code: string, message?: string) => Object.assign(new Error(message ?? code), { code });
 
 const ensureApiBase = () => {
-  if (!API_BASE) {
+  const apiBase = getApiBase();
+  if (!apiBase) {
     throw new Error(t("apiBaseMissing"));
   }
-  return API_BASE;
+  return apiBase;
 };
 
 const getAccessToken = async () => {

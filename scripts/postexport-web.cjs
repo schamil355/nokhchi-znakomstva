@@ -63,6 +63,25 @@ if (manifestCopied) {
 const appName = escapeHtml(manifest?.name || "Meetmate");
 const description = escapeHtml(manifest?.description || "Installable web app");
 const marker = "<!-- pwa-meta -->";
+const envMarker = "<!-- runtime-env -->";
+
+const runtimeEnv = {
+  EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
+  EXPO_PUBLIC_WEB_PUSH_VAPID_KEY: process.env.EXPO_PUBLIC_WEB_PUSH_VAPID_KEY,
+  EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+  EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  EXPO_PUBLIC_PROFILE_BUCKET: process.env.EXPO_PUBLIC_PROFILE_BUCKET,
+  EXPO_PUBLIC_STORAGE_PUBLIC: process.env.EXPO_PUBLIC_STORAGE_PUBLIC,
+  EXPO_PUBLIC_VERIFY_ENDPOINT: process.env.EXPO_PUBLIC_VERIFY_ENDPOINT,
+  EXPO_PUBLIC_VERIFY_PROVIDER: process.env.EXPO_PUBLIC_VERIFY_PROVIDER
+};
+
+Object.keys(runtimeEnv).forEach((key) => {
+  const value = runtimeEnv[key];
+  if (value === undefined || value === null || value === "") {
+    delete runtimeEnv[key];
+  }
+});
 
 const headTags = [
   marker,
@@ -86,6 +105,16 @@ if (!html.includes(marker)) {
   console.log("[postexport] injected PWA meta tags");
 } else {
   console.log("[postexport] PWA meta tags already present");
+}
+
+if (!html.includes(envMarker)) {
+  const envJson = JSON.stringify(runtimeEnv).replace(/</g, "\\u003c");
+  const envTags = [envMarker, `    <script>window.__ENV__ = ${envJson};</script>`].join("\n");
+  html = html.replace("</head>", `${envTags}\n  </head>`);
+  fs.writeFileSync(indexPath, html);
+  console.log("[postexport] injected runtime env");
+} else {
+  console.log("[postexport] runtime env already present");
 }
 
 const moduleScriptRegex = /<script\s+(?![^>]*type="module")([^>]*_expo\/static\/js\/web\/[^"]+\.js[^>]*)><\/script>/;

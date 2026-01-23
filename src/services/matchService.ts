@@ -6,6 +6,7 @@ import { Match, Message } from "../types";
 import { useChatStore } from "../state/chatStore";
 import { track } from "../lib/analytics";
 import { getPhotoUrl, PROFILE_BUCKET } from "../lib/storage";
+import { getSignedPhotoUrl } from "./photoService";
 import { getCurrentLocale } from "../localization/LocalizationProvider";
 
 const sendLimiter = createRateLimiter({ intervalMs: 2_000, maxCalls: 10 });
@@ -118,14 +119,14 @@ export const fetchMatches = async (userId: string, options: FetchMatchesOptions 
   try {
     const { data: byUser, error: errUser } = await supabase
       .from("profiles")
-      .select("id, user_id, photos, primary_photo_path, display_name, is_incognito")
+      .select("id, user_id, photos, primary_photo_path, primary_photo_id, display_name, is_incognito")
       .in("user_id", participantIds);
     if (errUser) {
       console.warn("[fetchMatches] profile lookup by user_id failed", errUser);
     }
     const { data: byId, error: errId } = await supabase
       .from("profiles")
-      .select("id, user_id, photos, primary_photo_path, display_name, is_incognito")
+      .select("id, user_id, photos, primary_photo_path, primary_photo_id, display_name, is_incognito")
       .in("id", participantIds);
     if (errId) {
       console.warn("[fetchMatches] profile lookup by id failed", errId);
@@ -144,7 +145,7 @@ export const fetchMatches = async (userId: string, options: FetchMatchesOptions 
     for (const id of missing) {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, user_id, photos, primary_photo_path, display_name, is_incognito")
+        .select("id, user_id, photos, primary_photo_path, primary_photo_id, display_name, is_incognito")
         .or(`user_id.eq.${id},id.eq.${id}`)
         .maybeSingle();
       if (error) {
@@ -218,8 +219,34 @@ export const fetchMatches = async (userId: string, options: FetchMatchesOptions 
       };
 
       if (!isIncognito) {
+        const rawPhotoId =
+          (row as any)?.primary_photo_id ??
+          (row as any)?.primaryPhotoId ??
+          firstPhoto?.assetId ??
+          firstPhoto?.asset_id ??
+          firstPhoto?.photoId ??
+          firstPhoto?.photo_id ??
+          null;
+        const photoId =
+          typeof rawPhotoId === "number"
+            ? rawPhotoId
+            : rawPhotoId && Number.isFinite(Number(rawPhotoId))
+              ? Number(rawPhotoId)
+              : null;
+
+        if (photoId) {
+          try {
+            const signed = await getSignedPhotoUrl(photoId);
+            if (signed?.url) {
+              url = signed.url;
+            }
+          } catch (err) {
+            console.warn("[fetchMatches] signed photo failed", err);
+          }
+        }
+
         // Try primary photo path
-        if (row.primary_photo_path) {
+        if (!url && row.primary_photo_path) {
           url = await resolvePath(row.primary_photo_path);
         }
 

@@ -1,20 +1,14 @@
-import Constants from "expo-constants";
 import { getFreshAccessToken } from "../lib/supabaseClient";
-
-const rawApiBase =
-  process.env.EXPO_PUBLIC_API_URL ??
-  (Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_API_URL ??
-  Constants.expoConfig?.extra?.apiUrl ??
-  null;
-const API_BASE = rawApiBase ? rawApiBase.replace(/\/$/, "") : null;
+import { getApiBase } from "../lib/apiBase";
 
 const ensureApiBase = () => {
-  if (!API_BASE) {
+  const apiBase = getApiBase();
+  if (!apiBase) {
     throw Object.assign(new Error("API base URL missing. Please set EXPO_PUBLIC_API_URL."), {
       code: "API_BASE_MISSING",
     });
   }
-  return API_BASE;
+  return apiBase;
 };
 
 const withCode = (code: string, message?: string) =>
