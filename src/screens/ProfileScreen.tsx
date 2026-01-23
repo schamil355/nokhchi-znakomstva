@@ -264,6 +264,21 @@ const dedupeProfilePhotos = (photos: Photo[]): Photo[] => {
   return result;
 };
 
+const isSamePhoto = (a: Photo, b: Photo) => {
+  if (a.id && b.id && a.id === b.id) {
+    return true;
+  }
+  if (typeof a.assetId === "number" && typeof b.assetId === "number" && a.assetId === b.assetId) {
+    return true;
+  }
+  const aPath = (a as any)?.storagePath;
+  const bPath = (b as any)?.storagePath;
+  if (typeof aPath === "string" && typeof bPath === "string" && aPath === bPath) {
+    return true;
+  }
+  return false;
+};
+
 const toCoordinate = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -673,6 +688,7 @@ const ProfileScreen = () => {
   const [isPhotoManagerVisible, setIsPhotoManagerVisible] = useState(false);
   const [hasPhotoOrderChanges, setHasPhotoOrderChanges] = useState(false);
   const [isPhotoRequiredVisible, setIsPhotoRequiredVisible] = useState(false);
+  const [pendingPhotoReplacement, setPendingPhotoReplacement] = useState<Photo | null>(null);
 
   useEffect(() => {
     if (profile) {
@@ -1008,11 +1024,15 @@ const ProfileScreen = () => {
     }
   };
 
-  const handleAddPhoto = async (slotIndex: number | null = null) => {
+  const handleAddPhoto = async (
+    slotIndex: number | null = null,
+    options?: { replacePhoto?: Photo | null }
+  ) => {
     const currentProfile = profile;
     if (!session?.user?.id || !currentProfile) {
       return;
     }
+    const replaceTarget = options?.replacePhoto ?? null;
     if (Platform.OS === "web") {
       try {
         const selected = await pickImageWeb();
@@ -1062,14 +1082,26 @@ const ProfileScreen = () => {
           setPrimaryPhotoPreview(selected.uri);
         }
 
+        const finalPhotos = replaceTarget
+          ? deduped.filter((item) => !isSamePhoto(item, replaceTarget))
+          : deduped;
+
         const updatedProfile: Profile = {
           ...currentProfile,
-          photos: deduped,
+          photos: finalPhotos,
           primaryPhotoPath: nextPrimaryPath,
           primaryPhotoId: nextPrimaryId
         };
         setProfile(updatedProfile);
         setHasPhotoOrderChanges(true);
+        if (replaceTarget?.assetId) {
+          try {
+            await deletePhotoRemote(replaceTarget.assetId);
+          } catch (error) {
+            logError(error, "photo-replace-delete");
+            Alert.alert(copy.alerts.errorTitle, getErrorMessage(error, errorCopy, copy.alerts.photoDeleteError));
+          }
+        }
       } catch (error: any) {
         logError(error, "photo-upload");
         Alert.alert(copy.alerts.uploadFailedTitle, getErrorMessage(error, errorCopy, copy.alerts.uploadFailedMessage));
@@ -1127,14 +1159,26 @@ const ProfileScreen = () => {
         setPrimaryPhotoPreview(asset.uri);
       }
 
+      const finalPhotos = replaceTarget
+        ? deduped.filter((item) => !isSamePhoto(item, replaceTarget))
+        : deduped;
+
       const updatedProfile: Profile = {
         ...currentProfile,
-        photos: deduped,
+        photos: finalPhotos,
         primaryPhotoPath: nextPrimaryPath,
         primaryPhotoId: nextPrimaryId
       };
       setProfile(updatedProfile);
       setHasPhotoOrderChanges(true);
+      if (replaceTarget?.assetId) {
+        try {
+          await deletePhotoRemote(replaceTarget.assetId);
+        } catch (error) {
+          logError(error, "photo-replace-delete");
+          Alert.alert(copy.alerts.errorTitle, getErrorMessage(error, errorCopy, copy.alerts.photoDeleteError));
+        }
+      }
     } catch (error: any) {
       logError(error, "photo-upload");
       Alert.alert(copy.alerts.uploadFailedTitle, getErrorMessage(error, errorCopy, copy.alerts.uploadFailedMessage));
@@ -1257,11 +1301,22 @@ const ProfileScreen = () => {
     const totalPhotos = (currentProfile.photos ?? []).filter(Boolean).length;
     if (totalPhotos <= 1) {
       if (Platform.OS === "web") {
+        setPendingPhotoReplacement(photo);
         setIsPhotoRequiredVisible(true);
       } else {
         Alert.alert(copy.alerts.photoRequiredTitle, copy.alerts.photoRequiredMessage, [
-          { text: copy.alerts.photoRequiredCta, onPress: () => handleAddPhoto(0) },
-          { text: copy.alerts.cancel, style: "cancel" }
+          {
+            text: copy.alerts.photoRequiredCta,
+            onPress: () => {
+              setPendingPhotoReplacement(null);
+              handleAddPhoto(0, { replacePhoto: photo });
+            }
+          },
+          {
+            text: copy.alerts.cancel,
+            style: "cancel",
+            onPress: () => setPendingPhotoReplacement(null)
+          }
         ]);
       }
       return;
@@ -1554,12 +1609,18 @@ const ProfileScreen = () => {
       visible={isPhotoRequiredVisible}
       animationType="fade"
       transparent
-      onRequestClose={() => setIsPhotoRequiredVisible(false)}
+      onRequestClose={() => {
+        setIsPhotoRequiredVisible(false);
+        setPendingPhotoReplacement(null);
+      }}
     >
       <View style={styles.confirmModalBackdrop}>
         <Pressable
           style={styles.confirmModalBackdropTouchable}
-          onPress={() => setIsPhotoRequiredVisible(false)}
+          onPress={() => {
+            setIsPhotoRequiredVisible(false);
+            setPendingPhotoReplacement(null);
+          }}
         />
         <View style={styles.confirmModalCard}>
           <Text style={styles.confirmModalTitle}>{copy.alerts.photoRequiredTitle}</Text>
@@ -1568,8 +1629,10 @@ const ProfileScreen = () => {
             <Pressable
               style={[styles.confirmModalButton, styles.confirmModalButtonPrimary]}
               onPress={() => {
+                const target = pendingPhotoReplacement;
                 setIsPhotoRequiredVisible(false);
-                handleAddPhoto(0);
+                setPendingPhotoReplacement(null);
+                handleAddPhoto(0, { replacePhoto: target });
               }}
             >
               <Text style={[styles.confirmModalButtonText, styles.confirmModalButtonTextPrimary]}>
@@ -1578,7 +1641,10 @@ const ProfileScreen = () => {
             </Pressable>
             <Pressable
               style={[styles.confirmModalButton, styles.confirmModalButtonSecondary]}
-              onPress={() => setIsPhotoRequiredVisible(false)}
+              onPress={() => {
+                setIsPhotoRequiredVisible(false);
+                setPendingPhotoReplacement(null);
+              }}
             >
               <Text style={[styles.confirmModalButtonText, styles.confirmModalButtonTextSecondary]}>
                 {copy.alerts.cancel}
