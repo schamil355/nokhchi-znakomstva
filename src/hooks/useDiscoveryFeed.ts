@@ -17,7 +17,11 @@ export const useDiscoveryFeed = () => {
   return useQuery({
     queryKey: ["discovery", session?.user.id, filters, origin?.latitude ?? null, origin?.longitude ?? null],
     queryFn: () => (session ? fetchDiscoveryFeed(session.user.id, filters, origin) : []),
-    enabled: Boolean(session)
+    enabled: Boolean(session),
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true
   });
 };
 
@@ -35,6 +39,10 @@ export const useRecentProfiles = (enabled = true) => {
   return useQuery({
     queryKey: ["recent-profiles", session?.user.id, filters, origin?.latitude ?? null, origin?.longitude ?? null],
     queryFn: () => (session ? fetchRecentProfiles(session.user.id, filters, origin) : []),
-    enabled: Boolean(session) && enabled
+    enabled: Boolean(session) && enabled,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true
   });
 };
