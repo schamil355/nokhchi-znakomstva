@@ -672,6 +672,7 @@ const ProfileScreen = () => {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isPhotoManagerVisible, setIsPhotoManagerVisible] = useState(false);
   const [hasPhotoOrderChanges, setHasPhotoOrderChanges] = useState(false);
+  const [isPhotoRequiredVisible, setIsPhotoRequiredVisible] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -1255,10 +1256,14 @@ const ProfileScreen = () => {
     }
     const totalPhotos = (currentProfile.photos ?? []).filter(Boolean).length;
     if (totalPhotos <= 1) {
-      Alert.alert(copy.alerts.photoRequiredTitle, copy.alerts.photoRequiredMessage, [
-        { text: copy.alerts.photoRequiredCta, onPress: () => handleAddPhoto(0) },
-        { text: copy.alerts.cancel, style: "cancel" }
-      ]);
+      if (Platform.OS === "web") {
+        setIsPhotoRequiredVisible(true);
+      } else {
+        Alert.alert(copy.alerts.photoRequiredTitle, copy.alerts.photoRequiredMessage, [
+          { text: copy.alerts.photoRequiredCta, onPress: () => handleAddPhoto(0) },
+          { text: copy.alerts.cancel, style: "cancel" }
+        ]);
+      }
       return;
     }
     if (!photo.assetId) {
@@ -1544,6 +1549,47 @@ const ProfileScreen = () => {
     );
   };
 
+  const renderPhotoRequiredModal = () => (
+    <Modal
+      visible={isPhotoRequiredVisible}
+      animationType="fade"
+      transparent
+      onRequestClose={() => setIsPhotoRequiredVisible(false)}
+    >
+      <View style={styles.confirmModalBackdrop}>
+        <Pressable
+          style={styles.confirmModalBackdropTouchable}
+          onPress={() => setIsPhotoRequiredVisible(false)}
+        />
+        <View style={styles.confirmModalCard}>
+          <Text style={styles.confirmModalTitle}>{copy.alerts.photoRequiredTitle}</Text>
+          <Text style={styles.confirmModalMessage}>{copy.alerts.photoRequiredMessage}</Text>
+          <View style={styles.confirmModalButtons}>
+            <Pressable
+              style={[styles.confirmModalButton, styles.confirmModalButtonPrimary]}
+              onPress={() => {
+                setIsPhotoRequiredVisible(false);
+                handleAddPhoto(0);
+              }}
+            >
+              <Text style={[styles.confirmModalButtonText, styles.confirmModalButtonTextPrimary]}>
+                {copy.alerts.photoRequiredCta}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.confirmModalButton, styles.confirmModalButtonSecondary]}
+              onPress={() => setIsPhotoRequiredVisible(false)}
+            >
+              <Text style={[styles.confirmModalButtonText, styles.confirmModalButtonTextSecondary]}>
+                {copy.alerts.cancel}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   if (isEditing && profile) {
     return (
       <ScrollView contentContainerStyle={styles.container}>
@@ -1783,6 +1829,7 @@ const ProfileScreen = () => {
           </LinearGradient>
         </Pressable>
         {renderPhotoManagerModal()}
+        {renderPhotoRequiredModal()}
       </SafeAreaView>
     </LinearGradient>
   );
@@ -2155,6 +2202,71 @@ const styles = StyleSheet.create({
   removeTagText: {
     color: "#fff",
     fontSize: 12
+  },
+  confirmModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24
+  },
+  confirmModalBackdropTouchable: {
+    ...StyleSheet.absoluteFillObject
+  },
+  confirmModalCard: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 20,
+    backgroundColor: "#ffffff",
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    gap: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6
+  },
+  confirmModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1d2932",
+    textAlign: "center"
+  },
+  confirmModalMessage: {
+    fontSize: 14,
+    color: "rgba(29,41,50,0.75)",
+    textAlign: "center",
+    lineHeight: 20
+  },
+  confirmModalButtons: {
+    width: "100%",
+    gap: 12,
+    marginTop: 8
+  },
+  confirmModalButton: {
+    width: "100%",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  confirmModalButtonPrimary: {
+    backgroundColor: "#e07c89"
+  },
+  confirmModalButtonSecondary: {
+    backgroundColor: "#f4f5f7"
+  },
+  confirmModalButtonText: {
+    fontSize: 15,
+    fontWeight: "600"
+  },
+  confirmModalButtonTextPrimary: {
+    color: "#ffffff"
+  },
+  confirmModalButtonTextSecondary: {
+    color: "#2b3440"
   },
   visibilityRow: {
     flexDirection: "row",
