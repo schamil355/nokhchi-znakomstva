@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Dimensions, FlatList, Image, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Dimensions, FlatList, Image, Platform, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import SafeAreaView from "../components/SafeAreaView";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
@@ -149,7 +149,12 @@ const LikeCard = ({ profile, locked, disabled, onPress }: LikeCardProps) => {
       <View style={styles.avatarWrapper}>
         {avatarUri ? (
           <>
-            <Image source={{ uri: avatarUri }} style={styles.avatar} blurRadius={locked ? 70 : 0} resizeMode="cover" />
+            <Image
+              source={{ uri: avatarUri }}
+              style={styles.avatar}
+              blurRadius={locked && Platform.OS !== "web" ? 70 : 0}
+              resizeMode="cover"
+            />
             {locked && <View style={styles.blurOverlay} />}
           </>
         ) : (
