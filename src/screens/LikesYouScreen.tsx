@@ -412,15 +412,18 @@ const styles = StyleSheet.create({
   },
   avatar: {
     width: "100%",
-    height: "100%"
+    height: "100%",
+    borderRadius: AVATAR_SIZE / 2
   },
   blurOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.45)"
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderRadius: AVATAR_SIZE / 2
   },
   avatarPlaceholder: {
     flex: 1,
-    backgroundColor: "rgba(255,255,255,0.08)"
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: AVATAR_SIZE / 2
   },
   lockBadge: {
     position: "absolute",
