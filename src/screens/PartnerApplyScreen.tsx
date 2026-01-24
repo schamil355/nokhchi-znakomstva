@@ -224,6 +224,7 @@ const PartnerApplyScreen = () => {
   const [volume, setVolume] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const planOptions = useMemo(() => copy.planOptions, [copy.planOptions]);
 
@@ -240,11 +241,14 @@ const PartnerApplyScreen = () => {
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
+    setFormError(null);
     if (!companyName.trim() || !contactName.trim() || !city.trim() || !email.trim()) {
+      setFormError(copy.requiredMessage);
       Alert.alert(copy.errorTitle, copy.requiredMessage);
       return;
     }
     if (!emailRegex.test(email.trim())) {
+      setFormError(copy.invalidEmail);
       Alert.alert(copy.errorTitle, copy.invalidEmail);
       return;
     }
@@ -278,6 +282,7 @@ const PartnerApplyScreen = () => {
       });
     } catch (error) {
       console.warn("[partner] submit failed", error);
+      setFormError(copy.errorMessage);
       Alert.alert(copy.errorTitle, copy.errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -300,7 +305,7 @@ const PartnerApplyScreen = () => {
           <ScrollView
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
           >
             <Pressable style={styles.backBtn} onPress={handleBack} accessibilityRole="button">
               <Ionicons name="chevron-back" size={22} color={PALETTE.gold} />
@@ -428,6 +433,7 @@ const PartnerApplyScreen = () => {
                 )}
               </LinearGradient>
             </Pressable>
+            {formError && <Text style={styles.formError}>{formError}</Text>}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -542,6 +548,11 @@ const styles = StyleSheet.create({
   },
   primaryButtonDisabled: {
     opacity: 0.7
+  },
+  formError: {
+    color: "#f2b4ae",
+    fontSize: 14,
+    textAlign: "center"
   }
 });
 
