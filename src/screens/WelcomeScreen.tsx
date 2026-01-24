@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { LinearGradient } from "expo-linear-gradient";
+import { useFeatureFlag } from "../lib/featureFlags";
 
 type AuthStackNavigation = NativeStackNavigationProp<any>;
 
@@ -18,7 +19,9 @@ const translations = {
     consentAnd: "и",
     consentSuffix: ".",
     terms: "Условиями",
-    privacy: "Политикой конфиденциальности"
+    privacy: "Политикой конфиденциальности",
+    partnerCta: "Стать партнером",
+    partnerHint: "Для бизнеса"
   },
   de: {
     title: "Нохчийн",
@@ -29,7 +32,9 @@ const translations = {
     consentAnd: "und der",
     consentSuffix: "zu.",
     terms: "Bedingungen",
-    privacy: "Datenschutz"
+    privacy: "Datenschutz",
+    partnerCta: "Partner werden",
+    partnerHint: "Fuer Haendler"
   },
   en: {
     title: "Noxchiin",
@@ -40,7 +45,9 @@ const translations = {
     consentAnd: "and",
     consentSuffix: ".",
     terms: "Terms",
-    privacy: "Privacy"
+    privacy: "Privacy",
+    partnerCta: "Become a partner",
+    partnerHint: "For businesses"
   },
   fr: {
     title: "Noxchiin",
@@ -51,7 +58,9 @@ const translations = {
     consentAnd: "et la",
     consentSuffix: ".",
     terms: "Conditions",
-    privacy: "Confidentialité"
+    privacy: "Confidentialité",
+    partnerCta: "Devenir partenaire",
+    partnerHint: "Espace commercants"
   }
 };
 
@@ -62,6 +71,11 @@ const WelcomeScreen = () => {
   const copy = useLocalizedCopy(translations);
   const { height } = Dimensions.get("window");
   const heroMaxHeight = Math.min(height * 0.55, 420);
+  const { enabled: partnerEnabled } = useFeatureFlag("partner_leads", {
+    platform: "web",
+    defaultValue: false,
+    refreshIntervalMs: 60_000
+  });
   const handleOpenPrivacy = () => {
     navigation.navigate("Legal", { screen: "privacy" });
   };
@@ -133,6 +147,15 @@ const WelcomeScreen = () => {
             </Text>
             {copy.consentSuffix ? ` ${copy.consentSuffix}` : ""}
           </Text>
+          {Platform.OS === "web" && partnerEnabled && (
+            <Pressable
+              style={styles.partnerLink}
+              onPress={() => navigation.navigate("PartnerLanding")}
+            >
+              <Text style={styles.partnerLinkText}>{copy.partnerCta}</Text>
+              <Text style={styles.partnerHint}>{copy.partnerHint}</Text>
+            </Pressable>
+          )}
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -245,6 +268,21 @@ const styles = StyleSheet.create({
   consentLink: {
     fontWeight: "700",
     color: "#d8c18f"
+  },
+  partnerLink: {
+    marginTop: 22,
+    alignItems: "center",
+    gap: 4
+  },
+  partnerLinkText: {
+    color: "#d9c08f",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 1
+  },
+  partnerHint: {
+    color: "rgba(242,231,215,0.7)",
+    fontSize: 12
   }
 });
 

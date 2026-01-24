@@ -27,6 +27,10 @@ import FiltersScreen from "../screens/FiltersScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import WelcomeScreen from "../screens/WelcomeScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
+import PartnerLandingScreen from "../screens/PartnerLandingScreen";
+import PartnerPricingScreen from "../screens/PartnerPricingScreen";
+import PartnerApplyScreen from "../screens/PartnerApplyScreen";
+import PartnerApplySuccessScreen from "../screens/PartnerApplySuccessScreen";
 import OnboardingGenderScreen from "../screens/OnboardingGenderScreen";
 import OnboardingNameScreen from "../screens/OnboardingNameScreen";
 import OnboardingBirthdayScreen from "../screens/OnboardingBirthdayScreen";
@@ -57,6 +61,10 @@ type RootStackParamList = {
   Filters: { isModal?: boolean } | undefined;
   PremiumUpsell: undefined;
   RelationshipCompass: undefined;
+  PartnerLanding: undefined;
+  PartnerPricing: undefined;
+  PartnerApply: { plan?: "starter" | "pro" | "enterprise" | "unsure" } | undefined;
+  PartnerSuccess: { title?: string; message?: string } | undefined;
 };
 
 type TabParamList = {
@@ -248,6 +256,10 @@ const AppNavigator = ({ isAuthenticated }: AppNavigatorProps) => {
         component={NotificationsScreen}
         options={{ presentation: "fullScreenModal", animation: "slide_from_right" }}
       />
+      <RootStack.Screen name="PartnerLanding" component={PartnerLandingScreen} />
+      <RootStack.Screen name="PartnerPricing" component={PartnerPricingScreen} />
+      <RootStack.Screen name="PartnerApply" component={PartnerApplyScreen} />
+      <RootStack.Screen name="PartnerSuccess" component={PartnerApplySuccessScreen} />
     </RootStack.Navigator>
   );
 };
