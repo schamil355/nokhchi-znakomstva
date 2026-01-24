@@ -109,6 +109,7 @@ const ONBOARDING_ROUTES = new Set<string>([
 
 const LAST_ONBOARDING_KEY = "onboarding:lastRoute";
 const ONBOARDING_RESUME_ENABLED = false;
+const LEGACY_SESSION_KEYS = ["sb.session"];
 
 const App = (): JSX.Element => {
   const queryClient = useMemo(
@@ -176,6 +177,27 @@ const App = (): JSX.Element => {
       .then(() => setLastOnboardingRoute(null))
       .catch(() => undefined);
   }, [lastOnboardingRoute, session]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      return;
+    }
+    const cleanupLegacyWebSession = async () => {
+      try {
+        const keys = await AsyncStorage.getAllKeys();
+        const legacySupabaseKeys = keys.filter(
+          (key) => LEGACY_SESSION_KEYS.includes(key) || /^sb-.*-auth-token$/i.test(key)
+        );
+        const keysToRemove = new Set<string>([...legacySupabaseKeys, LAST_ONBOARDING_KEY]);
+        if (keysToRemove.size) {
+          await AsyncStorage.multiRemove(Array.from(keysToRemove));
+        }
+      } catch {
+        // ignore cleanup errors
+      }
+    };
+    void cleanupLegacyWebSession();
+  }, []);
 
   useEffect(() => {
     let mounted = true;
