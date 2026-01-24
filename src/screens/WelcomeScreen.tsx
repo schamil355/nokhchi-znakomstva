@@ -93,6 +93,15 @@ const WelcomeScreen = () => {
     >
       <SafeAreaView style={styles.safeArea} edges={["top", "right", "left"]}>
         <View style={styles.container}>
+          {Platform.OS === "web" && partnerEnabled && (
+            <Pressable
+              style={styles.partnerCorner}
+              onPress={() => navigation.navigate("PartnerLanding")}
+            >
+              <Text style={styles.partnerLinkText}>{copy.partnerCta}</Text>
+              <Text style={styles.partnerHint}>{copy.partnerHint}</Text>
+            </Pressable>
+          )}
           <View style={[styles.heroWrapper, { maxHeight: heroMaxHeight }]}>
             <Image
               source={require("../../assets/welcome-hero.png")}
@@ -147,15 +156,6 @@ const WelcomeScreen = () => {
             </Text>
             {copy.consentSuffix ? ` ${copy.consentSuffix}` : ""}
           </Text>
-          {Platform.OS === "web" && partnerEnabled && (
-            <Pressable
-              style={styles.partnerLink}
-              onPress={() => navigation.navigate("PartnerLanding")}
-            >
-              <Text style={styles.partnerLinkText}>{copy.partnerCta}</Text>
-              <Text style={styles.partnerHint}>{copy.partnerHint}</Text>
-            </Pressable>
-          )}
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -269,10 +269,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#d8c18f"
   },
-  partnerLink: {
-    marginTop: 22,
-    alignItems: "center",
-    gap: 4
+  partnerCorner: {
+    position: "absolute",
+    top: 6,
+    left: 6,
+    alignItems: "flex-start",
+    gap: 4,
+    zIndex: 5
   },
   partnerLinkText: {
     color: "#d9c08f",
