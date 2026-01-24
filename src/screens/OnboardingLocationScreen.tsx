@@ -136,6 +136,7 @@ const translations = {
     skip: "Continue without location",
     settings: "Open settings",
     errorGeneric: "We couldn't determine your location. Please try again later.",
+    proxyWarning: "Proxy detected. You can continue, but location may be less accurate.",
     vpnWarning: "VPN detected. Please turn it off to continue.",
     back: "Back",
     devTitle: "DEV",
@@ -156,6 +157,7 @@ const translations = {
     skip: "Ohne Standort fortfahren",
     settings: "Einstellungen öffnen",
     errorGeneric: "Standort konnte nicht ermittelt werden. Bitte versuche es später erneut.",
+    proxyWarning: "Proxy erkannt. Du kannst fortfahren, aber der Standort kann ungenauer sein.",
     vpnWarning: "VPN erkannt. Bitte schalte das VPN aus, um fortzufahren.",
     back: "Zurück",
     devTitle: "DEV",
@@ -175,6 +177,7 @@ const translations = {
     skip: "Continuer sans localisation",
     settings: "Ouvrir les réglages",
     errorGeneric: "Impossible de déterminer ta position. Réessaie plus tard.",
+    proxyWarning: "Proxy détecté. Tu peux continuer, mais la localisation peut être moins précise.",
     vpnWarning: "VPN détecté. Désactive-le pour continuer.",
     back: "Retour",
     devTitle: "DEV",
@@ -194,6 +197,7 @@ const translations = {
     skip: "Продолжить без геолокации",
     settings: "Открыть настройки",
     errorGeneric: "Не удалось определить местоположение. Попробуй ещё раз позже.",
+    proxyWarning: "Обнаружен прокси. Можно продолжить, но геолокация может быть менее точной.",
     vpnWarning: "Обнаружен VPN. Отключи его, чтобы продолжить.",
     back: "Назад",
     devTitle: "DEV",
@@ -294,30 +298,40 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const lastReverseGeocodeRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
 
-  const shouldBlockVpn = (result?: VpnCheckResponse | null) => {
-    if (!result?.blocked) {
-      return false;
-    }
-    const flags = (result.reason ?? "")
+  const extractVpnFlags = (result?: VpnCheckResponse | null) => {
+    return (result?.reason ?? "")
       .toLowerCase()
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean);
+  };
+
+  const strictVpnFlags = new Set(["vpn", "tor", "active_vpn", "active_tor"]);
+  const allowOnlyVpnFlags = new Set(["hosting", "check_failed", "proxy"]);
+
+  const shouldBlockVpn = (result?: VpnCheckResponse | null) => {
+    if (!result?.blocked) {
+      return false;
+    }
+    const flags = extractVpnFlags(result);
     if (!flags.length) {
       return true;
     }
-    const strictFlags = new Set(["vpn", "proxy", "tor", "active_vpn", "active_tor"]);
-    if (flags.some((flag) => strictFlags.has(flag))) {
+    if (flags.some((flag) => strictVpnFlags.has(flag))) {
       return true;
     }
-    const allowOnly = new Set(["hosting", "check_failed"]);
-    return !flags.every((flag) => allowOnly.has(flag));
+    return !flags.every((flag) => allowOnlyVpnFlags.has(flag));
   };
 
   const ensureNoVpn = async (options?: { block?: boolean }) => {
     const block = options?.block ?? true;
     try {
       const result = await checkVpnStatus();
+      const flags = extractVpnFlags(result);
+      const hasStrictFlag = flags.some((flag) => strictVpnFlags.has(flag));
+      if (result?.blocked && !hasStrictFlag && flags.includes("proxy")) {
+        setMessage(copy.proxyWarning);
+      }
       if (shouldBlockVpn(result)) {
         if (!block) {
           return true;
