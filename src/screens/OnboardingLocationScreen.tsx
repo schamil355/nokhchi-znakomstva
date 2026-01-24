@@ -23,7 +23,7 @@ import { getSupabaseClient } from "../lib/supabaseClient";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { GeoRegion, usePreferencesStore } from "../state/preferencesStore";
 import { resolveGeoRegion } from "../lib/geo";
-import { checkVpnStatus } from "../services/vpnService";
+import { checkVpnStatus, type VpnCheckResponse } from "../services/vpnService";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -293,10 +293,30 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const lastReverseGeocodeRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
 
+  const shouldBlockVpn = (result?: VpnCheckResponse | null) => {
+    if (!result?.blocked) {
+      return false;
+    }
+    const flags = (result.reason ?? "")
+      .toLowerCase()
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (!flags.length) {
+      return true;
+    }
+    const strictFlags = new Set(["vpn", "proxy", "tor", "active_vpn", "active_tor"]);
+    if (flags.some((flag) => strictFlags.has(flag))) {
+      return true;
+    }
+    const allowOnly = new Set(["hosting", "check_failed"]);
+    return !flags.every((flag) => allowOnly.has(flag));
+  };
+
   const ensureNoVpn = async () => {
     try {
       const result = await checkVpnStatus();
-      if (result?.blocked) {
+      if (shouldBlockVpn(result)) {
         setMessage(copy.vpnWarning);
         return false;
       }
