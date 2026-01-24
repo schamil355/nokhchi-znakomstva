@@ -43,7 +43,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     valueTitle: "Why partners choose this model",
     values: [
       "Revenue share per paid order (15-25%)",
-      "Works best with 150-300 basket value",
+      "Works best with 15 000 - 40 000 basket value",
       "Optional featured placement + exclusivity"
     ],
     plansTitle: "Packages at a glance",
@@ -57,7 +57,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "pro",
         name: "Pro",
-        price: "199 / month",
+        price: "20 000 RUB / month",
         highlight: "15% commission + Featured"
       },
       {
@@ -77,7 +77,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     valueTitle: "Warum Haendler dieses Modell moegen",
     values: [
       "Revenue Share pro bezahlter Bestellung (15-25%)",
-      "Ideal bei 150-300 Bestellwert",
+      "Ideal bei 15 000 - 40 000 Bestellwert",
       "Optional: Featured Placement + Exklusivitaet"
     ],
     plansTitle: "Pakete im Ueberblick",
@@ -91,7 +91,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "pro",
         name: "Pro",
-        price: "199 / Monat",
+        price: "20 000 RUB / Monat",
         highlight: "15% Provision + Featured"
       },
       {
@@ -111,7 +111,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     valueTitle: "Pourquoi ce modele fonctionne",
     values: [
       "Revenue share par commande payee (15-25%)",
-      "Ideal avec un panier de 150-300",
+      "Ideal avec un panier de 15 000 - 40 000",
       "Option: mise en avant + exclusivite"
     ],
     plansTitle: "Offres en bref",
@@ -125,7 +125,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "pro",
         name: "Pro",
-        price: "199 / mois",
+        price: "20 000 RUB / mois",
         highlight: "15% + mise en avant"
       },
       {
@@ -145,7 +145,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     valueTitle: "Why partners choose this model",
     values: [
       "Revenue share per paid order (15-25%)",
-      "Works best with 150-300 basket value",
+      "Works best with 15 000 - 40 000 basket value",
       "Optional featured placement + exclusivity"
     ],
     plansTitle: "Packages at a glance",
@@ -159,7 +159,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "pro",
         name: "Pro",
-        price: "199 / month",
+        price: "20 000 RUB / month",
         highlight: "15% commission + Featured"
       },
       {

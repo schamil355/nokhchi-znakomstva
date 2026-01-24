@@ -52,7 +52,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "pro",
         name: "Pro",
-        price: "199 / month",
+        price: "20 000 RUB / month",
         features: [
           "15% commission per paid order",
           "Featured placement",
@@ -92,7 +92,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "pro",
         name: "Pro",
-        price: "199 / Monat",
+        price: "20 000 RUB / Monat",
         features: [
           "15% Provision pro bezahlter Order",
           "Featured Placement",
@@ -132,7 +132,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "pro",
         name: "Pro",
-        price: "199 / mois",
+        price: "20 000 RUB / mois",
         features: [
           "15% de commission",
           "Mise en avant",
@@ -172,7 +172,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "pro",
         name: "Pro",
-        price: "199 / month",
+        price: "20 000 RUB / month",
         features: [
           "15% commission per paid order",
           "Featured placement",
