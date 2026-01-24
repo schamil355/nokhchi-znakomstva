@@ -82,17 +82,27 @@ const persistLocationToSupabase = async (location: OnboardingLocation, region?: 
     const {
       data: { session }
     } = await supabase.auth.getSession();
-    if (!session?.user?.id || !location.latitude || !location.longitude) {
+    if (!session?.user?.id) {
       return;
     }
-
-    const payload = {
-      latitude: location.latitude,
-      longitude: location.longitude,
-      country: toCountryCode(location.country) ?? null,
-      region_code: toRegionCode(region),
+    const payload: Record<string, string | number | null> = {
       updated_at: new Date().toISOString()
     };
+    if (typeof location.latitude === "number" && typeof location.longitude === "number") {
+      payload.latitude = location.latitude;
+      payload.longitude = location.longitude;
+    }
+    const country = toCountryCode(location.country);
+    if (country) {
+      payload.country = country;
+    }
+    const regionCode = toRegionCode(region);
+    if (regionCode) {
+      payload.region_code = regionCode;
+    }
+    if (Object.keys(payload).length === 1) {
+      return;
+    }
     const { data, error } = await supabase
       .from("profiles")
       .update(payload)
@@ -123,7 +133,7 @@ const translations = {
     statusBlocked: "Location is blocked. Please open Settings to allow it.",
     statusUnavailable: "Location isn't available on this device.",
     activate: "Enable location",
-    skip: "Later",
+    skip: "Continue without location",
     settings: "Open settings",
     errorGeneric: "We couldn't determine your location. Please try again later.",
     vpnWarning: "VPN detected. Please turn it off to continue.",
@@ -131,7 +141,8 @@ const translations = {
     devTitle: "DEV",
     devStatus: "Status",
     devOpenMap: "Open map",
-    permissionHint: "Requests location access"
+    permissionHint: "Requests location access",
+    webHint: "iPhone: Safari → aA → Website Settings → Location → Allow."
   },
   de: {
     titleAccent: "Standort aktivieren,",
@@ -141,7 +152,7 @@ const translations = {
     statusBlocked: "Standort ist blockiert. Bitte öffne die Einstellungen, um ihn freizugeben.",
     statusUnavailable: "Standort ist auf diesem Gerät nicht verfügbar.",
     activate: "Standort aktivieren",
-    skip: "Später",
+    skip: "Ohne Standort fortfahren",
     settings: "Einstellungen öffnen",
     errorGeneric: "Standort konnte nicht ermittelt werden. Bitte versuche es später erneut.",
     vpnWarning: "VPN erkannt. Bitte schalte das VPN aus, um fortzufahren.",
@@ -149,7 +160,8 @@ const translations = {
     devTitle: "DEV",
     devStatus: "Status",
     devOpenMap: "Auf Karte öffnen",
-    permissionHint: "Fordert den Standortzugriff an"
+    permissionHint: "Fordert den Standortzugriff an",
+    webHint: "iPhone: Safari → aA → Website-Einstellungen → Standort → Zulassen."
   },
   fr: {
     titleAccent: "Active la localisation,",
@@ -159,7 +171,7 @@ const translations = {
     statusBlocked: "Localisation bloquée. Ouvre les réglages pour l'autoriser.",
     statusUnavailable: "Localisation indisponible sur cet appareil.",
     activate: "Activer la localisation",
-    skip: "Plus tard",
+    skip: "Continuer sans localisation",
     settings: "Ouvrir les réglages",
     errorGeneric: "Impossible de déterminer ta position. Réessaie plus tard.",
     vpnWarning: "VPN détecté. Désactive-le pour continuer.",
@@ -167,7 +179,8 @@ const translations = {
     devTitle: "DEV",
     devStatus: "Statut",
     devOpenMap: "Ouvrir la carte",
-    permissionHint: "Demande l'accès à la localisation"
+    permissionHint: "Demande l'accès à la localisation",
+    webHint: "iPhone : Safari → aA → Réglages du site → Localisation → Autoriser."
   },
   ru: {
     titleAccent: "Включи геолокацию,",
@@ -177,7 +190,7 @@ const translations = {
     statusBlocked: "Локация заблокирована. Открой настройки, чтобы разрешить.",
     statusUnavailable: "Локация недоступна на этом устройстве.",
     activate: "Включить локацию",
-    skip: "Позже",
+    skip: "Продолжить без геолокации",
     settings: "Открыть настройки",
     errorGeneric: "Не удалось определить местоположение. Попробуй ещё раз позже.",
     vpnWarning: "Обнаружен VPN. Отключи его, чтобы продолжить.",
@@ -185,7 +198,8 @@ const translations = {
     devTitle: "DEV",
     devStatus: "Статус",
     devOpenMap: "Открыть на карте",
-    permissionHint: "Запрашивает доступ к геолокации"
+    permissionHint: "Запрашивает доступ к геолокации",
+    webHint: "iPhone: Safari → aA → Настройки веб‑сайта → Геолокация → Разрешить."
   }
 };
 
@@ -328,6 +342,45 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
         return null;
     }
   }, [copy.statusBlocked, copy.statusDenied, copy.statusGranted, copy.statusUnavailable, status]);
+
+  const showWebHint = Platform.OS === "web" && (status === "denied" || status === "blocked");
+  const showSkipCta = Platform.OS === "web" && (status === "denied" || status === "blocked" || status === "unavailable");
+
+  const handleSkipLocation = async () => {
+    if (loading) {
+      return;
+    }
+    setLoading(true);
+    setMessage(null);
+    try {
+      if (!(await ensureNoVpn())) {
+        return;
+      }
+      const ipCountry = await fetchIpCountry();
+      const derivedRegion = resolveGeoRegion({
+        countryName: ipCountry.name,
+        countryCode: ipCountry.code
+      });
+      usePreferencesStore.getState().setFilters({ region: derivedRegion });
+
+      const nextLocation: OnboardingLocation = {
+        status: "skipped",
+        latitude: null,
+        longitude: null,
+        country: ipCountry.code ?? null,
+        countryName: ipCountry.name ?? null
+      };
+      setStatus("skipped");
+      setLocation(nextLocation);
+      await persistLocationToSupabase(nextLocation, derivedRegion);
+      navigation.navigate("OnboardingPhotos");
+    } catch (error) {
+      console.warn("[Location] skip failed", error);
+      setMessage(copy.errorGeneric);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleActivateLocation = async () => {
     setLoading(true);
@@ -592,6 +645,12 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
             </Text>
           )}
 
+          {showWebHint && (
+            <Text style={styles.statusMessage} accessibilityLiveRegion="polite">
+              {copy.webHint}
+            </Text>
+          )}
+
           {showSettingsCta && (
             <Pressable
               onPress={handleOpenSettings}
@@ -650,6 +709,17 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
               </LinearGradient>
             )}
           </Pressable>
+          {showSkipCta && (
+            <Pressable
+              onPress={handleSkipLocation}
+              disabled={loading}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: loading }}
+              style={({ pressed }) => [styles.skipButton, pressed && styles.skipButtonPressed]}
+            >
+              <Text style={styles.skipText}>{copy.skip}</Text>
+            </Pressable>
+          )}
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -771,6 +841,14 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "600"
+  },
+  skipButton: {
+    alignSelf: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12
+  },
+  skipButtonPressed: {
+    opacity: 0.7
   },
   skipText: {
     textAlign: "center",
