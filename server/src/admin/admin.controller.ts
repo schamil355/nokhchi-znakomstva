@@ -1,8 +1,9 @@
-import { BadRequestException, Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Param, Patch, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../common/guards/admin.guard";
 import { getSupabaseAdminClient } from "../common/supabase-admin";
+import { UpdatePartnerLeadDto } from "./dto/update-partner-lead.dto";
 
 type AdminMetricsResponse = {
   gender: Record<string, number>;
@@ -88,5 +89,28 @@ export class AdminController {
       limit,
       offset,
     };
+  }
+
+  @Patch("partner-leads/:id")
+  async updatePartnerLead(
+    @Param("id") id: string,
+    @Body() body: UpdatePartnerLeadDto
+  ): Promise<PartnerLeadRecord> {
+    const status = body.status?.trim();
+    if (!status) {
+      throw new BadRequestException("ADMIN_PARTNER_LEAD_STATUS_REQUIRED");
+    }
+    const { data, error } = await this.supabase
+      .from("partner_leads")
+      .update({ status })
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error || !data) {
+      throw new BadRequestException("ADMIN_PARTNER_LEAD_UPDATE_FAILED");
+    }
+
+    return data as PartnerLeadRecord;
   }
 }

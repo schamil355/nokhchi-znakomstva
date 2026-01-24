@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import SafeAreaView from "../components/SafeAreaView";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
-import { fetchPartnerLeads, type PartnerLeadRecord } from "../services/partnerLeadsService";
+import { fetchPartnerLeads, updatePartnerLeadStatus, type PartnerLeadRecord } from "../services/partnerLeadsService";
 import { useNavigation } from "@react-navigation/native";
 
 const PALETTE = {
@@ -23,9 +23,13 @@ type Copy = {
   title: string;
   back: string;
   refresh: string;
+  export: string;
   loading: string;
   empty: string;
   error: string;
+  updateError: string;
+  exportEmpty: string;
+  exportUnsupported: string;
   labels: {
     company: string;
     contact: string;
@@ -36,7 +40,9 @@ type Copy = {
     volume: string;
     notes: string;
     created: string;
+    status: string;
   };
+  statuses: Record<"new" | "contacted" | "won" | "lost", string>;
 };
 
 const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
@@ -44,9 +50,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     title: "Partner leads",
     back: "Back",
     refresh: "Refresh",
+    export: "Export CSV",
     loading: "Loading leads...",
     empty: "No leads yet.",
     error: "Failed to load leads.",
+    updateError: "Failed to update lead status.",
+    exportEmpty: "No leads to export.",
+    exportUnsupported: "Export is available on the web.",
     labels: {
       company: "Company",
       contact: "Contact",
@@ -57,15 +67,26 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       volume: "Volume",
       notes: "Notes",
       created: "Created",
+      status: "Status",
+    },
+    statuses: {
+      new: "New",
+      contacted: "Contacted",
+      won: "Won",
+      lost: "Lost",
     },
   },
   de: {
     title: "Partner-Anfragen",
     back: "Zurueck",
     refresh: "Aktualisieren",
+    export: "CSV exportieren",
     loading: "Anfragen werden geladen...",
     empty: "Keine Anfragen vorhanden.",
     error: "Anfragen konnten nicht geladen werden.",
+    updateError: "Status konnte nicht aktualisiert werden.",
+    exportEmpty: "Keine Anfragen zum Export.",
+    exportUnsupported: "Export ist nur im Web verfuegbar.",
     labels: {
       company: "Firma",
       contact: "Kontakt",
@@ -76,15 +97,26 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       volume: "Volumen",
       notes: "Notizen",
       created: "Erstellt",
+      status: "Status",
+    },
+    statuses: {
+      new: "Neu",
+      contacted: "Kontaktiert",
+      won: "Gewonnen",
+      lost: "Verloren",
     },
   },
   fr: {
     title: "Leads partenaires",
     back: "Retour",
     refresh: "Actualiser",
+    export: "Exporter CSV",
     loading: "Chargement des leads...",
     empty: "Aucun lead pour le moment.",
     error: "Impossible de charger les leads.",
+    updateError: "Impossible de mettre a jour le statut.",
+    exportEmpty: "Aucun lead a exporter.",
+    exportUnsupported: "Export disponible uniquement sur le web.",
     labels: {
       company: "Societe",
       contact: "Contact",
@@ -95,15 +127,26 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       volume: "Volume",
       notes: "Notes",
       created: "Cree",
+      status: "Statut",
+    },
+    statuses: {
+      new: "Nouveau",
+      contacted: "Contacte",
+      won: "Gagne",
+      lost: "Perdu",
     },
   },
   ru: {
     title: "Заявки партнеров",
     back: "Назад",
     refresh: "Обновить",
+    export: "Экспорт CSV",
     loading: "Загрузка заявок...",
     empty: "Пока нет заявок.",
     error: "Не удалось загрузить заявки.",
+    updateError: "Не удалось обновить статус.",
+    exportEmpty: "Нет заявок для экспорта.",
+    exportUnsupported: "Экспорт доступен только в веб-версии.",
     labels: {
       company: "Компания",
       contact: "Контакт",
@@ -114,6 +157,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       volume: "Объем",
       notes: "Комментарий",
       created: "Создано",
+      status: "Статус",
+    },
+    statuses: {
+      new: "Новый",
+      contacted: "Связались",
+      won: "Сделка",
+      lost: "Потерян",
     },
   },
 };
@@ -127,12 +177,23 @@ const formatDate = (value?: string | null) => {
 
 const formatFallback = (value?: string | null) => (value && value.trim().length > 0 ? value : "-");
 
+const STATUS_OPTIONS: Array<"new" | "contacted" | "won" | "lost"> = [
+  "new",
+  "contacted",
+  "won",
+  "lost",
+];
+
+const toCsvValue = (value?: string | null) =>
+  `"${String(value ?? "").replace(/"/g, "\"\"")}"`;
+
 const AdminPartnerLeadsScreen = () => {
   const copy = useLocalizedCopy(translations);
   const navigation = useNavigation<any>();
   const [leads, setLeads] = useState<PartnerLeadRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const loadLeads = useCallback(async () => {
     setLoading(true);
@@ -159,6 +220,73 @@ const AdminPartnerLeadsScreen = () => {
     navigation.reset({ index: 0, routes: [{ name: "Settings" }] });
   };
 
+  const handleExportCsv = () => {
+    if (Platform.OS !== "web") {
+      Alert.alert(copy.exportUnsupported);
+      return;
+    }
+    if (!leads.length) {
+      Alert.alert(copy.exportEmpty);
+      return;
+    }
+    const headers = [
+      "created_at",
+      "company_name",
+      "contact_name",
+      "email",
+      "phone",
+      "city",
+      "package_interest",
+      "monthly_volume",
+      "status",
+      "notes",
+    ];
+    const rows = leads.map((lead) =>
+      [
+        lead.created_at,
+        lead.company_name,
+        lead.contact_name,
+        lead.email,
+        lead.phone ?? "",
+        lead.city,
+        lead.package_interest ?? "",
+        lead.monthly_volume ?? "",
+        lead.status ?? "",
+        lead.notes ?? "",
+      ]
+        .map(toCsvValue)
+        .join(",")
+    );
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    link.href = url;
+    link.download = `partner-leads-${stamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleStatusUpdate = async (leadId: string, status: string) => {
+    if (updatingId) return;
+    setUpdatingId(leadId);
+    try {
+      const updated = await updatePartnerLeadStatus(leadId, status);
+      setLeads((prev) =>
+        prev.map((lead) =>
+          lead.id === leadId ? { ...lead, status: updated.status ?? status } : lead
+        )
+      );
+    } catch (err) {
+      Alert.alert(copy.updateError);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const headerMeta = useMemo(() => {
     if (loading) return copy.loading;
     if (error) return error;
@@ -180,9 +308,14 @@ const AdminPartnerLeadsScreen = () => {
             <Text style={styles.headerTitle}>{copy.title}</Text>
             <Text style={styles.headerMeta}>{headerMeta}</Text>
           </View>
-          <Pressable style={styles.headerButton} onPress={loadLeads} accessibilityRole="button">
-            <Ionicons name="refresh" size={20} color={PALETTE.sand} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable style={styles.headerButton} onPress={handleExportCsv} accessibilityRole="button">
+              <Ionicons name="download-outline" size={20} color={PALETTE.sand} />
+            </Pressable>
+            <Pressable style={styles.headerButton} onPress={loadLeads} accessibilityRole="button">
+              <Ionicons name="refresh" size={20} color={PALETTE.sand} />
+            </Pressable>
+          </View>
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -209,6 +342,26 @@ const AdminPartnerLeadsScreen = () => {
                 <Text style={styles.metaLine}>
                   {copy.labels.created}: {formatDate(lead.created_at)}
                 </Text>
+                <View style={styles.statusRow}>
+                  <Text style={styles.label}>{copy.labels.status}</Text>
+                  <View style={styles.statusPills}>
+                    {STATUS_OPTIONS.map((status) => {
+                      const active = (lead.status ?? "new") === status;
+                      return (
+                        <Pressable
+                          key={status}
+                          style={[styles.statusPill, active && styles.statusPillActive]}
+                          onPress={() => handleStatusUpdate(lead.id, status)}
+                          disabled={updatingId === lead.id}
+                        >
+                          <Text style={[styles.statusText, active && styles.statusTextActive]}>
+                            {copy.statuses[status]}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
                 <View style={styles.detailGrid}>
                   <Text style={styles.label}>{copy.labels.contact}</Text>
                   <Text style={styles.value}>{formatFallback(lead.contact_name)}</Text>
@@ -265,6 +418,11 @@ const styles = StyleSheet.create({
   headerCenter: {
     flex: 1,
     alignItems: "center",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   headerTitle: {
     color: PALETTE.sand,
@@ -325,6 +483,35 @@ const styles = StyleSheet.create({
   detailGrid: {
     marginTop: 6,
     gap: 6,
+  },
+  statusRow: {
+    marginTop: 8,
+    gap: 6,
+  },
+  statusPills: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  statusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  statusPillActive: {
+    backgroundColor: "rgba(217,192,143,0.22)",
+    borderColor: "rgba(217,192,143,0.8)",
+  },
+  statusText: {
+    color: PALETTE.muted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  statusTextActive: {
+    color: PALETTE.sand,
   },
   label: {
     color: "rgba(242,231,215,0.6)",

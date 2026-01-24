@@ -105,6 +105,24 @@ export class PartnerLeadsService {
           to,
           subject,
           text,
+          html: `
+            <div style="font-family: Arial, sans-serif; color: #111;">
+              <h2 style="margin: 0 0 16px;">New partner lead</h2>
+              <table style="border-collapse: collapse; width: 100%;">
+                ${this.row("Company", lead.company_name)}
+                ${this.row("Contact", lead.contact_name)}
+                ${this.row("Email", lead.email)}
+                ${this.row("Phone", lead.phone ?? "-")}
+                ${this.row("City", lead.city)}
+                ${this.row("Region", lead.region ?? "-")}
+                ${this.row("Package", lead.package_interest ?? "-")}
+                ${this.row("Volume", lead.monthly_volume ?? "-")}
+                ${this.row("Notes", lead.notes ?? "-")}
+                ${this.row("Locale", lead.locale ?? "-")}
+                ${this.row("Created", lead.created_at ?? "-")}
+              </table>
+            </div>
+          `,
         },
         {
           headers: {
@@ -117,5 +135,14 @@ export class PartnerLeadsService {
       const message = error instanceof Error ? error.message : "unknown error";
       this.logger.warn(`Lead email notification failed: ${message}`);
     }
+  }
+
+  private row(label: string, value: string) {
+    return `
+      <tr>
+        <td style="padding: 6px 8px; font-weight: 600; border-bottom: 1px solid #eee; width: 140px;">${label}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${value}</td>
+      </tr>
+    `;
   }
 }

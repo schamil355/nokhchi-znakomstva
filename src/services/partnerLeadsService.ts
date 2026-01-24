@@ -121,3 +121,31 @@ export const fetchPartnerLeads = async (params: { limit?: number; offset?: numbe
 
   return (await response.json()) as PartnerLeadsResponse;
 };
+
+export const updatePartnerLeadStatus = async (id: string, status: string): Promise<PartnerLeadRecord> => {
+  const token = await getFreshAccessToken();
+  if (!token) {
+    throw withCode("AUTH_REQUIRED", "Not authenticated.");
+  }
+  const response = await fetch(`${ensureApiBase()}/v1/admin/partner-leads/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ status }),
+  });
+
+  if (!response.ok) {
+    let message = "Failed to update lead.";
+    try {
+      const data = await response.json();
+      message = extractErrorMessage(data, message);
+    } catch {
+      // ignore parse errors
+    }
+    throw withCode("PARTNER_LEAD_UPDATE_FAILED", message);
+  }
+
+  return (await response.json()) as PartnerLeadRecord;
+};
