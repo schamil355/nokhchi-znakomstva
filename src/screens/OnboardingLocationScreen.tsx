@@ -313,10 +313,14 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
     return !flags.every((flag) => allowOnly.has(flag));
   };
 
-  const ensureNoVpn = async () => {
+  const ensureNoVpn = async (options?: { block?: boolean }) => {
+    const block = options?.block ?? true;
     try {
       const result = await checkVpnStatus();
       if (shouldBlockVpn(result)) {
+        if (!block) {
+          return true;
+        }
         setMessage(copy.vpnWarning);
         return false;
       }
@@ -420,7 +424,7 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
             });
           }
 
-          if (!(await ensureNoVpn())) {
+          if (!(await ensureNoVpn({ block: false }))) {
             return;
           }
 
@@ -550,7 +554,7 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
         });
       }
 
-      if (!(await ensureNoVpn())) {
+      if (!(await ensureNoVpn({ block: false }))) {
         return;
       }
 
