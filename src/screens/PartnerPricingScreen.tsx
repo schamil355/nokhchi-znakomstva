@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   planCtaText: {
-    color: "#1a1a1a",
+    color: "#ffffff",
     fontWeight: "700"
   }
 });

@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   primaryButtonText: {
-    color: "#1a1a1a",
+    color: "#ffffff",
     fontWeight: "700"
   },
   secondaryButton: {
