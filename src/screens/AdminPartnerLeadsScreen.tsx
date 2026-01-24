@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import SafeAreaView from "../components/SafeAreaView";
@@ -26,6 +26,13 @@ type Copy = {
   export: string;
   filterAll: string;
   detail: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  dateLabel: string;
+  startLabel: string;
+  endLabel: string;
+  applyFilters: string;
+  clearFilters: string;
   loading: string;
   empty: string;
   error: string;
@@ -55,6 +62,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     export: "Export CSV",
     filterAll: "All",
     detail: "Details",
+    searchLabel: "Search",
+    searchPlaceholder: "Company, email, phone, city...",
+    dateLabel: "Date range (YYYY-MM-DD)",
+    startLabel: "Start date",
+    endLabel: "End date",
+    applyFilters: "Apply",
+    clearFilters: "Clear",
     loading: "Loading leads...",
     empty: "No leads yet.",
     error: "Failed to load leads.",
@@ -87,6 +101,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     export: "CSV exportieren",
     filterAll: "Alle",
     detail: "Details",
+    searchLabel: "Suche",
+    searchPlaceholder: "Firma, E-Mail, Telefon, Stadt...",
+    dateLabel: "Zeitraum (YYYY-MM-DD)",
+    startLabel: "Startdatum",
+    endLabel: "Enddatum",
+    applyFilters: "Anwenden",
+    clearFilters: "Zuruecksetzen",
     loading: "Anfragen werden geladen...",
     empty: "Keine Anfragen vorhanden.",
     error: "Anfragen konnten nicht geladen werden.",
@@ -119,6 +140,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     export: "Exporter CSV",
     filterAll: "Tous",
     detail: "Details",
+    searchLabel: "Recherche",
+    searchPlaceholder: "Societe, email, telephone, ville...",
+    dateLabel: "Periode (YYYY-MM-DD)",
+    startLabel: "Date debut",
+    endLabel: "Date fin",
+    applyFilters: "Appliquer",
+    clearFilters: "Reinitialiser",
     loading: "Chargement des leads...",
     empty: "Aucun lead pour le moment.",
     error: "Impossible de charger les leads.",
@@ -151,6 +179,13 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     export: "Экспорт CSV",
     filterAll: "Все",
     detail: "Детали",
+    searchLabel: "Поиск",
+    searchPlaceholder: "Компания, email, телефон, город...",
+    dateLabel: "Период (YYYY-MM-DD)",
+    startLabel: "Дата начала",
+    endLabel: "Дата конца",
+    applyFilters: "Применить",
+    clearFilters: "Сбросить",
     loading: "Загрузка заявок...",
     empty: "Пока нет заявок.",
     error: "Не удалось загрузить заявки.",
@@ -205,19 +240,29 @@ const AdminPartnerLeadsScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "new" | "contacted" | "won" | "lost">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const loadLeads = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetchPartnerLeads({ limit: 100, offset: 0 });
+      const response = await fetchPartnerLeads({
+        limit: 100,
+        offset: 0,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        q: searchQuery.trim() || undefined,
+        start: startDate.trim() || undefined,
+        end: endDate.trim() || undefined,
+      });
       setLeads(response.items ?? []);
     } catch (err) {
       setError(copy.error);
     } finally {
       setLoading(false);
     }
-  }, [copy.error]);
+  }, [copy.error, endDate, searchQuery, startDate, statusFilter]);
 
   useEffect(() => {
     void loadLeads();
@@ -362,6 +407,56 @@ const AdminPartnerLeadsScreen = () => {
             </View>
           ) : (
             <>
+              <View style={styles.filterCard}>
+                <Text style={styles.sectionLabel}>{copy.searchLabel}</Text>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder={copy.searchPlaceholder}
+                  placeholderTextColor="rgba(242,231,215,0.5)"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                <Text style={styles.sectionLabel}>{copy.dateLabel}</Text>
+                <View style={styles.dateRow}>
+                  <View style={styles.dateField}>
+                    <Text style={styles.dateLabel}>{copy.startLabel}</Text>
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor="rgba(242,231,215,0.5)"
+                      value={startDate}
+                      onChangeText={setStartDate}
+                    />
+                  </View>
+                  <View style={styles.dateField}>
+                    <Text style={styles.dateLabel}>{copy.endLabel}</Text>
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor="rgba(242,231,215,0.5)"
+                      value={endDate}
+                      onChangeText={setEndDate}
+                    />
+                  </View>
+                </View>
+                <View style={styles.filterActions}>
+                  <Pressable style={styles.filterButton} onPress={loadLeads}>
+                    <Text style={styles.filterButtonText}>{copy.applyFilters}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.filterButton, styles.filterButtonSecondary]}
+                    onPress={() => {
+                      setSearchQuery("");
+                      setStartDate("");
+                      setEndDate("");
+                      setStatusFilter("all");
+                      void loadLeads();
+                    }}
+                  >
+                    <Text style={styles.filterButtonText}>{copy.clearFilters}</Text>
+                  </Pressable>
+                </View>
+              </View>
               <View style={styles.filterRow}>
                 <Pressable
                   style={[
@@ -400,7 +495,7 @@ const AdminPartnerLeadsScreen = () => {
                 ))}
               </View>
               {filteredLeads.map((lead) => (
-              <View key={lead.id} style={styles.card}>
+                <View key={lead.id} style={styles.card}>
                 <Text style={styles.company}>{formatFallback(lead.company_name)}</Text>
                 <Text style={styles.metaLine}>
                   {copy.labels.created}: {formatDate(lead.created_at)}
@@ -453,7 +548,7 @@ const AdminPartnerLeadsScreen = () => {
                   <Text style={styles.label}>{copy.labels.notes}</Text>
                   <Text style={styles.value}>{formatFallback(lead.notes ?? "")}</Text>
                 </View>
-              </View>
+                </View>
               ))}
             </>
           )}
@@ -558,6 +653,63 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+  },
+  filterCard: {
+    backgroundColor: PALETTE.card,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    gap: 10,
+  },
+  sectionLabel: {
+    color: PALETTE.muted,
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: PALETTE.sand,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  dateRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  dateField: {
+    flex: 1,
+    minWidth: 140,
+    gap: 6,
+  },
+  dateLabel: {
+    color: PALETTE.muted,
+    fontSize: 11,
+  },
+  filterActions: {
+    flexDirection: "row",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  filterButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+  },
+  filterButtonSecondary: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  filterButtonText: {
+    color: PALETTE.sand,
+    fontWeight: "600",
+    fontSize: 12,
   },
   filterPill: {
     paddingHorizontal: 12,

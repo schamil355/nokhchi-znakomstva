@@ -69,15 +69,57 @@ export class AdminController {
   @Get("partner-leads")
   async getPartnerLeads(
     @Query("limit") limitRaw?: string,
-    @Query("offset") offsetRaw?: string
+    @Query("offset") offsetRaw?: string,
+    @Query("status") statusRaw?: string,
+    @Query("q") queryRaw?: string,
+    @Query("start") startRaw?: string,
+    @Query("end") endRaw?: string
   ): Promise<PartnerLeadsResponse> {
     const limit = Math.max(1, Math.min(200, Number.parseInt(limitRaw ?? "50", 10) || 50));
     const offset = Math.max(0, Number.parseInt(offsetRaw ?? "0", 10) || 0);
-    const { data, error, count } = await this.supabase
+    const status = ["new", "contacted", "won", "lost"].includes((statusRaw ?? "").toLowerCase())
+      ? (statusRaw ?? "").toLowerCase()
+      : null;
+    const q = (queryRaw ?? "").trim();
+
+    const normalizeDate = (value?: string, endOfDay?: boolean) => {
+      if (!value) return null;
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const isDateOnly = /^\\d{4}-\\d{2}-\\d{2}$/.test(trimmed);
+      const asIso = isDateOnly
+        ? `${trimmed}T${endOfDay ? "23:59:59.999Z" : "00:00:00.000Z"}`
+        : trimmed;
+      const date = new Date(asIso);
+      if (Number.isNaN(date.getTime())) return null;
+      return date.toISOString();
+    };
+
+    const start = normalizeDate(startRaw, false);
+    const end = normalizeDate(endRaw, true);
+
+    let query = this.supabase
       .from("partner_leads")
       .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+      .order("created_at", { ascending: false });
+
+    if (status) {
+      query = query.eq("status", status);
+    }
+    if (q) {
+      const escaped = q.replace(/%/g, "\\\\%").replace(/_/g, "\\\\_");
+      query = query.or(
+        `company_name.ilike.%${escaped}%,contact_name.ilike.%${escaped}%,email.ilike.%${escaped}%,phone.ilike.%${escaped}%,city.ilike.%${escaped}%`
+      );
+    }
+    if (start) {
+      query = query.gte("created_at", start);
+    }
+    if (end) {
+      query = query.lte("created_at", end);
+    }
+
+    const { data, error, count } = await query.range(offset, offset + limit - 1);
 
     if (error) {
       throw new BadRequestException("ADMIN_PARTNER_LEADS_FAILED");

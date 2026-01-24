@@ -92,15 +92,24 @@ export const submitPartnerLead = async (payload: PartnerLeadInput): Promise<{ id
   }
 };
 
-export const fetchPartnerLeads = async (params: { limit?: number; offset?: number } = {}): Promise<PartnerLeadsResponse> => {
+export const fetchPartnerLeads = async (
+  params: { limit?: number; offset?: number; status?: string; q?: string; start?: string; end?: string } = {}
+): Promise<PartnerLeadsResponse> => {
   const token = await getFreshAccessToken();
   if (!token) {
     throw withCode("AUTH_REQUIRED", "Not authenticated.");
   }
   const limit = params.limit ?? 50;
   const offset = params.offset ?? 0;
+  const query = new URLSearchParams();
+  query.set("limit", String(limit));
+  query.set("offset", String(offset));
+  if (params.status) query.set("status", params.status);
+  if (params.q) query.set("q", params.q);
+  if (params.start) query.set("start", params.start);
+  if (params.end) query.set("end", params.end);
   const response = await fetch(
-    `${ensureApiBase()}/v1/admin/partner-leads?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`,
+    `${ensureApiBase()}/v1/admin/partner-leads?${query.toString()}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
