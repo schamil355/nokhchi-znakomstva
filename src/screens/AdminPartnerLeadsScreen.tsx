@@ -24,6 +24,8 @@ type Copy = {
   back: string;
   refresh: string;
   export: string;
+  filterAll: string;
+  detail: string;
   loading: string;
   empty: string;
   error: string;
@@ -51,6 +53,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     back: "Back",
     refresh: "Refresh",
     export: "Export CSV",
+    filterAll: "All",
+    detail: "Details",
     loading: "Loading leads...",
     empty: "No leads yet.",
     error: "Failed to load leads.",
@@ -81,6 +85,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     back: "Zurueck",
     refresh: "Aktualisieren",
     export: "CSV exportieren",
+    filterAll: "Alle",
+    detail: "Details",
     loading: "Anfragen werden geladen...",
     empty: "Keine Anfragen vorhanden.",
     error: "Anfragen konnten nicht geladen werden.",
@@ -111,6 +117,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     back: "Retour",
     refresh: "Actualiser",
     export: "Exporter CSV",
+    filterAll: "Tous",
+    detail: "Details",
     loading: "Chargement des leads...",
     empty: "Aucun lead pour le moment.",
     error: "Impossible de charger les leads.",
@@ -141,6 +149,8 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     back: "Назад",
     refresh: "Обновить",
     export: "Экспорт CSV",
+    filterAll: "Все",
+    detail: "Детали",
     loading: "Загрузка заявок...",
     empty: "Пока нет заявок.",
     error: "Не удалось загрузить заявки.",
@@ -194,6 +204,7 @@ const AdminPartnerLeadsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "new" | "contacted" | "won" | "lost">("all");
 
   const loadLeads = useCallback(async () => {
     setLoading(true);
@@ -225,33 +236,42 @@ const AdminPartnerLeadsScreen = () => {
       Alert.alert(copy.exportUnsupported);
       return;
     }
-    if (!leads.length) {
+    const exportList = filteredLeads;
+    if (!exportList.length) {
       Alert.alert(copy.exportEmpty);
       return;
     }
     const headers = [
+      "id",
       "created_at",
       "company_name",
       "contact_name",
       "email",
       "phone",
       "city",
+      "region",
       "package_interest",
       "monthly_volume",
       "status",
+      "source",
+      "locale",
       "notes",
     ];
-    const rows = leads.map((lead) =>
+    const rows = exportList.map((lead) =>
       [
+        lead.id,
         lead.created_at,
         lead.company_name,
         lead.contact_name,
         lead.email,
         lead.phone ?? "",
         lead.city,
+        lead.region ?? "",
         lead.package_interest ?? "",
         lead.monthly_volume ?? "",
         lead.status ?? "",
+        lead.source ?? "",
+        lead.locale ?? "",
         lead.notes ?? "",
       ]
         .map(toCsvValue)
@@ -286,6 +306,11 @@ const AdminPartnerLeadsScreen = () => {
       setUpdatingId(null);
     }
   };
+
+  const filteredLeads = useMemo(() => {
+    if (statusFilter === "all") return leads;
+    return leads.filter((lead) => (lead.status ?? "new") === statusFilter);
+  }, [leads, statusFilter]);
 
   const headerMeta = useMemo(() => {
     if (loading) return copy.loading;
@@ -331,12 +356,50 @@ const AdminPartnerLeadsScreen = () => {
                 <Text style={styles.retryText}>{copy.refresh}</Text>
               </Pressable>
             </View>
-          ) : leads.length === 0 ? (
+          ) : filteredLeads.length === 0 ? (
             <View style={styles.stateBlock}>
               <Text style={styles.stateText}>{copy.empty}</Text>
             </View>
           ) : (
-            leads.map((lead) => (
+            <>
+              <View style={styles.filterRow}>
+                <Pressable
+                  style={[
+                    styles.filterPill,
+                    statusFilter === "all" && styles.filterPillActive,
+                  ]}
+                  onPress={() => setStatusFilter("all")}
+                >
+                  <Text
+                    style={[
+                      styles.filterText,
+                      statusFilter === "all" && styles.filterTextActive,
+                    ]}
+                  >
+                    {copy.filterAll}
+                  </Text>
+                </Pressable>
+                {STATUS_OPTIONS.map((status) => (
+                  <Pressable
+                    key={status}
+                    style={[
+                      styles.filterPill,
+                      statusFilter === status && styles.filterPillActive,
+                    ]}
+                    onPress={() => setStatusFilter(status)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterText,
+                        statusFilter === status && styles.filterTextActive,
+                      ]}
+                    >
+                      {copy.statuses[status]}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              {filteredLeads.map((lead) => (
               <View key={lead.id} style={styles.card}>
                 <Text style={styles.company}>{formatFallback(lead.company_name)}</Text>
                 <Text style={styles.metaLine}>
@@ -362,6 +425,12 @@ const AdminPartnerLeadsScreen = () => {
                     })}
                   </View>
                 </View>
+                <Pressable
+                  style={styles.detailButton}
+                  onPress={() => navigation.navigate("AdminPartnerLeadDetail", { lead })}
+                >
+                  <Text style={styles.detailText}>{copy.detail}</Text>
+                </Pressable>
                 <View style={styles.detailGrid}>
                   <Text style={styles.label}>{copy.labels.contact}</Text>
                   <Text style={styles.value}>{formatFallback(lead.contact_name)}</Text>
@@ -385,7 +454,8 @@ const AdminPartnerLeadsScreen = () => {
                   <Text style={styles.value}>{formatFallback(lead.notes ?? "")}</Text>
                 </View>
               </View>
-            ))
+              ))}
+            </>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -484,6 +554,31 @@ const styles = StyleSheet.create({
     marginTop: 6,
     gap: 6,
   },
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  filterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  filterPillActive: {
+    backgroundColor: "rgba(217,192,143,0.22)",
+    borderColor: "rgba(217,192,143,0.8)",
+  },
+  filterText: {
+    color: PALETTE.muted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  filterTextActive: {
+    color: PALETTE.sand,
+  },
   statusRow: {
     marginTop: 8,
     gap: 6,
@@ -512,6 +607,20 @@ const styles = StyleSheet.create({
   },
   statusTextActive: {
     color: PALETTE.sand,
+  },
+  detailButton: {
+    marginTop: 8,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  detailText: {
+    color: PALETTE.sand,
+    fontWeight: "600",
+    fontSize: 12,
   },
   label: {
     color: "rgba(242,231,215,0.6)",
