@@ -63,7 +63,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "499-1,999 / month",
+        price: "50 000 RUB / month",
         features: [
           "10% commission",
           "City exclusivity",
@@ -103,7 +103,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "499-1.999 / Monat",
+        price: "50 000 RUB / Monat",
         features: [
           "10% Provision",
           "Exklusivitaet pro Stadt",
@@ -143,7 +143,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "499-1 999 / mois",
+        price: "50 000 RUB / mois",
         features: [
           "10% de commission",
           "Exclusivite par ville",
@@ -183,7 +183,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "499-1,999 / month",
+        price: "50 000 RUB / month",
         features: [
           "10% commission",
           "City exclusivity",
