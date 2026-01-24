@@ -368,7 +368,6 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
     }
   }, [copy.statusBlocked, copy.statusDenied, copy.statusGranted, copy.statusUnavailable, status]);
 
-  const showWebHint = Platform.OS === "web" && (status === "denied" || status === "blocked");
   const displayMessage = message && message !== statusCopy ? message : null;
 
   const handleActivateLocation = async () => {
@@ -631,12 +630,6 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
           {displayMessage && (
             <Text style={styles.statusMessage} accessibilityLiveRegion="polite">
               {displayMessage}
-            </Text>
-          )}
-
-          {showWebHint && (
-            <Text style={styles.statusMessage} accessibilityLiveRegion="polite">
-              {copy.webHint}
             </Text>
           )}
 
