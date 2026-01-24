@@ -138,6 +138,14 @@ const translations = {
     errorGeneric: "We couldn't determine your location. Please try again later.",
     proxyWarning: "Proxy detected. You can continue, but location may be less accurate.",
     vpnWarning: "VPN detected. Please turn it off to continue.",
+    webHelpTitle: "Enable location on iOS",
+    webHelpSafari: "Safari: aA → Website Settings → Location → Allow.",
+    webHelpSafariSettings:
+      "iOS Settings → Privacy & Security → Location Services → Safari Websites → While Using.",
+    webHelpChrome:
+      "Chrome: … → Settings → Content Settings → Location → Allow (or check iOS Settings → Chrome → Location).",
+    webHelpReset:
+      "If it still fails: iOS Settings → Safari → Advanced → Website Data → remove nokhchi-znakomstva.com.",
     back: "Back",
     devTitle: "DEV",
     devStatus: "Status",
@@ -159,6 +167,14 @@ const translations = {
     errorGeneric: "Standort konnte nicht ermittelt werden. Bitte versuche es später erneut.",
     proxyWarning: "Proxy erkannt. Du kannst fortfahren, aber der Standort kann ungenauer sein.",
     vpnWarning: "VPN erkannt. Bitte schalte das VPN aus, um fortzufahren.",
+    webHelpTitle: "Standort auf iOS aktivieren",
+    webHelpSafari: "Safari: aA → Website-Einstellungen → Standort → Zulassen.",
+    webHelpSafariSettings:
+      "iOS Einstellungen → Datenschutz & Sicherheit → Ortungsdienste → Safari-Websites → Beim Verwenden.",
+    webHelpChrome:
+      "Chrome: … → Einstellungen → Inhaltseinstellungen → Standort → Zulassen (oder iOS Einstellungen → Chrome → Standort).",
+    webHelpReset:
+      "Wenn es weiterhin blockiert: iOS Einstellungen → Safari → Erweitert → Website-Daten → nokhchi-znakomstva.com löschen.",
     back: "Zurück",
     devTitle: "DEV",
     devStatus: "Status",
@@ -179,6 +195,14 @@ const translations = {
     errorGeneric: "Impossible de déterminer ta position. Réessaie plus tard.",
     proxyWarning: "Proxy détecté. Tu peux continuer, mais la localisation peut être moins précise.",
     vpnWarning: "VPN détecté. Désactive-le pour continuer.",
+    webHelpTitle: "Activer la localisation sur iOS",
+    webHelpSafari: "Safari : aA → Réglages du site → Localisation → Autoriser.",
+    webHelpSafariSettings:
+      "Réglages iOS → Confidentialité et sécurité → Services de localisation → Sites Safari → Lors de l’utilisation.",
+    webHelpChrome:
+      "Chrome : … → Réglages → Paramètres de contenu → Localisation → Autoriser (ou Réglages iOS → Chrome → Localisation).",
+    webHelpReset:
+      "Si ça bloque encore : Réglages iOS → Safari → Avancé → Données des sites → supprimer nokhchi-znakomstva.com.",
     back: "Retour",
     devTitle: "DEV",
     devStatus: "Statut",
@@ -199,6 +223,14 @@ const translations = {
     errorGeneric: "Не удалось определить местоположение. Попробуй ещё раз позже.",
     proxyWarning: "Обнаружен прокси. Можно продолжить, но геолокация может быть менее точной.",
     vpnWarning: "Обнаружен VPN. Отключи его, чтобы продолжить.",
+    webHelpTitle: "Как включить геолокацию на iOS",
+    webHelpSafari: "Safari: aA → Настройки веб‑сайта → Геолокация → Разрешить.",
+    webHelpSafariSettings:
+      "iOS Настройки → Конфиденциальность и безопасность → Службы геолокации → Сайты Safari → При использовании.",
+    webHelpChrome:
+      "Chrome: … → Настройки → Настройки сайта → Геолокация → Разрешить (или iOS Настройки → Chrome → Геолокация).",
+    webHelpReset:
+      "Если всё ещё не работает: iOS Настройки → Safari → Дополнительно → Данные сайтов → удалить nokhchi-znakomstva.com.",
     back: "Назад",
     devTitle: "DEV",
     devStatus: "Статус",
@@ -387,6 +419,8 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
   }, [copy.statusBlocked, copy.statusDenied, copy.statusGranted, copy.statusUnavailable, status]);
 
   const displayMessage = message && message !== statusCopy ? message : null;
+  const showWebHelp =
+    Platform.OS === "web" && (status === "denied" || status === "blocked" || status === "unavailable");
 
   const handleActivateLocation = async () => {
     setLoading(true);
@@ -651,6 +685,16 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
             </Text>
           )}
 
+          {showWebHelp && (
+            <View style={styles.webHelpCard}>
+              <Text style={styles.webHelpTitle}>{copy.webHelpTitle}</Text>
+              <Text style={styles.webHelpText}>{copy.webHelpSafari}</Text>
+              <Text style={styles.webHelpText}>{copy.webHelpSafariSettings}</Text>
+              <Text style={styles.webHelpText}>{copy.webHelpChrome}</Text>
+              <Text style={styles.webHelpText}>{copy.webHelpReset}</Text>
+            </View>
+          )}
+
           {showSettingsCta && (
             <Pressable
               onPress={handleOpenSettings}
@@ -851,6 +895,24 @@ const styles = StyleSheet.create({
   devLink: {
     color: PALETTE.gold,
     marginTop: 4
+  },
+  webHelpCard: {
+    marginTop: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.35)",
+    padding: 12,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    gap: 6
+  },
+  webHelpTitle: {
+    fontWeight: "700",
+    color: PALETTE.sand,
+    marginBottom: 2
+  },
+  webHelpText: {
+    fontSize: 13,
+    color: "rgba(242,231,215,0.85)"
   }
 });
 
