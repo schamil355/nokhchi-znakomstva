@@ -271,8 +271,8 @@ const styles = StyleSheet.create({
   },
   partnerCorner: {
     position: "absolute",
-    top: 6,
-    left: 6,
+    top: 12,
+    left: 28,
     alignItems: "flex-start",
     gap: 4,
     zIndex: 5
