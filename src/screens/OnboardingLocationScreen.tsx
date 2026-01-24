@@ -129,9 +129,9 @@ const translations = {
     titleAccent: "Enable location,",
     title: "trusted connections might be nearby.",
     statusGranted: "Location enabled. We'll show you matches nearby.",
-    statusDenied: "Location was denied. You can allow it in Settings anytime.",
-    statusBlocked: "Location is blocked. Please open Settings to allow it.",
-    statusUnavailable: "Location isn't available on this device.",
+    statusDenied: "Location was denied. Please allow it in Settings to continue.",
+    statusBlocked: "Location is blocked. Please open Settings to allow it and continue.",
+    statusUnavailable: "Location isn't available. Please try again or allow it to continue.",
     activate: "Enable location",
     skip: "Continue without location",
     settings: "Open settings",
@@ -148,9 +148,9 @@ const translations = {
     titleAccent: "Standort aktivieren,",
     title: "Dein Match könnte ganz nah bei dir sein.",
     statusGranted: "Standort wurde aktiviert. Wir zeigen dir passende Profile in deiner Nähe.",
-    statusDenied: "Standort wurde abgelehnt. Du kannst ihn jederzeit in den Einstellungen aktivieren.",
-    statusBlocked: "Standort ist blockiert. Bitte öffne die Einstellungen, um ihn freizugeben.",
-    statusUnavailable: "Standort ist auf diesem Gerät nicht verfügbar.",
+    statusDenied: "Standort wurde abgelehnt. Bitte in den Einstellungen erlauben, um fortzufahren.",
+    statusBlocked: "Standort ist blockiert. Bitte in den Einstellungen erlauben, um fortzufahren.",
+    statusUnavailable: "Standort ist nicht verfügbar. Bitte versuche es erneut oder erlaube den Zugriff, um fortzufahren.",
     activate: "Standort aktivieren",
     skip: "Ohne Standort fortfahren",
     settings: "Einstellungen öffnen",
@@ -167,9 +167,9 @@ const translations = {
     titleAccent: "Active la localisation,",
     title: "des connexions vérifiées sont peut-être proches.",
     statusGranted: "Localisation activée. Nous te montrons des profils proches.",
-    statusDenied: "Localisation refusée. Tu peux l'autoriser à tout moment dans les réglages.",
-    statusBlocked: "Localisation bloquée. Ouvre les réglages pour l'autoriser.",
-    statusUnavailable: "Localisation indisponible sur cet appareil.",
+    statusDenied: "Localisation refusée. Autorise-la dans les réglages pour continuer.",
+    statusBlocked: "Localisation bloquée. Autorise-la dans les réglages pour continuer.",
+    statusUnavailable: "Localisation indisponible. Réessaie ou autorise-la pour continuer.",
     activate: "Activer la localisation",
     skip: "Continuer sans localisation",
     settings: "Ouvrir les réglages",
@@ -186,9 +186,9 @@ const translations = {
     titleAccent: "Включи геолокацию,",
     title: "проверенные связи могут быть совсем рядом с тобой.",
     statusGranted: "Локация включена. Мы покажем тебе анкеты поблизости.",
-    statusDenied: "Локация отклонена. Ты можешь разрешить её в настройках.",
-    statusBlocked: "Локация заблокирована. Открой настройки, чтобы разрешить.",
-    statusUnavailable: "Локация недоступна на этом устройстве.",
+    statusDenied: "Локация отклонена. Разреши её в настройках, чтобы продолжить.",
+    statusBlocked: "Локация заблокирована. Разреши её в настройках, чтобы продолжить.",
+    statusUnavailable: "Локация недоступна. Попробуй ещё раз или разреши её, чтобы продолжить.",
     activate: "Включить локацию",
     skip: "Продолжить без геолокации",
     settings: "Открыть настройки",
@@ -344,43 +344,6 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
   }, [copy.statusBlocked, copy.statusDenied, copy.statusGranted, copy.statusUnavailable, status]);
 
   const showWebHint = Platform.OS === "web" && (status === "denied" || status === "blocked");
-  const showSkipCta = Platform.OS === "web" && (status === "denied" || status === "blocked" || status === "unavailable");
-
-  const handleSkipLocation = async () => {
-    if (loading) {
-      return;
-    }
-    setLoading(true);
-    setMessage(null);
-    try {
-      if (!(await ensureNoVpn())) {
-        return;
-      }
-      const ipCountry = await fetchIpCountry();
-      const derivedRegion = resolveGeoRegion({
-        countryName: ipCountry.name,
-        countryCode: ipCountry.code
-      });
-      usePreferencesStore.getState().setFilters({ region: derivedRegion });
-
-      const nextLocation: OnboardingLocation = {
-        status: "skipped",
-        latitude: null,
-        longitude: null,
-        country: ipCountry.code ?? null,
-        countryName: ipCountry.name ?? null
-      };
-      setStatus("skipped");
-      setLocation(nextLocation);
-      await persistLocationToSupabase(nextLocation, derivedRegion);
-      navigation.navigate("OnboardingPhotos");
-    } catch (error) {
-      console.warn("[Location] skip failed", error);
-      setMessage(copy.errorGeneric);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleActivateLocation = async () => {
     setLoading(true);
@@ -709,17 +672,6 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
               </LinearGradient>
             )}
           </Pressable>
-          {showSkipCta && (
-            <Pressable
-              onPress={handleSkipLocation}
-              disabled={loading}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: loading }}
-              style={({ pressed }) => [styles.skipButton, pressed && styles.skipButtonPressed]}
-            >
-              <Text style={styles.skipText}>{copy.skip}</Text>
-            </Pressable>
-          )}
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -841,19 +793,6 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "600"
-  },
-  skipButton: {
-    alignSelf: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12
-  },
-  skipButtonPressed: {
-    opacity: 0.7
-  },
-  skipText: {
-    textAlign: "center",
-    color: "rgba(242,231,215,0.8)",
-    fontWeight: "500"
   },
   devBox: {
     marginTop: 16,

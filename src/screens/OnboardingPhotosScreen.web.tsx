@@ -179,7 +179,7 @@ const OnboardingPhotosScreen = ({ navigation }: Props) => {
     if (!dob) {
       return "OnboardingBirthday";
     }
-    if (locationStatus === "idle") {
+    if (locationStatus !== "granted") {
       return "OnboardingLocation";
     }
     return null;
