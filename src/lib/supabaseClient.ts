@@ -75,13 +75,17 @@ let cachedClient: SupabaseClient | null = null;
 
 export const getSupabaseClient = (): SupabaseClient => {
   if (!cachedClient) {
-    const storage =
-      isTestEnv ? undefined : Platform.OS === "web" ? new AsyncStorageAdapter() : new SecureStoreAdapter();
+    const persistSession = !isTestEnv && Platform.OS !== "web";
+    const storage = persistSession
+      ? Platform.OS === "web"
+        ? new AsyncStorageAdapter()
+        : new SecureStoreAdapter()
+      : undefined;
     cachedClient = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "", {
       auth: {
-        persistSession: !isTestEnv,
+        persistSession,
         storage,
-        storageKey: isTestEnv ? undefined : SECURE_KEY,
+        storageKey: persistSession ? SECURE_KEY : undefined,
         autoRefreshToken: true,
         detectSessionInUrl: Platform.OS === "web"
       },
