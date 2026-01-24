@@ -5,6 +5,7 @@ import {
   Linking,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View
@@ -652,7 +653,11 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-        <View style={styles.container}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.header}>
             <Pressable
               onPress={() => navigation.goBack()}
@@ -725,7 +730,7 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
               )}
             </View>
           )}
-        </View>
+        </ScrollView>
 
         <View style={styles.footer}>
           <Pressable
@@ -768,6 +773,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     backgroundColor: "transparent"
+  },
+  scrollContent: {
+    paddingBottom: 140
   },
   header: {
     flexDirection: "row",
