@@ -297,7 +297,11 @@ const PartnerApplyScreen = () => {
           behavior={Platform.select({ ios: "padding", android: undefined })}
           style={styles.container}
         >
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             <Pressable style={styles.backBtn} onPress={handleBack} accessibilityRole="button">
               <Ionicons name="chevron-back" size={22} color={PALETTE.gold} />
               <Text style={styles.backText}>{copy.back}</Text>
