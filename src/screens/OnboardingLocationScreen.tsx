@@ -328,6 +328,10 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
       return true;
     } catch (error) {
       console.warn("[Location] VPN check failed", error);
+      if (block) {
+        setMessage("VPN-Prüfung nicht verfügbar. Bitte später erneut versuchen.");
+        return false;
+      }
       return true;
     }
   };
@@ -425,7 +429,7 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
             });
           }
 
-          if (!(await ensureNoVpn({ block: false }))) {
+          if (!(await ensureNoVpn())) {
             return;
           }
 
