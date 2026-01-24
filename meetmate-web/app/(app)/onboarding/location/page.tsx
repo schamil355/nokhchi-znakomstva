@@ -220,7 +220,9 @@ export default function OnboardingLocationPage() {
       const mapped = mapWebErrorStatus(error);
       setStatus(mapped);
       if (mapped === "denied") {
-        setMessage("Standort wurde abgelehnt. Bitte erlaube ihn in deinem Browser.");
+        setMessage(
+          "Standort wurde abgelehnt. Bitte erlaube ihn in deinem Browser. Einstellungen > Datenschutz & Sicherheit > Ortungsdienste > Safari‑Websites."
+        );
       } else if (mapped === "blocked") {
         setMessage("Standort ist blockiert. Bitte erlaube ihn in deinem Browser.");
       } else if (mapped === "unavailable") {

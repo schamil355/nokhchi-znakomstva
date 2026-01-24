@@ -148,7 +148,8 @@ const translations = {
     titleAccent: "Standort aktivieren,",
     title: "Dein Match könnte ganz nah bei dir sein.",
     statusGranted: "Standort wurde aktiviert. Wir zeigen dir passende Profile in deiner Nähe.",
-    statusDenied: "Standort wurde abgelehnt. Bitte in den Einstellungen erlauben, um fortzufahren.",
+    statusDenied:
+      "Standort wurde abgelehnt. Bitte in den Einstellungen erlauben, um fortzufahren. Einstellungen > Datenschutz & Sicherheit > Ortungsdienste > Safari‑Websites.",
     statusBlocked: "Standort ist blockiert. Bitte in den Einstellungen erlauben, um fortzufahren.",
     statusUnavailable: "Standort ist nicht verfügbar. Bitte versuche es erneut oder erlaube den Zugriff, um fortzufahren.",
     activate: "Standort aktivieren",
@@ -368,6 +369,7 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
   }, [copy.statusBlocked, copy.statusDenied, copy.statusGranted, copy.statusUnavailable, status]);
 
   const showWebHint = Platform.OS === "web" && (status === "denied" || status === "blocked");
+  const displayMessage = message && message !== statusCopy ? message : null;
 
   const handleActivateLocation = async () => {
     setLoading(true);
@@ -626,9 +628,9 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
             </Text>
           )}
 
-          {message && (
+          {displayMessage && (
             <Text style={styles.statusMessage} accessibilityLiveRegion="polite">
-              {message}
+              {displayMessage}
             </Text>
           )}
 
