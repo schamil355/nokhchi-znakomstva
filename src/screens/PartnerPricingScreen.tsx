@@ -41,7 +41,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "starter",
         name: "Starter",
-        price: "0 EUR / month",
+        price: "0 / month",
         features: [
           "20% commission per paid order",
           "Standard listing",
@@ -52,7 +52,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "pro",
         name: "Pro",
-        price: "199 EUR / month",
+        price: "199 / month",
         features: [
           "15% commission per paid order",
           "Featured placement",
@@ -63,9 +63,9 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "499-1,999 EUR / month",
+        price: "499-1,999 / month",
         features: [
-          "12-15% commission",
+          "10% commission",
           "City exclusivity",
           "SLA + account manager"
         ],
@@ -81,7 +81,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "starter",
         name: "Starter",
-        price: "0 EUR / Monat",
+        price: "0 / Monat",
         features: [
           "20% Provision pro bezahlter Order",
           "Standard-Listing",
@@ -92,7 +92,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "pro",
         name: "Pro",
-        price: "199 EUR / Monat",
+        price: "199 / Monat",
         features: [
           "15% Provision pro bezahlter Order",
           "Featured Placement",
@@ -103,9 +103,9 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "499-1.999 EUR / Monat",
+        price: "499-1.999 / Monat",
         features: [
-          "12-15% Provision",
+          "10% Provision",
           "Exklusivitaet pro Stadt",
           "SLA + Account Manager"
         ],
@@ -121,7 +121,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "starter",
         name: "Starter",
-        price: "0 EUR / mois",
+        price: "0 / mois",
         features: [
           "20% de commission par commande payee",
           "Listing standard",
@@ -132,7 +132,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "pro",
         name: "Pro",
-        price: "199 EUR / mois",
+        price: "199 / mois",
         features: [
           "15% de commission",
           "Mise en avant",
@@ -143,9 +143,9 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "499-1 999 EUR / mois",
+        price: "499-1 999 / mois",
         features: [
-          "12-15% de commission",
+          "10% de commission",
           "Exclusivite par ville",
           "SLA + account manager"
         ],
@@ -161,7 +161,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "starter",
         name: "Starter",
-        price: "0 EUR / month",
+        price: "0 / month",
         features: [
           "20% commission per paid order",
           "Standard listing",
@@ -172,7 +172,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "pro",
         name: "Pro",
-        price: "199 EUR / month",
+        price: "199 / month",
         features: [
           "15% commission per paid order",
           "Featured placement",
@@ -183,9 +183,9 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "499-1,999 EUR / month",
+        price: "499-1,999 / month",
         features: [
-          "12-15% commission",
+          "10% commission",
           "City exclusivity",
           "SLA + account manager"
         ],

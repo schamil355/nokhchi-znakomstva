@@ -74,7 +74,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     planOptions: [
       { id: "starter", name: "Starter", description: "20% commission per order" },
       { id: "pro", name: "Pro", description: "15% commission + featured" },
-      { id: "enterprise", name: "Enterprise", description: "12-15% + exclusivity" },
+      { id: "enterprise", name: "Enterprise", description: "10% + exclusivity" },
       { id: "unsure", name: "Not sure yet", description: "Let's discuss" }
     ],
     companyLabel: "Company name",
@@ -108,7 +108,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     planOptions: [
       { id: "starter", name: "Starter", description: "20% Provision pro Order" },
       { id: "pro", name: "Pro", description: "15% Provision + Featured" },
-      { id: "enterprise", name: "Enterprise", description: "12-15% + Exklusiv" },
+      { id: "enterprise", name: "Enterprise", description: "10% + Exklusiv" },
       { id: "unsure", name: "Noch unsicher", description: "Wir beraten dich" }
     ],
     companyLabel: "Firmenname",
@@ -142,7 +142,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     planOptions: [
       { id: "starter", name: "Starter", description: "20% de commission" },
       { id: "pro", name: "Pro", description: "15% + mise en avant" },
-      { id: "enterprise", name: "Enterprise", description: "12-15% + exclusivite" },
+      { id: "enterprise", name: "Enterprise", description: "10% + exclusivite" },
       { id: "unsure", name: "Pas encore sur", description: "On en discute" }
     ],
     companyLabel: "Societe",
@@ -176,7 +176,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     planOptions: [
       { id: "starter", name: "Starter", description: "20% commission per order" },
       { id: "pro", name: "Pro", description: "15% commission + featured" },
-      { id: "enterprise", name: "Enterprise", description: "12-15% + exclusivity" },
+      { id: "enterprise", name: "Enterprise", description: "10% + exclusivity" },
       { id: "unsure", name: "Not sure yet", description: "Let's discuss" }
     ],
     companyLabel: "Company name",

@@ -43,7 +43,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     valueTitle: "Why partners choose this model",
     values: [
       "Revenue share per paid order (15-25%)",
-      "Works best with EUR 150-300 baskets",
+      "Works best with 150-300 basket value",
       "Optional featured placement + exclusivity"
     ],
     plansTitle: "Packages at a glance",
@@ -51,20 +51,20 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "starter",
         name: "Starter",
-        price: "0 EUR / month",
+        price: "0 / month",
         highlight: "20% commission per order"
       },
       {
         id: "pro",
         name: "Pro",
-        price: "199 EUR / month",
+        price: "199 / month",
         highlight: "15% commission + Featured"
       },
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "499-1,999 EUR / month",
-        highlight: "12-15% + city exclusivity"
+        price: "499-1,999 / month",
+        highlight: "10% + city exclusivity"
       }
     ],
     ctaPrimary: "Become a partner",
@@ -77,7 +77,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     valueTitle: "Warum Haendler dieses Modell moegen",
     values: [
       "Revenue Share pro bezahlter Bestellung (15-25%)",
-      "Ideal bei 150-300 EUR Warenkorb",
+      "Ideal bei 150-300 Bestellwert",
       "Optional: Featured Placement + Exklusivitaet"
     ],
     plansTitle: "Pakete im Ueberblick",
@@ -85,20 +85,20 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "starter",
         name: "Starter",
-        price: "0 EUR / Monat",
+        price: "0 / Monat",
         highlight: "20% Provision pro Order"
       },
       {
         id: "pro",
         name: "Pro",
-        price: "199 EUR / Monat",
+        price: "199 / Monat",
         highlight: "15% Provision + Featured"
       },
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "499-1.999 EUR / Monat",
-        highlight: "12-15% + Exklusiv pro Stadt"
+        price: "499-1.999 / Monat",
+        highlight: "10% + Exklusiv pro Stadt"
       }
     ],
     ctaPrimary: "Partner werden",
@@ -111,7 +111,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     valueTitle: "Pourquoi ce modele fonctionne",
     values: [
       "Revenue share par commande payee (15-25%)",
-      "Ideal avec un panier de 150-300 EUR",
+      "Ideal avec un panier de 150-300",
       "Option: mise en avant + exclusivite"
     ],
     plansTitle: "Offres en bref",
@@ -119,20 +119,20 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "starter",
         name: "Starter",
-        price: "0 EUR / mois",
+        price: "0 / mois",
         highlight: "20% de commission"
       },
       {
         id: "pro",
         name: "Pro",
-        price: "199 EUR / mois",
+        price: "199 / mois",
         highlight: "15% + mise en avant"
       },
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "499-1 999 EUR / mois",
-        highlight: "12-15% + exclusivite"
+        price: "499-1 999 / mois",
+        highlight: "10% + exclusivite"
       }
     ],
     ctaPrimary: "Devenir partenaire",
@@ -145,7 +145,7 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     valueTitle: "Why partners choose this model",
     values: [
       "Revenue share per paid order (15-25%)",
-      "Works best with EUR 150-300 baskets",
+      "Works best with 150-300 basket value",
       "Optional featured placement + exclusivity"
     ],
     plansTitle: "Packages at a glance",
@@ -153,20 +153,20 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
       {
         id: "starter",
         name: "Starter",
-        price: "0 EUR / month",
+        price: "0 / month",
         highlight: "20% commission per order"
       },
       {
         id: "pro",
         name: "Pro",
-        price: "199 EUR / month",
+        price: "199 / month",
         highlight: "15% commission + Featured"
       },
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "499-1,999 EUR / month",
-        highlight: "12-15% + city exclusivity"
+        price: "499-1,999 / month",
+        highlight: "10% + city exclusivity"
       }
     ],
     ctaPrimary: "Become a partner",
