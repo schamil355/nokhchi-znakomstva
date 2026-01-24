@@ -140,38 +140,38 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     back: "Retour"
   },
   ru: {
-    title: "Partner program",
-    subtitle: "Monetize via commission on paid orders. Simple, transparent, scalable.",
-    valueTitle: "Why partners choose this model",
+    title: "Партнерская программа",
+    subtitle: "Монетизация по комиссии с оплаченных заказов. Просто и прозрачно.",
+    valueTitle: "Почему партнерам это выгодно",
     values: [
-      "Revenue share per paid order (15-25%)",
-      "Works best with 15 000 - 40 000 basket value",
-      "Optional featured placement + exclusivity"
+      "Комиссия с каждого оплаченного заказа (15-25%)",
+      "Оптимально при среднем чеке 15 000 - 40 000",
+      "Опционально: Featured и эксклюзивность"
     ],
-    plansTitle: "Packages at a glance",
+    plansTitle: "Пакеты",
     plans: [
       {
         id: "starter",
         name: "Starter",
-        price: "0 / month",
-        highlight: "20% commission per order"
+        price: "0 RUB / месяц",
+        highlight: "20% с заказа"
       },
       {
         id: "pro",
         name: "Pro",
-        price: "20 000 RUB / month",
-        highlight: "15% commission + Featured"
+        price: "20 000 RUB / месяц",
+        highlight: "15% + Featured"
       },
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "50 000 RUB / month",
-        highlight: "10% + city exclusivity"
+        price: "50 000 RUB / месяц",
+        highlight: "10% + эксклюзив по городу"
       }
     ],
-    ctaPrimary: "Become a partner",
-    ctaSecondary: "View packages",
-    back: "Back"
+    ctaPrimary: "Стать партнером",
+    ctaSecondary: "Смотреть пакеты",
+    back: "Назад"
   }
 };
 

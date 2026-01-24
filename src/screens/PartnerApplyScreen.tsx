@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import SafeAreaView from "../components/SafeAreaView";
 import { useLocalizedCopy, useLocale } from "../localization/LocalizationProvider";
-import { getSupabaseClient } from "../lib/supabaseClient";
+import { submitPartnerLead } from "../services/partnerLeadsService";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useAuthStore } from "../state/authStore";
 
@@ -169,38 +169,38 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     invalidEmail: "Merci d'entrer un email valide."
   },
   ru: {
-    title: "Partner application",
-    subtitle: "Tell us about your business and we will get back within 24-48h.",
-    back: "Back",
-    planLabel: "Package preference",
+    title: "Заявка партнера",
+    subtitle: "Расскажите о вашем бизнесе, мы ответим в течение 24-48 часов.",
+    back: "Назад",
+    planLabel: "Выбор пакета",
     planOptions: [
-      { id: "starter", name: "Starter", description: "20% commission per order" },
-      { id: "pro", name: "Pro", description: "15% commission + featured" },
-      { id: "enterprise", name: "Enterprise", description: "10% + exclusivity" },
-      { id: "unsure", name: "Not sure yet", description: "Let's discuss" }
+      { id: "starter", name: "Starter", description: "20% комиссия с заказа" },
+      { id: "pro", name: "Pro", description: "15% комиссия + Featured" },
+      { id: "enterprise", name: "Enterprise", description: "10% + эксклюзив" },
+      { id: "unsure", name: "Еще не уверен", description: "Давайте обсудим" }
     ],
-    companyLabel: "Company name",
-    companyPlaceholder: "Your business",
-    contactLabel: "Contact person",
-    contactPlaceholder: "Full name",
+    companyLabel: "Название компании",
+    companyPlaceholder: "Ваш бизнес",
+    contactLabel: "Контактное лицо",
+    contactPlaceholder: "Имя и фамилия",
     emailLabel: "Email",
     emailPlaceholder: "name@company.com",
-    phoneLabel: "Phone (optional)",
-    phonePlaceholder: "+49 170 123456",
-    cityLabel: "City / delivery area",
-    cityPlaceholder: "City",
-    volumeLabel: "Monthly order volume (optional)",
-    volumePlaceholder: "e.g. 30 orders",
-    notesLabel: "Notes (optional)",
-    notesPlaceholder: "Anything we should know",
-    submit: "Submit application",
-    submitting: "Sending...",
-    successTitle: "Thanks!",
-    successMessage: "We received your request and will contact you shortly.",
-    errorTitle: "Submission failed",
-    errorMessage: "Please try again.",
-    requiredMessage: "Please fill in all required fields.",
-    invalidEmail: "Please enter a valid email address."
+    phoneLabel: "Телефон (необязательно)",
+    phonePlaceholder: "+7 999 123-45-67",
+    cityLabel: "Город / зона доставки",
+    cityPlaceholder: "Город",
+    volumeLabel: "Месячный объем (необязательно)",
+    volumePlaceholder: "например, 30 заказов",
+    notesLabel: "Комментарий (необязательно)",
+    notesPlaceholder: "Дополнительная информация",
+    submit: "Отправить заявку",
+    submitting: "Отправка...",
+    successTitle: "Спасибо!",
+    successMessage: "Мы получили вашу заявку и скоро свяжемся.",
+    errorTitle: "Ошибка",
+    errorMessage: "Попробуйте еще раз.",
+    requiredMessage: "Пожалуйста, заполните обязательные поля.",
+    invalidEmail: "Введите корректный email."
   }
 };
 
@@ -255,26 +255,17 @@ const PartnerApplyScreen = () => {
 
     setIsSubmitting(true);
     try {
-      const supabase = getSupabaseClient();
-      const { error } = await supabase.from("partner_leads").insert(
-        {
-          company_name: companyName.trim(),
-          contact_name: contactName.trim(),
-          email: email.trim(),
-          phone: phone.trim() || null,
-          city: city.trim(),
-          monthly_volume: volume.trim() || null,
-          package_interest: selectedPlan,
-          notes: notes.trim() || null,
-          locale,
-          source: "web"
-        },
-        { returning: "minimal" }
-      );
-
-      if (error) {
-        throw error;
-      }
+      await submitPartnerLead({
+        companyName: companyName.trim(),
+        contactName: contactName.trim(),
+        email: email.trim(),
+        phone: phone.trim() || null,
+        city: city.trim(),
+        monthlyVolume: volume.trim() || null,
+        packageInterest: selectedPlan,
+        notes: notes.trim() || null,
+        locale,
+      });
 
       navigation.navigate("PartnerSuccess", {
         title: copy.successTitle,

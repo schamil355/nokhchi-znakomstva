@@ -16,6 +16,7 @@ import { SupportController } from "./support/support.controller";
 import { HealthController } from "./health/health.controller";
 import { PaymentsModule } from "./payments/payments.module";
 import { SecurityModule } from "./security/security.module";
+import { PartnerLeadsModule } from "./partner-leads/partner-leads.module";
 
 const enablePush = (process.env.ENABLE_PUSH ?? "").toLowerCase() === "true";
 const enableVerification = (process.env.ENABLE_VERIFICATION ?? "true").toLowerCase() === "true";
@@ -44,6 +45,7 @@ const enableVerification = (process.env.ENABLE_VERIFICATION ?? "true").toLowerCa
     AccountModule,
     AdminModule,
     PaymentsModule,
+    PartnerLeadsModule,
   ],
   controllers: [PrivacyController, AuthRedirectController, SupportController, HealthController],
 })

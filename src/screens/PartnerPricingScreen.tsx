@@ -154,42 +154,42 @@ const translations: Record<"en" | "de" | "fr" | "ru", Copy> = {
     ]
   },
   ru: {
-    title: "Pricing",
-    subtitle: "Simple packages designed for local partners.",
-    back: "Back",
+    title: "Пакеты",
+    subtitle: "Простые условия для партнеров.",
+    back: "Назад",
     plans: [
       {
         id: "starter",
         name: "Starter",
-        price: "0 / month",
+        price: "0 RUB / месяц",
         features: [
-          "20% commission per paid order",
-          "Standard listing",
-          "Monthly reporting"
+          "20% комиссия с оплаченного заказа",
+          "Стандартное размещение",
+          "Ежемесячный отчет"
         ],
-        cta: "Apply"
+        cta: "Подать заявку"
       },
       {
         id: "pro",
         name: "Pro",
-        price: "20 000 RUB / month",
+        price: "20 000 RUB / месяц",
         features: [
-          "15% commission per paid order",
-          "Featured placement",
-          "Priority reporting"
+          "15% комиссия с заказа",
+          "Featured размещение",
+          "Приоритетный отчет"
         ],
-        cta: "Apply"
+        cta: "Подать заявку"
       },
       {
         id: "enterprise",
         name: "Enterprise",
-        price: "50 000 RUB / month",
+        price: "50 000 RUB / месяц",
         features: [
-          "10% commission",
-          "City exclusivity",
-          "SLA + account manager"
+          "10% комиссия",
+          "Эксклюзив по городу",
+          "SLA + аккаунт-менеджер"
         ],
-        cta: "Apply"
+        cta: "Подать заявку"
       }
     ]
   }

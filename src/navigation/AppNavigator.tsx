@@ -31,6 +31,7 @@ import PartnerLandingScreen from "../screens/PartnerLandingScreen";
 import PartnerPricingScreen from "../screens/PartnerPricingScreen";
 import PartnerApplyScreen from "../screens/PartnerApplyScreen";
 import PartnerApplySuccessScreen from "../screens/PartnerApplySuccessScreen";
+import AdminPartnerLeadsScreen from "../screens/AdminPartnerLeadsScreen";
 import OnboardingGenderScreen from "../screens/OnboardingGenderScreen";
 import OnboardingNameScreen from "../screens/OnboardingNameScreen";
 import OnboardingBirthdayScreen from "../screens/OnboardingBirthdayScreen";
@@ -65,6 +66,7 @@ type RootStackParamList = {
   PartnerPricing: undefined;
   PartnerApply: { plan?: "starter" | "pro" | "enterprise" | "unsure" } | undefined;
   PartnerSuccess: { title?: string; message?: string } | undefined;
+  AdminPartnerLeads: undefined;
 };
 
 type TabParamList = {
@@ -260,6 +262,7 @@ const AppNavigator = ({ isAuthenticated }: AppNavigatorProps) => {
       <RootStack.Screen name="PartnerPricing" component={PartnerPricingScreen} />
       <RootStack.Screen name="PartnerApply" component={PartnerApplyScreen} />
       <RootStack.Screen name="PartnerSuccess" component={PartnerApplySuccessScreen} />
+      <RootStack.Screen name="AdminPartnerLeads" component={AdminPartnerLeadsScreen} />
     </RootStack.Navigator>
   );
 };

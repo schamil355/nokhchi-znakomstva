@@ -28,6 +28,10 @@ npm install
 - `WEB_PUSH_VAPID_PUBLIC_KEY`
 - `WEB_PUSH_VAPID_PRIVATE_KEY`
 - `WEB_PUSH_SUBJECT` (e.g. `mailto:support@yourdomain`)
+- Partner lead email notifications (optional):
+  - `RESEND_API_KEY`
+  - `PARTNER_LEADS_EMAIL_TO` (comma-separated list)
+  - `PARTNER_LEADS_EMAIL_FROM` (verified sender)
 - `ENABLE_REDIS=true` (optional, enables rate limiting)
 - `REDIS_URL=redis://localhost:6379`
 - `CORS_ORIGINS=http://localhost:8081,http://localhost:4173,https://nokhchi-znakomstva.com`

@@ -9,6 +9,7 @@ import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 import { signOut } from "../services/authService";
 import { deleteAccount } from "../services/accountService";
+import { useAuthStore } from "../state/authStore";
 
 const PALETTE = {
   deep: "#0b1f16",
@@ -24,6 +25,9 @@ const PALETTE = {
 type CopyShape = {
   title: string;
   account: string;
+  adminTitle: string;
+  adminLeads: string;
+  adminLeadsHint: string;
   signOut: string;
   signOutLoading: string;
   signOutErrorTitle: string;
@@ -41,6 +45,9 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   en: {
     title: "Settings",
     account: "Account",
+    adminTitle: "Admin",
+    adminLeads: "Partner leads",
+    adminLeadsHint: "View incoming requests",
     signOut: "Sign out",
     signOutLoading: "Signing out…",
     signOutErrorTitle: "Sign-out failed",
@@ -56,6 +63,9 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   de: {
     title: "Einstellungen",
     account: "Account",
+    adminTitle: "Admin",
+    adminLeads: "Partner-Anfragen",
+    adminLeadsHint: "Neue Anfragen anzeigen",
     signOut: "Abmelden",
     signOutLoading: "Melde ab…",
     signOutErrorTitle: "Abmelden fehlgeschlagen",
@@ -71,6 +81,9 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   fr: {
     title: "Réglages",
     account: "Compte",
+    adminTitle: "Admin",
+    adminLeads: "Leads partenaires",
+    adminLeadsHint: "Voir les demandes",
     signOut: "Se déconnecter",
     signOutLoading: "Déconnexion…",
     signOutErrorTitle: "Échec de la déconnexion",
@@ -86,6 +99,9 @@ const translations: Record<"en" | "de" | "fr" | "ru", CopyShape> = {
   ru: {
     title: "Настройки",
     account: "Аккаунт",
+    adminTitle: "Админ",
+    adminLeads: "Заявки партнеров",
+    adminLeadsHint: "Просмотр входящих заявок",
     signOut: "Выйти",
     signOutLoading: "Выходим…",
     signOutErrorTitle: "Не удалось выйти",
@@ -104,10 +120,14 @@ const SettingsScreen = () => {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const copy = useLocalizedCopy(translations);
+  const session = useAuthStore((state) => state.session);
   const errorCopy = useErrorCopy();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
+  const isAdmin =
+    session?.user?.app_metadata?.role === "admin" ||
+    session?.user?.user_metadata?.role === "admin";
 
   const handleClose = useCallback(() => {
     if (navigation.canGoBack()) {
@@ -193,6 +213,25 @@ const SettingsScreen = () => {
           ]}
           showsVerticalScrollIndicator={false}
         >
+          {isAdmin && (
+            <View style={[styles.card, styles.adminCard]}>
+              <Text style={styles.cardTitle}>{copy.adminTitle}</Text>
+              <Pressable
+                style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed]}
+                onPress={() => navigation.navigate("AdminPartnerLeads")}
+              >
+                <LinearGradient
+                  colors={["#0f0f0f", "#0a0a0a"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.primaryInner}
+                >
+                  <Text style={styles.primaryText}>{copy.adminLeads}</Text>
+                </LinearGradient>
+              </Pressable>
+              <Text style={styles.adminHint}>{copy.adminLeadsHint}</Text>
+            </View>
+          )}
           <View style={[styles.card, styles.accountCard]}>
             <Text style={styles.cardTitle}>{copy.account}</Text>
             <Pressable
@@ -317,6 +356,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(217,192,143,0.35)",
     overflow: "hidden"
   },
+  adminCard: {
+    padding: 16,
+    gap: 12
+  },
   accountCard: {
     padding: 16,
     gap: 14
@@ -341,6 +384,10 @@ const styles = StyleSheet.create({
     color: PALETTE.sand,
     fontSize: 16,
     fontWeight: "700"
+  },
+  adminHint: {
+    color: "rgba(242,231,215,0.7)",
+    fontSize: 12
   },
   dangerButton: {
     borderRadius: 14,
