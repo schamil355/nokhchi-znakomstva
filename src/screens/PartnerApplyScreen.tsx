@@ -418,7 +418,7 @@ const PartnerApplyScreen = () => {
                 style={styles.primaryButtonInner}
               >
                 {isSubmitting ? (
-                  <ActivityIndicator color="#1a1a1a" />
+                  <ActivityIndicator color="#ffffff" />
                 ) : (
                   <Text style={styles.primaryButtonText}>{copy.submit}</Text>
                 )}
@@ -497,14 +497,14 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   planChipTitleActive: {
-    color: "#1a1a1a"
+    color: "#ffffff"
   },
   planChipDesc: {
     color: "rgba(242,231,215,0.75)",
     marginTop: 4
   },
   planChipDescActive: {
-    color: "rgba(26,26,26,0.7)"
+    color: "rgba(255,255,255,0.85)"
   },
   inputGroup: {
     gap: 6
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   primaryButtonText: {
-    color: "#1a1a1a",
+    color: "#ffffff",
     fontWeight: "700"
   },
   primaryButtonDisabled: {
