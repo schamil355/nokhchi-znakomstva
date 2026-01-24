@@ -243,6 +243,12 @@ const AdminPartnerLeadsScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [appliedFilters, setAppliedFilters] = useState({
+    status: "all" as "all" | "new" | "contacted" | "won" | "lost",
+    q: "",
+    start: "",
+    end: "",
+  });
 
   const loadLeads = useCallback(async () => {
     setLoading(true);
@@ -251,10 +257,10 @@ const AdminPartnerLeadsScreen = () => {
       const response = await fetchPartnerLeads({
         limit: 100,
         offset: 0,
-        status: statusFilter === "all" ? undefined : statusFilter,
-        q: searchQuery.trim() || undefined,
-        start: startDate.trim() || undefined,
-        end: endDate.trim() || undefined,
+        status: appliedFilters.status === "all" ? undefined : appliedFilters.status,
+        q: appliedFilters.q.trim() || undefined,
+        start: appliedFilters.start.trim() || undefined,
+        end: appliedFilters.end.trim() || undefined,
       });
       setLeads(response.items ?? []);
     } catch (err) {
@@ -262,7 +268,7 @@ const AdminPartnerLeadsScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [copy.error, endDate, searchQuery, startDate, statusFilter]);
+  }, [appliedFilters, copy.error]);
 
   useEffect(() => {
     void loadLeads();
@@ -353,9 +359,9 @@ const AdminPartnerLeadsScreen = () => {
   };
 
   const filteredLeads = useMemo(() => {
-    if (statusFilter === "all") return leads;
-    return leads.filter((lead) => (lead.status ?? "new") === statusFilter);
-  }, [leads, statusFilter]);
+    if (appliedFilters.status === "all") return leads;
+    return leads.filter((lead) => (lead.status ?? "new") === appliedFilters.status);
+  }, [appliedFilters.status, leads]);
 
   const headerMeta = useMemo(() => {
     if (loading) return copy.loading;
@@ -440,7 +446,17 @@ const AdminPartnerLeadsScreen = () => {
                   </View>
                 </View>
                 <View style={styles.filterActions}>
-                  <Pressable style={styles.filterButton} onPress={loadLeads}>
+                  <Pressable
+                    style={styles.filterButton}
+                    onPress={() =>
+                      setAppliedFilters({
+                        status: statusFilter,
+                        q: searchQuery.trim(),
+                        start: startDate.trim(),
+                        end: endDate.trim(),
+                      })
+                    }
+                  >
                     <Text style={styles.filterButtonText}>{copy.applyFilters}</Text>
                   </Pressable>
                   <Pressable
@@ -450,7 +466,12 @@ const AdminPartnerLeadsScreen = () => {
                       setStartDate("");
                       setEndDate("");
                       setStatusFilter("all");
-                      void loadLeads();
+                      setAppliedFilters({
+                        status: "all",
+                        q: "",
+                        start: "",
+                        end: "",
+                      });
                     }}
                   >
                     <Text style={styles.filterButtonText}>{copy.clearFilters}</Text>
