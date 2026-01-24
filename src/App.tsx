@@ -108,7 +108,7 @@ const ONBOARDING_ROUTES = new Set<string>([
 ]);
 
 const LAST_ONBOARDING_KEY = "onboarding:lastRoute";
-const ONBOARDING_RESUME_ENABLED = Platform.OS === "web";
+const ONBOARDING_RESUME_ENABLED = false;
 
 const App = (): JSX.Element => {
   const queryClient = useMemo(
