@@ -51,7 +51,7 @@ const cacheFirst = async (request) => {
     return cached;
   }
   const response = await fetch(request);
-  if (response && response.ok) {
+  if (response && (response.ok || response.type === "opaque")) {
     cache.put(request, response.clone());
   }
   return response;
@@ -62,7 +62,7 @@ const networkFirst = async (request) => {
   try {
     const networkRequest = request.mode === "navigate" ? new Request(request, { cache: "no-store" }) : request;
     const response = await fetch(networkRequest);
-    if (response && response.ok) {
+    if (response && (response.ok || response.type === "opaque")) {
       cache.put(request, response.clone());
     }
     return response;
