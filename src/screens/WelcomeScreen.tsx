@@ -41,6 +41,7 @@ const translations = {
     networkTitle: "Нет соединения",
     networkBody: "Не удалось подключиться к серверу. Проверь интернет и при необходимости отключи VPN/блокировщики.",
     networkHint: "После этого попробуй снова.",
+    networkHintIOS: "iOS Safari: iCloud Private Relay или блокировщики контента могут мешать соединению.",
     networkRetry: "Повторить",
     networkLater: "Позже"
   },
@@ -72,6 +73,7 @@ const translations = {
     networkTitle: "Verbindung fehlgeschlagen",
     networkBody: "Wir konnten den Server nicht erreichen. Bitte Internet prüfen und ggf. VPN/Ad-Blocker deaktivieren.",
     networkHint: "Danach erneut versuchen.",
+    networkHintIOS: "iOS Safari: iCloud Private Relay oder Inhaltsblocker können die Verbindung blockieren.",
     networkRetry: "Erneut versuchen",
     networkLater: "Später"
   },
@@ -103,6 +105,7 @@ const translations = {
     networkTitle: "Connection failed",
     networkBody: "We couldn't reach the server. Please check your connection and disable VPN/ad blockers if needed.",
     networkHint: "Then try again.",
+    networkHintIOS: "iOS Safari: iCloud Private Relay or content blockers can block the connection.",
     networkRetry: "Try again",
     networkLater: "Later"
   },
@@ -134,6 +137,7 @@ const translations = {
     networkTitle: "Connexion échouée",
     networkBody: "Impossible de joindre le serveur. Vérifie ta connexion et désactive VPN/ad blockers si besoin.",
     networkHint: "Puis réessaie.",
+    networkHintIOS: "iOS Safari : iCloud Private Relay ou bloqueurs de contenu peuvent bloquer la connexion.",
     networkRetry: "Réessayer",
     networkLater: "Plus tard"
   }
@@ -237,6 +241,9 @@ const WelcomeScreen = () => {
               <Text style={styles.noticeTitle}>{copy.networkTitle}</Text>
               <Text style={styles.noticeBody}>{copy.networkBody}</Text>
               <Text style={styles.noticeBody}>{copy.networkHint}</Text>
+              {Platform.OS === "web" && (
+                <Text style={styles.noticeBody}>{copy.networkHintIOS}</Text>
+              )}
               <View style={styles.noticeActions}>
                 <Pressable
                   onPress={clearAuthNotice}
