@@ -8,6 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFeatureFlag } from "../lib/featureFlags";
 import { useAuthStore } from "../state/authStore";
 import { getSupabaseClient } from "../lib/supabaseClient";
+import { isAndroidDevice, isIOSDevice } from "../lib/pwa";
 import { bootstrapSession, getEmailRedirectUrl } from "../services/authService";
 
 type AuthStackNavigation = NativeStackNavigationProp<any>;
@@ -42,6 +43,7 @@ const translations = {
     networkBody: "Не удалось подключиться к серверу. Проверь интернет и при необходимости отключи VPN/блокировщики.",
     networkHint: "После этого попробуй снова.",
     networkHintIOS: "iOS Safari: iCloud Private Relay или блокировщики контента могут мешать соединению.",
+    networkHintAndroid: "Android/Chrome: приватный DNS или блокировщики могут мешать соединению.",
     networkRetry: "Повторить",
     networkLater: "Позже"
   },
@@ -74,6 +76,7 @@ const translations = {
     networkBody: "Wir konnten den Server nicht erreichen. Bitte Internet prüfen und ggf. VPN/Ad-Blocker deaktivieren.",
     networkHint: "Danach erneut versuchen.",
     networkHintIOS: "iOS Safari: iCloud Private Relay oder Inhaltsblocker können die Verbindung blockieren.",
+    networkHintAndroid: "Android/Chrome: Privates DNS oder Ad-Blocker können die Verbindung blockieren.",
     networkRetry: "Erneut versuchen",
     networkLater: "Später"
   },
@@ -106,6 +109,7 @@ const translations = {
     networkBody: "We couldn't reach the server. Please check your connection and disable VPN/ad blockers if needed.",
     networkHint: "Then try again.",
     networkHintIOS: "iOS Safari: iCloud Private Relay or content blockers can block the connection.",
+    networkHintAndroid: "Android/Chrome: Private DNS or ad blockers can block the connection.",
     networkRetry: "Try again",
     networkLater: "Later"
   },
@@ -138,6 +142,7 @@ const translations = {
     networkBody: "Impossible de joindre le serveur. Vérifie ta connexion et désactive VPN/ad blockers si besoin.",
     networkHint: "Puis réessaie.",
     networkHintIOS: "iOS Safari : iCloud Private Relay ou bloqueurs de contenu peuvent bloquer la connexion.",
+    networkHintAndroid: "Android/Chrome : DNS privé ou bloqueurs de contenu peuvent bloquer la connexion.",
     networkRetry: "Réessayer",
     networkLater: "Plus tard"
   }
@@ -158,6 +163,8 @@ const WelcomeScreen = () => {
   const [networkRetrying, setNetworkRetrying] = useState(false);
   const canShowResend = useMemo(() => authNotice?.type === "confirm_failed", [authNotice?.type]);
   const isNetworkNotice = authNotice?.type === "network_error";
+  const showIOSHint = useMemo(() => (Platform.OS === "web" ? isIOSDevice() : false), []);
+  const showAndroidHint = useMemo(() => (Platform.OS === "web" ? isAndroidDevice() : false), []);
 
   const handleResend = async () => {
     if (resendLoading) return;
@@ -241,9 +248,8 @@ const WelcomeScreen = () => {
               <Text style={styles.noticeTitle}>{copy.networkTitle}</Text>
               <Text style={styles.noticeBody}>{copy.networkBody}</Text>
               <Text style={styles.noticeBody}>{copy.networkHint}</Text>
-              {Platform.OS === "web" && (
-                <Text style={styles.noticeBody}>{copy.networkHintIOS}</Text>
-              )}
+              {showIOSHint && <Text style={styles.noticeBody}>{copy.networkHintIOS}</Text>}
+              {showAndroidHint && <Text style={styles.noticeBody}>{copy.networkHintAndroid}</Text>}
               <View style={styles.noticeActions}>
                 <Pressable
                   onPress={clearAuthNotice}
