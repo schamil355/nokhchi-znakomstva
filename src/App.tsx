@@ -276,7 +276,13 @@ const App = (): JSX.Element => {
     const accessToken = hashParams.get("access_token");
     const refreshToken = hashParams.get("refresh_token");
     const errorParam = url.searchParams.get("error") ?? hashParams.get("error");
-    const hasAuthParams = Boolean(code || (accessToken && refreshToken) || errorParam);
+    const tokenHash =
+      url.searchParams.get("token_hash") ??
+      url.searchParams.get("token") ??
+      hashParams.get("token_hash") ??
+      hashParams.get("token");
+    const otpType = url.searchParams.get("type") ?? hashParams.get("type");
+    const hasAuthParams = Boolean(code || (accessToken && refreshToken) || (tokenHash && otpType) || errorParam);
     if (!hasAuthParams) {
       return;
     }
@@ -301,6 +307,18 @@ const App = (): JSX.Element => {
           });
           if (error) {
             console.warn("[Auth] setSession from URL failed", error);
+          } else if (data.session) {
+            setSession(data.session);
+            clearAuthNotice();
+            didSetSession = true;
+          }
+        } else if (tokenHash && otpType) {
+          const { data, error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: otpType as any
+          });
+          if (error) {
+            console.warn("[Auth] verifyOtp failed", error);
           } else if (data.session) {
             setSession(data.session);
             clearAuthNotice();
