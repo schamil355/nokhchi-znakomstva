@@ -1,5 +1,5 @@
-import React from "react";
-import { Image, StyleSheet, Text, View, Pressable, Platform, Dimensions } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Image, StyleSheet, Text, View, Pressable, Platform, Dimensions, TextInput } from "react-native";
 import SafeAreaView from "../components/SafeAreaView";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -7,6 +7,8 @@ import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFeatureFlag } from "../lib/featureFlags";
 import { useAuthStore } from "../state/authStore";
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { getEmailRedirectUrl } from "../services/authService";
 
 type AuthStackNavigation = NativeStackNavigationProp<any>;
 
@@ -26,7 +28,14 @@ const translations = {
     confirmTitle: "Подтверждение почты",
     confirmFailed: "Ссылка подтверждения недействительна или устарела. Запроси новый линк.",
     confirmOpenInBrowser: "Открой ссылку в Safari или Chrome (не внутри приложения).",
-    confirmDismiss: "Понятно"
+    confirmDismiss: "Понятно",
+    confirmResendLabel: "E-mail",
+    confirmResendPlaceholder: "Введите e-mail",
+    confirmResendCta: "Отправить ссылку ещё раз",
+    confirmResendSending: "Отправляем…",
+    confirmResendSent: "Новый линк отправлен.",
+    confirmResendMissing: "Введите e-mail, чтобы отправить линк.",
+    confirmResendError: "Не удалось отправить линк. Попробуйте позже."
   },
   de: {
     title: "Нохчийн",
@@ -43,7 +52,14 @@ const translations = {
     confirmTitle: "E-Mail bestätigen",
     confirmFailed: "Der Bestätigungslink ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an.",
     confirmOpenInBrowser: "Bitte in Safari oder Chrome öffnen (kein In-App-Browser).",
-    confirmDismiss: "Verstanden"
+    confirmDismiss: "Verstanden",
+    confirmResendLabel: "E-Mail",
+    confirmResendPlaceholder: "E-Mail eingeben",
+    confirmResendCta: "Bestätigungslink erneut senden",
+    confirmResendSending: "Sende…",
+    confirmResendSent: "Neuer Link wurde gesendet.",
+    confirmResendMissing: "Bitte E-Mail eingeben, um den Link zu senden.",
+    confirmResendError: "Link konnte nicht gesendet werden. Bitte später erneut versuchen."
   },
   en: {
     title: "Noxchiin",
@@ -60,7 +76,14 @@ const translations = {
     confirmTitle: "Email confirmation",
     confirmFailed: "The confirmation link is invalid or expired. Please request a new link.",
     confirmOpenInBrowser: "Please open the link in Safari or Chrome (not inside an app).",
-    confirmDismiss: "Got it"
+    confirmDismiss: "Got it",
+    confirmResendLabel: "Email",
+    confirmResendPlaceholder: "Enter your email",
+    confirmResendCta: "Resend confirmation link",
+    confirmResendSending: "Sending…",
+    confirmResendSent: "A new link was sent.",
+    confirmResendMissing: "Please enter your email to resend the link.",
+    confirmResendError: "Could not send the link. Please try again later."
   },
   fr: {
     title: "Noxchiin",
@@ -77,7 +100,14 @@ const translations = {
     confirmTitle: "Confirmation d’e-mail",
     confirmFailed: "Le lien de confirmation est invalide ou expiré. Demande un nouveau lien.",
     confirmOpenInBrowser: "Ouvre le lien dans Safari ou Chrome (pas dans une app).",
-    confirmDismiss: "Compris"
+    confirmDismiss: "Compris",
+    confirmResendLabel: "E-mail",
+    confirmResendPlaceholder: "Saisis ton e-mail",
+    confirmResendCta: "Renvoyer le lien",
+    confirmResendSending: "Envoi…",
+    confirmResendSent: "Nouveau lien envoyé.",
+    confirmResendMissing: "Saisis ton e-mail pour renvoyer le lien.",
+    confirmResendError: "Impossible d’envoyer le lien. Réessaie plus tard."
   }
 };
 
@@ -90,6 +120,37 @@ const WelcomeScreen = () => {
   const heroMaxHeight = Math.min(height * 0.55, 420);
   const authNotice = useAuthStore((state) => state.authNotice);
   const clearAuthNotice = useAuthStore((state) => state.clearAuthNotice);
+  const [resendEmail, setResendEmail] = useState("");
+  const [resendStatus, setResendStatus] = useState<string | null>(null);
+  const [resendLoading, setResendLoading] = useState(false);
+  const canShowResend = useMemo(() => authNotice?.type === "confirm_failed", [authNotice?.type]);
+
+  const handleResend = async () => {
+    if (resendLoading) return;
+    const email = resendEmail.trim().toLowerCase();
+    if (!email) {
+      setResendStatus(copy.confirmResendMissing);
+      return;
+    }
+    setResendLoading(true);
+    setResendStatus(null);
+    try {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: getEmailRedirectUrl() }
+      });
+      if (error) {
+        throw error;
+      }
+      setResendStatus(copy.confirmResendSent);
+    } catch {
+      setResendStatus(copy.confirmResendError);
+    } finally {
+      setResendLoading(false);
+    }
+  };
   const { enabled: partnerEnabled } = useFeatureFlag("partner_leads", {
     platform: "web",
     defaultValue: false,
@@ -127,6 +188,36 @@ const WelcomeScreen = () => {
               <Text style={styles.noticeBody}>{copy.confirmFailed}</Text>
               {authNotice.inAppBrowser && (
                 <Text style={styles.noticeBody}>{copy.confirmOpenInBrowser}</Text>
+              )}
+              {canShowResend && (
+                <View style={styles.noticeResend}>
+                  <Text style={styles.noticeLabel}>{copy.confirmResendLabel}</Text>
+                  <TextInput
+                    style={styles.noticeInput}
+                    placeholder={copy.confirmResendPlaceholder}
+                    placeholderTextColor="rgba(242,231,215,0.55)"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    value={resendEmail}
+                    onChangeText={(value) => {
+                      setResendStatus(null);
+                      setResendEmail(value);
+                    }}
+                  />
+                  <Pressable
+                    onPress={handleResend}
+                    style={({ pressed }) => [
+                      styles.noticeCta,
+                      pressed && styles.noticeButtonPressed,
+                      resendLoading && styles.noticeCtaDisabled
+                    ]}
+                  >
+                    <Text style={styles.noticeCtaText}>
+                      {resendLoading ? copy.confirmResendSending : copy.confirmResendCta}
+                    </Text>
+                  </Pressable>
+                  {resendStatus ? <Text style={styles.noticeStatus}>{resendStatus}</Text> : null}
+                </View>
               )}
               <Pressable
                 onPress={clearAuthNotice}
@@ -341,6 +432,46 @@ const styles = StyleSheet.create({
     color: "rgba(242,231,215,0.85)",
     fontSize: 13,
     marginBottom: 6
+  },
+  noticeResend: {
+    marginTop: 4,
+    marginBottom: 8,
+    gap: 8
+  },
+  noticeLabel: {
+    color: "rgba(242,231,215,0.85)",
+    fontSize: 12
+  },
+  noticeInput: {
+    width: "100%",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.35)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#f2e7d7",
+    backgroundColor: "rgba(11,20,17,0.45)"
+  },
+  noticeCta: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.8)",
+    backgroundColor: "rgba(11,20,17,0.35)"
+  },
+  noticeCtaDisabled: {
+    opacity: 0.7
+  },
+  noticeCtaText: {
+    color: "#f2e7d7",
+    fontWeight: "600",
+    fontSize: 13
+  },
+  noticeStatus: {
+    color: "rgba(242,231,215,0.8)",
+    fontSize: 12
   },
   noticeButton: {
     alignSelf: "flex-start",
