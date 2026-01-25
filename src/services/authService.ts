@@ -68,9 +68,6 @@ const ensureSupabaseConfig = () => {
 export const getEmailRedirectUrl = (): string => {
   if (Platform.OS === "web") {
     if (typeof window !== "undefined" && window.location?.origin) {
-      if (window.location.hostname === "nokhchi-znakomstva.com") {
-        return "https://www.nokhchi-znakomstva.com";
-      }
       return window.location.origin;
     }
   }

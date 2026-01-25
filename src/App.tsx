@@ -109,8 +109,6 @@ const ONBOARDING_ROUTES = new Set<string>([
 
 const LAST_ONBOARDING_KEY = "onboarding:lastRoute";
 const ONBOARDING_RESUME_ENABLED = false;
-const CANONICAL_HOST = "www.nokhchi-znakomstva.com";
-
 const isLikelyInAppBrowser = (ua: string) =>
   /(FBAN|FBAV|Instagram|Line|Twitter|LinkedInApp|Pinterest|Snapchat|WhatsApp|Messenger|GSA|GoogleApp|Gmail|GmailiOS|KAKAOTALK|KAKAOSTORY|NAVER|YaBrowser|DuckDuckGo)/i.test(
     ua
@@ -208,16 +206,6 @@ const App = (): JSX.Element => {
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== "web" || typeof window === "undefined") {
-      return;
-    }
-    if (window.location.hostname !== CANONICAL_HOST) {
-      const target = `https://${CANONICAL_HOST}${window.location.pathname}${window.location.search}${window.location.hash}`;
-      window.location.replace(target);
-    }
-  }, []);
-
-  useEffect(() => {
     let mounted = true;
     const bootstrapWithTimeout = async () => {
       const timeoutMs = 8000;
@@ -265,9 +253,6 @@ const App = (): JSX.Element => {
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof window === "undefined") {
-      return;
-    }
-    if (window.location.hostname !== CANONICAL_HOST) {
       return;
     }
     const url = new URL(window.location.href);
