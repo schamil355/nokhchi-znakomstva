@@ -18,11 +18,11 @@ type AuthState = {
   profile: Profile | null;
   isLoading: boolean;
   verifiedOverride: boolean;
-  authNotice: { type: "confirm_failed"; inAppBrowser?: boolean } | null;
+  authNotice: { type: "confirm_failed"; inAppBrowser?: boolean } | { type: "network_error" } | null;
   setSession: (session: Session | null) => void;
   setProfile: (profile: Profile | null) => void;
   setLoading: (loading: boolean) => void;
-  setAuthNotice: (notice: { type: "confirm_failed"; inAppBrowser?: boolean } | null) => void;
+  setAuthNotice: (notice: { type: "confirm_failed"; inAppBrowser?: boolean } | { type: "network_error" } | null) => void;
   clearAuthNotice: () => void;
   markVerified: () => void;
   reset: () => void;

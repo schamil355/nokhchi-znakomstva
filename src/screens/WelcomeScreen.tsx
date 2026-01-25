@@ -8,7 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFeatureFlag } from "../lib/featureFlags";
 import { useAuthStore } from "../state/authStore";
 import { getSupabaseClient } from "../lib/supabaseClient";
-import { getEmailRedirectUrl } from "../services/authService";
+import { bootstrapSession, getEmailRedirectUrl } from "../services/authService";
 
 type AuthStackNavigation = NativeStackNavigationProp<any>;
 
@@ -37,7 +37,12 @@ const translations = {
     confirmResendSent: "Новый линк отправлен.",
     confirmResendHint: "Если письма нет, проверь «Спам» или «Промоакции».",
     confirmResendMissing: "Введите e-mail, чтобы отправить линк.",
-    confirmResendError: "Не удалось отправить линк. Попробуйте позже."
+    confirmResendError: "Не удалось отправить линк. Попробуйте позже.",
+    networkTitle: "Нет соединения",
+    networkBody: "Не удалось подключиться к серверу. Проверь интернет и при необходимости отключи VPN/блокировщики.",
+    networkHint: "После этого попробуй снова.",
+    networkRetry: "Повторить",
+    networkLater: "Позже"
   },
   de: {
     title: "Нохчийн",
@@ -63,7 +68,12 @@ const translations = {
     confirmResendSent: "Neuer Link wurde gesendet.",
     confirmResendHint: "Falls keine Mail kommt: Spam/Promotions prüfen.",
     confirmResendMissing: "Bitte E-Mail eingeben, um den Link zu senden.",
-    confirmResendError: "Link konnte nicht gesendet werden. Bitte später erneut versuchen."
+    confirmResendError: "Link konnte nicht gesendet werden. Bitte später erneut versuchen.",
+    networkTitle: "Verbindung fehlgeschlagen",
+    networkBody: "Wir konnten den Server nicht erreichen. Bitte Internet prüfen und ggf. VPN/Ad-Blocker deaktivieren.",
+    networkHint: "Danach erneut versuchen.",
+    networkRetry: "Erneut versuchen",
+    networkLater: "Später"
   },
   en: {
     title: "Noxchiin",
@@ -89,7 +99,12 @@ const translations = {
     confirmResendSent: "A new link was sent.",
     confirmResendHint: "If you don't see it, check Spam/Promotions.",
     confirmResendMissing: "Please enter your email to resend the link.",
-    confirmResendError: "Could not send the link. Please try again later."
+    confirmResendError: "Could not send the link. Please try again later.",
+    networkTitle: "Connection failed",
+    networkBody: "We couldn't reach the server. Please check your connection and disable VPN/ad blockers if needed.",
+    networkHint: "Then try again.",
+    networkRetry: "Try again",
+    networkLater: "Later"
   },
   fr: {
     title: "Noxchiin",
@@ -115,7 +130,12 @@ const translations = {
     confirmResendSent: "Nouveau lien envoyé.",
     confirmResendHint: "Si rien n’arrive, vérifie le spam/promotions.",
     confirmResendMissing: "Saisis ton e-mail pour renvoyer le lien.",
-    confirmResendError: "Impossible d’envoyer le lien. Réessaie plus tard."
+    confirmResendError: "Impossible d’envoyer le lien. Réessaie plus tard.",
+    networkTitle: "Connexion échouée",
+    networkBody: "Impossible de joindre le serveur. Vérifie ta connexion et désactive VPN/ad blockers si besoin.",
+    networkHint: "Puis réessaie.",
+    networkRetry: "Réessayer",
+    networkLater: "Plus tard"
   }
 };
 
@@ -131,7 +151,9 @@ const WelcomeScreen = () => {
   const [resendEmail, setResendEmail] = useState("");
   const [resendStatus, setResendStatus] = useState<string | null>(null);
   const [resendLoading, setResendLoading] = useState(false);
+  const [networkRetrying, setNetworkRetrying] = useState(false);
   const canShowResend = useMemo(() => authNotice?.type === "confirm_failed", [authNotice?.type]);
+  const isNetworkNotice = authNotice?.type === "network_error";
 
   const handleResend = async () => {
     if (resendLoading) return;
@@ -158,6 +180,25 @@ const WelcomeScreen = () => {
       setResendStatus(detail ? `${copy.confirmResendError} (${detail})` : copy.confirmResendError);
     } finally {
       setResendLoading(false);
+    }
+  };
+
+  const handleNetworkRetry = async () => {
+    if (networkRetrying) {
+      return;
+    }
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.location.reload();
+      return;
+    }
+    setNetworkRetrying(true);
+    try {
+      const result = await bootstrapSession();
+      if (result.session || !result.error) {
+        clearAuthNotice();
+      }
+    } finally {
+      setNetworkRetrying(false);
     }
   };
   const { enabled: partnerEnabled } = useFeatureFlag("partner_leads", {
@@ -190,6 +231,31 @@ const WelcomeScreen = () => {
               <Text style={styles.partnerLinkText}>{copy.partnerCta}</Text>
               <Text style={styles.partnerHint}>{copy.partnerHint}</Text>
             </Pressable>
+          )}
+          {isNetworkNotice && (
+            <View style={styles.noticeCard}>
+              <Text style={styles.noticeTitle}>{copy.networkTitle}</Text>
+              <Text style={styles.noticeBody}>{copy.networkBody}</Text>
+              <Text style={styles.noticeBody}>{copy.networkHint}</Text>
+              <View style={styles.noticeActions}>
+                <Pressable
+                  onPress={clearAuthNotice}
+                  style={({ pressed }) => [styles.noticeButton, pressed && styles.noticeButtonPressed]}
+                >
+                  <Text style={styles.noticeButtonText}>{copy.networkLater}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleNetworkRetry}
+                  style={({ pressed }) => [
+                    styles.noticeCta,
+                    pressed && styles.noticeButtonPressed,
+                    networkRetrying && styles.noticeCtaDisabled
+                  ]}
+                >
+                  <Text style={styles.noticeCtaText}>{copy.networkRetry}</Text>
+                </Pressable>
+              </View>
+            </View>
           )}
           {authNotice?.type === "confirm_failed" && (
             <View style={styles.noticeCard}>
@@ -448,6 +514,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 8,
     gap: 8
+  },
+  noticeActions: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: 10
   },
   noticeLabel: {
     color: "rgba(242,231,215,0.85)",

@@ -132,7 +132,7 @@ export const signInWithPassword = async (email: string, password: string): Promi
 
       return data.session;
     } catch (error: any) {
-      if (isAbortError(error) || (typeof error?.message === "string" && error.message.toLowerCase().includes("network request failed"))) {
+      if (isAbortError(error) || isNetworkError(error)) {
         throw withCode("NETWORK", tAuth("networkSlow"));
       }
       throw error;
@@ -155,6 +155,19 @@ export const signOut = async () => {
   useNotificationsStore.getState().clear();
 };
 
+export const isNetworkError = (error: any) => {
+  const message = typeof error?.message === "string" ? error.message.toLowerCase() : "";
+  const name = typeof error?.name === "string" ? error.name.toLowerCase() : "";
+  return (
+    message.includes("network request failed") ||
+    message.includes("failed to fetch") ||
+    message.includes("load failed") ||
+    message.includes("networkerror") ||
+    name.includes("networkerror") ||
+    name.includes("typeerror")
+  );
+};
+
 const isAbortError = (error: any) =>
   Boolean(error) &&
   (
@@ -165,20 +178,22 @@ const isAbortError = (error: any) =>
       (error.message.toLowerCase().includes("aborted") || error.message.toLowerCase().includes("network request failed")))
   );
 
-export const bootstrapSession = async (): Promise<Session | null> => {
+export type BootstrapResult = { session: Session | null; error?: { code: "network" | "unknown"; raw: unknown } };
+
+export const bootstrapSession = async (): Promise<BootstrapResult> => {
   const supabase = getSupabaseClient();
   try {
     const { data, error } = await supabase.auth.getSession();
     if (error) {
-      if (isAbortError(error)) {
-        return null;
+      if (isAbortError(error) || isNetworkError(error)) {
+        return { session: null, error: { code: "network", raw: error } };
       }
       console.warn("Failed to restore session", error);
-      return null;
+      return { session: null, error: { code: "unknown", raw: error } };
     }
 
     if (!data.session) {
-      return null;
+      return { session: null };
     }
 
     useAuthStore.getState().setSession(data.session);
@@ -202,13 +217,13 @@ export const bootstrapSession = async (): Promise<Session | null> => {
     }
     useAuthStore.getState().setProfile(profile);
 
-    return data.session;
+    return { session: data.session };
   } catch (error) {
-    if (isAbortError(error)) {
+    if (isAbortError(error) || isNetworkError(error)) {
       // Network timeout/abort – treat as no session without loud logging.
-      return null;
+      return { session: null, error: { code: "network", raw: error } };
     }
     console.warn("Failed to restore session", error);
-    return null;
+    return { session: null, error: { code: "unknown", raw: error } };
   }
 };

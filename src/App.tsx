@@ -14,7 +14,7 @@ import { useNotificationsStore } from "./state/notificationsStore";
 import AppNavigator from "./navigation/AppNavigator";
 import { useAuthStore } from "./state/authStore";
 import { useOnboardingStore } from "./state/onboardingStore";
-import { bootstrapSession } from "./services/authService";
+import { bootstrapSession, isNetworkError } from "./services/authService";
 import { registerPushNotifications } from "./services/pushService";
 import { track, flushEvents } from "./lib/analytics";
 import { LocalizationProvider, determineLocaleFromDevice } from "./localization/LocalizationProvider";
@@ -210,16 +210,19 @@ const App = (): JSX.Element => {
     const bootstrapWithTimeout = async () => {
       const timeoutMs = 8000;
       return Promise.race([
-        bootstrapSession().catch(() => null),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs))
+        bootstrapSession().catch(() => ({ session: null })),
+        new Promise<{ session: null }>((resolve) => setTimeout(() => resolve({ session: null }), timeoutMs))
       ]);
     };
 
     const prepare = async () => {
       try {
-        const nextSession = await bootstrapWithTimeout();
-        if (mounted && nextSession) {
-          setSession(nextSession);
+        const result = await bootstrapWithTimeout();
+        if (mounted && result?.session) {
+          setSession(result.session);
+          clearAuthNotice();
+        } else if (mounted && result?.error?.code === "network") {
+          setAuthNotice({ type: "network_error" });
         }
       } catch (error) {
         console.warn("Failed to bootstrap app", error);
@@ -320,16 +323,25 @@ const App = (): JSX.Element => {
           }
         }
         const bootstrapped = await bootstrapSession();
-        if (!didSetSession && bootstrapped) {
+        if (!didSetSession && bootstrapped?.session) {
+          setSession(bootstrapped.session);
           clearAuthNotice();
           didSetSession = true;
         }
         if (!didSetSession) {
-          setAuthNotice({ type: "confirm_failed", inAppBrowser });
+          if (bootstrapped?.error?.code === "network") {
+            setAuthNotice({ type: "network_error" });
+          } else {
+            setAuthNotice({ type: "confirm_failed", inAppBrowser });
+          }
         }
       } catch (error) {
         console.warn("[Auth] URL session bootstrap failed", error);
-        setAuthNotice({ type: "confirm_failed", inAppBrowser });
+        if (isNetworkError(error)) {
+          setAuthNotice({ type: "network_error" });
+        } else {
+          setAuthNotice({ type: "confirm_failed", inAppBrowser });
+        }
       } finally {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
