@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react-native";
 import { getCurrentLocale, SupportedLocale, useLocalizedCopy } from "../localization/LocalizationProvider";
 
 export type ErrorCopy = {
@@ -261,4 +262,17 @@ export const logError = (error: unknown, context?: string) => {
   } else {
     console.warn(label, error);
   }
+  if (!process.env.EXPO_PUBLIC_SENTRY_DSN) {
+    return;
+  }
+  const normalized =
+    error instanceof Error
+      ? error
+      : typeof error === "string"
+        ? new Error(error)
+        : new Error("Non-Error thrown");
+  Sentry.captureException(normalized, {
+    tags: context ? { context } : undefined,
+    extra: error && typeof error === "object" ? { originalError: error } : undefined
+  });
 };
