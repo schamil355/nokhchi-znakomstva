@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Image,
   Linking,
   Platform,
@@ -14,6 +15,7 @@ import SafeAreaView from "../components/SafeAreaView";
 import { Ionicons } from "@expo/vector-icons";
 import type * as LocationType from "expo-location";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   useOnboardingStore,
@@ -330,6 +332,7 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
   const [message, setMessage] = useState<string | null>(null);
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const lastReverseGeocodeRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
+  const activationInFlightRef = useRef(false);
 
   const extractVpnFlags = (result?: VpnCheckResponse | null) => {
     return (result?.reason ?? "")
@@ -424,6 +427,10 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
     Platform.OS === "web" && (status === "denied" || status === "blocked" || status === "unavailable");
 
   const handleActivateLocation = async () => {
+    if (activationInFlightRef.current) {
+      return;
+    }
+    activationInFlightRef.current = true;
     setLoading(true);
     setMessage(null);
     let gpsCountryCode: string | null = null;
@@ -630,9 +637,59 @@ const OnboardingLocationScreen = ({ navigation }: Props) => {
       setLocation({ status: "unavailable", latitude: null, longitude: null, country: null, countryName: null });
       setMessage(copy.errorGeneric);
     } finally {
+      activationInFlightRef.current = false;
       setLoading(false);
     }
   };
+
+  const refreshPermissionStatus = useCallback(async () => {
+    if (Platform.OS === "web" || !Location) {
+      return;
+    }
+    try {
+      const existing = await Location.getForegroundPermissionsAsync();
+      const mapped = mapPermissionStatus(existing.status);
+      if (mapped !== "granted") {
+        setStatus(mapped);
+        setLocation({ status: mapped });
+        return;
+      }
+      if (locationState.status !== "granted" || !locationState.latitude || !locationState.longitude) {
+        await handleActivateLocation();
+        return;
+      }
+      setStatus("granted");
+    } catch {
+      // ignore permission refresh errors
+    }
+  }, [handleActivateLocation, locationState.latitude, locationState.longitude, locationState.status, setLocation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS === "web") {
+        return;
+      }
+      let active = true;
+      const runRefresh = () => {
+        if (!active) {
+          return;
+        }
+        activationInFlightRef.current = false;
+        setLoading(false);
+        void refreshPermissionStatus();
+      };
+      runRefresh();
+      const sub = AppState.addEventListener("change", (state) => {
+        if (state === "active") {
+          runRefresh();
+        }
+      });
+      return () => {
+        active = false;
+        sub.remove();
+      };
+    }, [refreshPermissionStatus])
+  );
 
   const showSettingsCta =
     Platform.OS !== "web" && (status === "denied" || status === "blocked" || status === "unavailable");
