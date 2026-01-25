@@ -27,6 +27,7 @@ const translations = {
     partnerHint: "Для бизнеса",
     confirmTitle: "Подтверждение почты",
     confirmFailed: "Ссылка подтверждения недействительна или устарела. Запроси новый линк.",
+    confirmSameBrowser: "Открой ссылку в том же браузере, где проходила регистрация.",
     confirmOpenInBrowser: "Открой ссылку в Safari или Chrome (не внутри приложения).",
     confirmDismiss: "Понятно",
     confirmResendLabel: "E-mail",
@@ -34,6 +35,7 @@ const translations = {
     confirmResendCta: "Отправить ссылку ещё раз",
     confirmResendSending: "Отправляем…",
     confirmResendSent: "Новый линк отправлен.",
+    confirmResendHint: "Если письма нет, проверь «Спам» или «Промоакции».",
     confirmResendMissing: "Введите e-mail, чтобы отправить линк.",
     confirmResendError: "Не удалось отправить линк. Попробуйте позже."
   },
@@ -51,6 +53,7 @@ const translations = {
     partnerHint: "Fuer Haendler",
     confirmTitle: "E-Mail bestätigen",
     confirmFailed: "Der Bestätigungslink ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an.",
+    confirmSameBrowser: "Bitte im selben Browser öffnen, in dem die Registrierung erfolgte.",
     confirmOpenInBrowser: "Bitte in Safari oder Chrome öffnen (kein In-App-Browser).",
     confirmDismiss: "Verstanden",
     confirmResendLabel: "E-Mail",
@@ -58,6 +61,7 @@ const translations = {
     confirmResendCta: "Bestätigungslink erneut senden",
     confirmResendSending: "Sende…",
     confirmResendSent: "Neuer Link wurde gesendet.",
+    confirmResendHint: "Falls keine Mail kommt: Spam/Promotions prüfen.",
     confirmResendMissing: "Bitte E-Mail eingeben, um den Link zu senden.",
     confirmResendError: "Link konnte nicht gesendet werden. Bitte später erneut versuchen."
   },
@@ -75,6 +79,7 @@ const translations = {
     partnerHint: "For businesses",
     confirmTitle: "Email confirmation",
     confirmFailed: "The confirmation link is invalid or expired. Please request a new link.",
+    confirmSameBrowser: "Please open the link in the same browser you used to sign up.",
     confirmOpenInBrowser: "Please open the link in Safari or Chrome (not inside an app).",
     confirmDismiss: "Got it",
     confirmResendLabel: "Email",
@@ -82,6 +87,7 @@ const translations = {
     confirmResendCta: "Resend confirmation link",
     confirmResendSending: "Sending…",
     confirmResendSent: "A new link was sent.",
+    confirmResendHint: "If you don't see it, check Spam/Promotions.",
     confirmResendMissing: "Please enter your email to resend the link.",
     confirmResendError: "Could not send the link. Please try again later."
   },
@@ -99,6 +105,7 @@ const translations = {
     partnerHint: "Espace commercants",
     confirmTitle: "Confirmation d’e-mail",
     confirmFailed: "Le lien de confirmation est invalide ou expiré. Demande un nouveau lien.",
+    confirmSameBrowser: "Ouvre le lien dans le même navigateur que celui utilisé à l’inscription.",
     confirmOpenInBrowser: "Ouvre le lien dans Safari ou Chrome (pas dans une app).",
     confirmDismiss: "Compris",
     confirmResendLabel: "E-mail",
@@ -106,6 +113,7 @@ const translations = {
     confirmResendCta: "Renvoyer le lien",
     confirmResendSending: "Envoi…",
     confirmResendSent: "Nouveau lien envoyé.",
+    confirmResendHint: "Si rien n’arrive, vérifie le spam/promotions.",
     confirmResendMissing: "Saisis ton e-mail pour renvoyer le lien.",
     confirmResendError: "Impossible d’envoyer le lien. Réessaie plus tard."
   }
@@ -145,8 +153,9 @@ const WelcomeScreen = () => {
         throw error;
       }
       setResendStatus(copy.confirmResendSent);
-    } catch {
-      setResendStatus(copy.confirmResendError);
+    } catch (error: any) {
+      const detail = typeof error?.message === "string" ? error.message : "";
+      setResendStatus(detail ? `${copy.confirmResendError} (${detail})` : copy.confirmResendError);
     } finally {
       setResendLoading(false);
     }
@@ -186,6 +195,7 @@ const WelcomeScreen = () => {
             <View style={styles.noticeCard}>
               <Text style={styles.noticeTitle}>{copy.confirmTitle}</Text>
               <Text style={styles.noticeBody}>{copy.confirmFailed}</Text>
+              <Text style={styles.noticeBody}>{copy.confirmSameBrowser}</Text>
               {authNotice.inAppBrowser && (
                 <Text style={styles.noticeBody}>{copy.confirmOpenInBrowser}</Text>
               )}
@@ -216,6 +226,7 @@ const WelcomeScreen = () => {
                       {resendLoading ? copy.confirmResendSending : copy.confirmResendCta}
                     </Text>
                   </Pressable>
+                  <Text style={styles.noticeStatus}>{copy.confirmResendHint}</Text>
                   {resendStatus ? <Text style={styles.noticeStatus}>{resendStatus}</Text> : null}
                 </View>
               )}

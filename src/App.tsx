@@ -112,7 +112,7 @@ const ONBOARDING_RESUME_ENABLED = false;
 const CANONICAL_HOST = "www.nokhchi-znakomstva.com";
 
 const isLikelyInAppBrowser = (ua: string) =>
-  /(FBAN|FBAV|Instagram|Line|Twitter|LinkedInApp|Pinterest|Snapchat|WhatsApp|Messenger|GSA|GoogleApp|KAKAOTALK|KAKAOSTORY|NAVER|YaBrowser|DuckDuckGo)/i.test(
+  /(FBAN|FBAV|Instagram|Line|Twitter|LinkedInApp|Pinterest|Snapchat|WhatsApp|Messenger|GSA|GoogleApp|Gmail|GmailiOS|KAKAOTALK|KAKAOSTORY|NAVER|YaBrowser|DuckDuckGo)/i.test(
     ua
   );
 const LEGACY_SESSION_KEYS = ["sb.session"];
