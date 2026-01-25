@@ -271,7 +271,6 @@ export const logError = (error: unknown, context?: string) => {
       : typeof error === "string"
         ? new Error(error)
         : new Error("Non-Error thrown");
-  (normalized as any).__sentryCaptured = true;
   Sentry.captureException(normalized, {
     tags: context ? { context } : undefined,
     extra: error && typeof error === "object" ? { originalError: error } : undefined
