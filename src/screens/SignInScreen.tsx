@@ -8,7 +8,7 @@ import { signInWithPassword } from "../services/authService";
 import { useAuthStore } from "../state/authStore";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
-import { getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
+import { getErrorDetails, getErrorMessage, logError, useErrorCopy } from "../lib/errorMessages";
 
 type Props = NativeStackScreenProps<any>;
 
@@ -118,6 +118,7 @@ const SignInScreen = ({ navigation }: Props) => {
   const setLoadingState = useAuthStore((state) => state.setLoading);
   const copy = useLocalizedCopy(translations);
   const errorCopy = useErrorCopy();
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [resetVisible, setResetVisible] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
@@ -129,12 +130,35 @@ const SignInScreen = ({ navigation }: Props) => {
 
     setLoading(true);
     setLoadingState(true);
+    setSubmitError(null);
 
     try {
-      await signInWithPassword(email.trim().toLowerCase(), password);
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!normalizedEmail || !password) {
+        const missingMessage = getErrorMessage(
+          !normalizedEmail ? "INVALID_EMAIL" : "INVALID_CREDENTIALS",
+          errorCopy,
+          copy.signInFailedMessage
+        );
+        if (Platform.OS === "web") {
+          setSubmitError(missingMessage);
+          return;
+        }
+        Alert.alert(copy.signInFailedTitle, missingMessage);
+        return;
+      }
+      await signInWithPassword(normalizedEmail, password);
     } catch (error: any) {
       logError(error, "sign-in");
-      Alert.alert(copy.signInFailedTitle, getErrorMessage(error, errorCopy, copy.signInFailedMessage));
+      const baseMessage = getErrorMessage(error, errorCopy, copy.signInFailedMessage);
+      const detailedMessage = Platform.OS === "web" ? getErrorDetails(error) : null;
+      const useDetails = Boolean(detailedMessage) && (baseMessage === copy.signInFailedMessage || baseMessage === errorCopy.unknown);
+      const message = useDetails ? detailedMessage! : baseMessage;
+      if (Platform.OS === "web") {
+        setSubmitError(message);
+        return;
+      }
+      Alert.alert(copy.signInFailedTitle, message);
     } finally {
       setLoading(false);
       setLoadingState(false);
@@ -191,7 +215,10 @@ const SignInScreen = ({ navigation }: Props) => {
                 keyboardType="email-address"
                 autoComplete="email"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(value) => {
+                  setSubmitError(null);
+                  setEmail(value);
+                }}
               />
               <View style={styles.passwordRow}>
                 <Text style={styles.label}>{copy.passwordLabel}</Text>
@@ -205,8 +232,12 @@ const SignInScreen = ({ navigation }: Props) => {
                 placeholderTextColor="rgba(242,231,215,0.65)"
                 secureTextEntry
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(value) => {
+                  setSubmitError(null);
+                  setPassword(value);
+                }}
               />
+              {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
               <Pressable
                 style={[styles.button, loading && styles.buttonDisabled]}
                 onPress={handleSubmit}
@@ -391,6 +422,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     color: "#0d6e4f",
     fontWeight: "600"
+  },
+  errorText: {
+    color: "#f3b5b0",
+    textAlign: "center",
+    fontSize: 13
   }
 });
 
