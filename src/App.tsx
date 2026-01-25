@@ -109,6 +109,12 @@ const ONBOARDING_ROUTES = new Set<string>([
 
 const LAST_ONBOARDING_KEY = "onboarding:lastRoute";
 const ONBOARDING_RESUME_ENABLED = false;
+const CANONICAL_HOST = "nokhchi-znakomstva.com";
+
+const isLikelyInAppBrowser = (ua: string) =>
+  /(FBAN|FBAV|Instagram|Line|Twitter|LinkedInApp|Pinterest|Snapchat|WhatsApp|Messenger|GSA|GoogleApp|KAKAOTALK|KAKAOSTORY|NAVER|YaBrowser|DuckDuckGo)/i.test(
+    ua
+  );
 const LEGACY_SESSION_KEYS = ["sb.session"];
 
 const App = (): JSX.Element => {
@@ -132,6 +138,8 @@ const App = (): JSX.Element => {
   );
 
   const setSession = useAuthStore((state) => state.setSession);
+  const setAuthNotice = useAuthStore((state) => state.setAuthNotice);
+  const clearAuthNotice = useAuthStore((state) => state.clearAuthNotice);
   const session = useAuthStore((state) => state.session);
   const profile = useAuthStore((state) => state.profile);
   const verifiedOverride = useAuthStore((state) => state.verifiedOverride);
@@ -200,6 +208,16 @@ const App = (): JSX.Element => {
   }, []);
 
   useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") {
+      return;
+    }
+    if (window.location.hostname === `www.${CANONICAL_HOST}`) {
+      const target = `https://${CANONICAL_HOST}${window.location.pathname}${window.location.search}${window.location.hash}`;
+      window.location.replace(target);
+    }
+  }, []);
+
+  useEffect(() => {
     let mounted = true;
     const bootstrapWithTimeout = async () => {
       const timeoutMs = 8000;
@@ -249,17 +267,23 @@ const App = (): JSX.Element => {
     if (Platform.OS !== "web" || typeof window === "undefined") {
       return;
     }
+    if (window.location.hostname === `www.${CANONICAL_HOST}`) {
+      return;
+    }
     const url = new URL(window.location.href);
     const code = url.searchParams.get("code");
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const accessToken = hashParams.get("access_token");
     const refreshToken = hashParams.get("refresh_token");
-    const hasAuthParams = Boolean(code || (accessToken && refreshToken));
+    const errorParam = url.searchParams.get("error") ?? hashParams.get("error");
+    const hasAuthParams = Boolean(code || (accessToken && refreshToken) || errorParam);
     if (!hasAuthParams) {
       return;
     }
 
     const applyAuthFromUrl = async () => {
+      const inAppBrowser = isLikelyInAppBrowser(window.navigator?.userAgent ?? "");
+      let didSetSession = false;
       try {
         if (code) {
           const { data, error } = await supabase.auth.exchangeCodeForSession(code);
@@ -267,6 +291,8 @@ const App = (): JSX.Element => {
             console.warn("[Auth] exchangeCodeForSession failed", error);
           } else if (data.session) {
             setSession(data.session);
+            clearAuthNotice();
+            didSetSession = true;
           }
         } else if (accessToken && refreshToken) {
           const { data, error } = await supabase.auth.setSession({
@@ -277,18 +303,28 @@ const App = (): JSX.Element => {
             console.warn("[Auth] setSession from URL failed", error);
           } else if (data.session) {
             setSession(data.session);
+            clearAuthNotice();
+            didSetSession = true;
           }
         }
-        await bootstrapSession();
+        const bootstrapped = await bootstrapSession();
+        if (!didSetSession && bootstrapped) {
+          clearAuthNotice();
+          didSetSession = true;
+        }
+        if (!didSetSession) {
+          setAuthNotice({ type: "confirm_failed", inAppBrowser });
+        }
       } catch (error) {
         console.warn("[Auth] URL session bootstrap failed", error);
+        setAuthNotice({ type: "confirm_failed", inAppBrowser });
       } finally {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     };
 
     void applyAuthFromUrl();
-  }, [setSession, supabase]);
+  }, [clearAuthNotice, setAuthNotice, setSession, supabase]);
 
   useEffect(() => {
     registerServiceWorker();

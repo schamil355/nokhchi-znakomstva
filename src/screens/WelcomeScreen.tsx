@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useLocalizedCopy } from "../localization/LocalizationProvider";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFeatureFlag } from "../lib/featureFlags";
+import { useAuthStore } from "../state/authStore";
 
 type AuthStackNavigation = NativeStackNavigationProp<any>;
 
@@ -21,7 +22,11 @@ const translations = {
     terms: "Условиями",
     privacy: "Политикой конфиденциальности",
     partnerCta: "Стать партнером",
-    partnerHint: "Для бизнеса"
+    partnerHint: "Для бизнеса",
+    confirmTitle: "Подтверждение почты",
+    confirmFailed: "Ссылка подтверждения недействительна или устарела. Запроси новый линк.",
+    confirmOpenInBrowser: "Открой ссылку в Safari или Chrome (не внутри приложения).",
+    confirmDismiss: "Понятно"
   },
   de: {
     title: "Нохчийн",
@@ -34,7 +39,11 @@ const translations = {
     terms: "Bedingungen",
     privacy: "Datenschutz",
     partnerCta: "Partner werden",
-    partnerHint: "Fuer Haendler"
+    partnerHint: "Fuer Haendler",
+    confirmTitle: "E-Mail bestätigen",
+    confirmFailed: "Der Bestätigungslink ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an.",
+    confirmOpenInBrowser: "Bitte in Safari oder Chrome öffnen (kein In-App-Browser).",
+    confirmDismiss: "Verstanden"
   },
   en: {
     title: "Noxchiin",
@@ -47,7 +56,11 @@ const translations = {
     terms: "Terms",
     privacy: "Privacy",
     partnerCta: "Become a partner",
-    partnerHint: "For businesses"
+    partnerHint: "For businesses",
+    confirmTitle: "Email confirmation",
+    confirmFailed: "The confirmation link is invalid or expired. Please request a new link.",
+    confirmOpenInBrowser: "Please open the link in Safari or Chrome (not inside an app).",
+    confirmDismiss: "Got it"
   },
   fr: {
     title: "Noxchiin",
@@ -60,7 +73,11 @@ const translations = {
     terms: "Conditions",
     privacy: "Confidentialité",
     partnerCta: "Devenir partenaire",
-    partnerHint: "Espace commercants"
+    partnerHint: "Espace commercants",
+    confirmTitle: "Confirmation d’e-mail",
+    confirmFailed: "Le lien de confirmation est invalide ou expiré. Demande un nouveau lien.",
+    confirmOpenInBrowser: "Ouvre le lien dans Safari ou Chrome (pas dans une app).",
+    confirmDismiss: "Compris"
   }
 };
 
@@ -71,6 +88,8 @@ const WelcomeScreen = () => {
   const copy = useLocalizedCopy(translations);
   const { height } = Dimensions.get("window");
   const heroMaxHeight = Math.min(height * 0.55, 420);
+  const authNotice = useAuthStore((state) => state.authNotice);
+  const clearAuthNotice = useAuthStore((state) => state.clearAuthNotice);
   const { enabled: partnerEnabled } = useFeatureFlag("partner_leads", {
     platform: "web",
     defaultValue: false,
@@ -102,6 +121,21 @@ const WelcomeScreen = () => {
               <Text style={styles.partnerHint}>{copy.partnerHint}</Text>
             </Pressable>
           )}
+          {authNotice?.type === "confirm_failed" && (
+            <View style={styles.noticeCard}>
+              <Text style={styles.noticeTitle}>{copy.confirmTitle}</Text>
+              <Text style={styles.noticeBody}>{copy.confirmFailed}</Text>
+              {authNotice.inAppBrowser && (
+                <Text style={styles.noticeBody}>{copy.confirmOpenInBrowser}</Text>
+              )}
+              <Pressable
+                onPress={clearAuthNotice}
+                style={({ pressed }) => [styles.noticeButton, pressed && styles.noticeButtonPressed]}
+              >
+                <Text style={styles.noticeButtonText}>{copy.confirmDismiss}</Text>
+              </Pressable>
+            </View>
+          )}
           <View style={[styles.heroWrapper, { maxHeight: heroMaxHeight }]}>
             <Image
               source={require("../../assets/welcome-hero.png")}
@@ -120,6 +154,7 @@ const WelcomeScreen = () => {
                   mode: "email"
                 })
               }
+              onPressIn={clearAuthNotice}
               style={({ pressed }) => [
                 styles.primaryButton,
                 pressed && styles.primaryButtonPressed
@@ -137,6 +172,7 @@ const WelcomeScreen = () => {
             <Pressable
               testID="cta-sign-in"
               onPress={() => navigation.navigate("SignIn")}
+              onPressIn={clearAuthNotice}
               style={({ pressed }) => [
                 styles.secondaryButton,
                 pressed && styles.secondaryButtonPressed
@@ -286,6 +322,41 @@ const styles = StyleSheet.create({
   partnerHint: {
     color: "rgba(242,231,215,0.7)",
     fontSize: 12
+  },
+  noticeCard: {
+    width: "100%",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.35)",
+    padding: 12,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    marginBottom: 12
+  },
+  noticeTitle: {
+    color: "#f2e7d7",
+    fontWeight: "700",
+    marginBottom: 4
+  },
+  noticeBody: {
+    color: "rgba(242,231,215,0.85)",
+    fontSize: 13,
+    marginBottom: 6
+  },
+  noticeButton: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(217,192,143,0.7)"
+  },
+  noticeButtonPressed: {
+    opacity: 0.85
+  },
+  noticeButtonText: {
+    color: "#f2e7d7",
+    fontWeight: "600",
+    fontSize: 13
   }
 });
 

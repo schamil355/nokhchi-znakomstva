@@ -18,9 +18,12 @@ type AuthState = {
   profile: Profile | null;
   isLoading: boolean;
   verifiedOverride: boolean;
+  authNotice: { type: "confirm_failed"; inAppBrowser?: boolean } | null;
   setSession: (session: Session | null) => void;
   setProfile: (profile: Profile | null) => void;
   setLoading: (loading: boolean) => void;
+  setAuthNotice: (notice: { type: "confirm_failed"; inAppBrowser?: boolean } | null) => void;
+  clearAuthNotice: () => void;
   markVerified: () => void;
   reset: () => void;
 };
@@ -30,6 +33,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   profile: null,
   isLoading: false,
   verifiedOverride: false,
+  authNotice: null,
   setSession: (session) => set({ session }),
   setProfile: (profile) => {
     const genders = derivePreferredGenders(profile?.gender);
@@ -40,16 +44,25 @@ export const useAuthStore = create<AuthState>((set) => ({
     }));
   },
   setLoading: (isLoading) => set({ isLoading }),
+  setAuthNotice: (authNotice) => set({ authNotice }),
+  clearAuthNotice: () => set({ authNotice: null }),
   markVerified: () =>
     set((state) => ({
       profile: state.profile
         ? {
-            ...state.profile,
-            verified: true,
+          ...state.profile,
+          verified: true,
             verifiedAt: state.profile.verifiedAt ?? new Date().toISOString()
           }
         : state.profile,
       verifiedOverride: true
     })),
-  reset: () => set({ session: null, profile: null, isLoading: false, verifiedOverride: false })
+  reset: () =>
+    set({
+      session: null,
+      profile: null,
+      isLoading: false,
+      verifiedOverride: false,
+      authNotice: null
+    })
 }));

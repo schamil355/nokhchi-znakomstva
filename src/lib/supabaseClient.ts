@@ -71,21 +71,70 @@ class AsyncStorageAdapter {
   }
 }
 
+class HybridWebStorageAdapter {
+  private memory = new Map<string, string>();
+
+  private shouldPersist(key: string) {
+    return key.includes("code-verifier");
+  }
+
+  private getLocalStorage() {
+    if (typeof window === "undefined") return null;
+    try {
+      return window.localStorage;
+    } catch {
+      return null;
+    }
+  }
+
+  async getItem(key: string) {
+    if (this.shouldPersist(key)) {
+      try {
+        return this.getLocalStorage()?.getItem(key) ?? null;
+      } catch {
+        return null;
+      }
+    }
+    return this.memory.get(key) ?? null;
+  }
+
+  async setItem(key: string, value: string) {
+    if (this.shouldPersist(key)) {
+      try {
+        this.getLocalStorage()?.setItem(key, value);
+      } catch {
+        // ignore storage errors
+      }
+      return;
+    }
+    this.memory.set(key, value);
+  }
+
+  async removeItem(key: string) {
+    if (this.shouldPersist(key)) {
+      try {
+        this.getLocalStorage()?.removeItem(key);
+      } catch {
+        // ignore storage errors
+      }
+      return;
+    }
+    this.memory.delete(key);
+  }
+}
+
 let cachedClient: SupabaseClient | null = null;
 
 export const getSupabaseClient = (): SupabaseClient => {
   if (!cachedClient) {
-    const persistSession = !isTestEnv && Platform.OS !== "web";
-    const storage = persistSession
-      ? Platform.OS === "web"
-        ? new AsyncStorageAdapter()
-        : new SecureStoreAdapter()
-      : undefined;
+    const persistSession = !isTestEnv;
+    const storage =
+      Platform.OS === "web" ? new HybridWebStorageAdapter() : persistSession ? new SecureStoreAdapter() : undefined;
     cachedClient = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "", {
       auth: {
         persistSession,
         storage,
-        storageKey: persistSession ? SECURE_KEY : undefined,
+        storageKey: isTestEnv ? undefined : SECURE_KEY,
         autoRefreshToken: true,
         detectSessionInUrl: Platform.OS === "web"
       },
