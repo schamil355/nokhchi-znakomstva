@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import GuardedPhoto from "./GuardedPhoto";
@@ -104,6 +104,25 @@ const SIGNED_REFRESH_MIN_MS = 30_000;
 const SIGNED_DEFAULT_TTL_SECONDS = 120;
 const STORAGE_SIGNED_TTL_SECONDS = 3600;
 const SIGNED_URL_PATTERN = /token=|x-amz-signature=|signature=|sig=|auth=|expires=/i;
+
+const prefetchImage = async (url?: string | null) => {
+  if (!url) {
+    return;
+  }
+  try {
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && "Image" in window) {
+        const img = new window.Image();
+        img.decoding = "async";
+        img.src = url;
+      }
+      return;
+    }
+    await Image.prefetch(url);
+  } catch {
+    // ignore prefetch failures
+  }
+};
 const verifiedBadgeIcon = require("../../assets/icons/icon.png");
 const chechenBadgeIcon = require("../../assets/icons/NOCHXII.png");
 
@@ -153,6 +172,7 @@ const ProfileCard = ({
   const canReport = Boolean(onReport) && !reportDisabled;
   const pulseScale = useRef(new Animated.Value(1)).current;
   const refreshHandle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prefetchedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     onView?.(profile);
@@ -233,6 +253,7 @@ const ProfileCard = ({
       } else {
         setThumbUri(null);
       }
+      let thumbResolved = cachedThumb ?? null;
 
       const cached = getCachedPhotoUri(cacheKey);
       const cachedIsSigned = cached ? SIGNED_URL_PATTERN.test(cached) : false;
@@ -285,12 +306,28 @@ const ProfileCard = ({
               ? Number(activePhoto?.id)
               : null);
 
+        if (!thumbResolved && assetCandidate && Number.isFinite(assetCandidate)) {
+          try {
+            const signedThumb = await tryFetch(() => getSignedPhotoUrl(assetCandidate as number, "blur"));
+            if (active && signedThumb?.url) {
+              thumbResolved = signedThumb.url;
+              setThumbUri(signedThumb.url);
+              setCachedPhotoUri(thumbCacheKey ?? `thumb:asset:${assetCandidate}`, signedThumb.url, {
+                ttlSeconds: signedThumb.ttl ?? SIGNED_DEFAULT_TTL_SECONDS
+              });
+            }
+          } catch {
+            // ignore thumb failures
+          }
+        }
+
         if (pathCandidate) {
           const blurredPath = buildBlurredPath(pathCandidate);
-          if (blurredPath && !cachedThumb) {
+          if (blurredPath && !thumbResolved) {
             try {
               const signedThumb = await tryFetch(() => getPhotoUrl(blurredPath, supabase, BLURRED_BUCKET, 3600));
               if (active && signedThumb) {
+                thumbResolved = signedThumb;
                 setThumbUri(signedThumb);
                 setCachedPhotoUri(thumbCacheKey ?? `thumb:${blurredPath}`, signedThumb, {
                   ttlSeconds: STORAGE_PUBLIC ? 24 * 60 * 60 : 3600
@@ -361,6 +398,102 @@ const ProfileCard = ({
     mainPhoto?.storagePath,
     profile.primaryPhotoPath,
     profile.primaryPhotoId,
+    supabase
+  ]);
+
+  useEffect(() => {
+    if (photos.length <= 1) {
+      return;
+    }
+    const nextIndex = (activeIndex + 1) % photos.length;
+    const nextPhoto = photos[nextIndex] ?? mainPhoto;
+    if (!nextPhoto) {
+      return;
+    }
+    const isPrimarySlot = nextIndex === 0;
+    const nextPathCandidate =
+      (isPrimarySlot ? profile.primaryPhotoPath : null) ?? nextPhoto.storagePath ?? mainPhoto?.storagePath ?? null;
+    const nextAssetCandidate =
+      (isPrimarySlot ? profile.primaryPhotoId : null) ??
+      (typeof nextPhoto.assetId === "number"
+        ? nextPhoto.assetId
+        : Number.isFinite(Number(nextPhoto.id))
+          ? Number(nextPhoto.id)
+          : typeof mainPhoto?.assetId === "number"
+            ? mainPhoto.assetId
+            : Number.isFinite(Number(mainPhoto?.id))
+              ? Number(mainPhoto?.id)
+              : null);
+    const nextUrl = nextPhoto.url ?? null;
+
+    const nextCacheKey = nextUrl
+      ? `url:${nextUrl}`
+      : nextPathCandidate
+        ? `path:${nextPathCandidate}`
+        : nextAssetCandidate
+          ? `asset:${nextAssetCandidate}`
+          : null;
+    if (!nextCacheKey) {
+      return;
+    }
+    if (prefetchedRef.current.has(nextCacheKey)) {
+      return;
+    }
+    const cached = getCachedPhotoUri(nextCacheKey);
+    if (cached) {
+      prefetchedRef.current.add(nextCacheKey);
+      void prefetchImage(cached);
+      return;
+    }
+
+    prefetchedRef.current.add(nextCacheKey);
+    let active = true;
+    const run = async () => {
+      try {
+        if (nextUrl) {
+          setCachedPhotoUri(nextCacheKey, nextUrl);
+          if (active) {
+            await prefetchImage(nextUrl);
+          }
+          return;
+        }
+        if (STORAGE_PUBLIC && nextPathCandidate) {
+          const publicUrl = await getPhotoUrl(nextPathCandidate, supabase, PROFILE_BUCKET);
+          if (active && publicUrl) {
+            setCachedPhotoUri(nextCacheKey, publicUrl, { ttlSeconds: 24 * 60 * 60 });
+            await prefetchImage(publicUrl);
+          }
+          return;
+        }
+        if (nextAssetCandidate && Number.isFinite(nextAssetCandidate)) {
+          const signed = await getSignedPhotoUrl(nextAssetCandidate as number, "original");
+          if (active && signed?.url) {
+            setCachedPhotoUri(nextCacheKey, signed.url, { ttlSeconds: signed.ttl });
+            await prefetchImage(signed.url);
+          }
+          return;
+        }
+        if (nextPathCandidate) {
+          const signed = await getPhotoUrl(nextPathCandidate, supabase, PROFILE_BUCKET, STORAGE_SIGNED_TTL_SECONDS);
+          if (active && signed) {
+            setCachedPhotoUri(nextCacheKey, signed, { ttlSeconds: STORAGE_SIGNED_TTL_SECONDS });
+            await prefetchImage(signed);
+          }
+        }
+      } catch {
+        // ignore prefetch failures
+      }
+    };
+    void run();
+    return () => {
+      active = false;
+    };
+  }, [
+    activeIndex,
+    mainPhoto,
+    photos,
+    profile.primaryPhotoId,
+    profile.primaryPhotoPath,
     supabase
   ]);
 
