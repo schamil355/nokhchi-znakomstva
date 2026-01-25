@@ -276,9 +276,9 @@ const ProfileCard = ({
           return null;
         };
 
-        // Prefer primaryPhotoId (guarded via backend) to avoid storage RLS misses.
+        // Prefer primaryPhotoId for the first slot only; otherwise use the active photo.
         const assetCandidate =
-          profile.primaryPhotoId ??
+          (activeIndex === 0 ? profile.primaryPhotoId : null) ??
           (typeof activePhoto?.assetId === "number"
             ? activePhoto.assetId
             : Number.isFinite(Number(activePhoto?.id))
