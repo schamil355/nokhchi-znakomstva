@@ -75,7 +75,7 @@ class HybridWebStorageAdapter {
   private memory = new Map<string, string>();
 
   private shouldPersist(key: string) {
-    return key.includes("code-verifier");
+    return key.includes("code-verifier") || key === SECURE_KEY || key.endsWith("auth-token");
   }
 
   private getLocalStorage() {

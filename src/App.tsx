@@ -113,7 +113,7 @@ const isLikelyInAppBrowser = (ua: string) =>
   /(FBAN|FBAV|Instagram|Line|Twitter|LinkedInApp|Pinterest|Snapchat|WhatsApp|Messenger|GSA|GoogleApp|Gmail|GmailiOS|KAKAOTALK|KAKAOSTORY|NAVER|YaBrowser|DuckDuckGo)/i.test(
     ua
   );
-const LEGACY_SESSION_KEYS = ["sb.session"];
+const LEGACY_SESSION_KEYS: string[] = [];
 
 const App = (): JSX.Element => {
   const queryClient = useMemo(
@@ -256,18 +256,27 @@ const App = (): JSX.Element => {
       return;
     }
     const url = new URL(window.location.href);
-    const code = url.searchParams.get("code");
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const accessToken = hashParams.get("access_token");
-    const refreshToken = hashParams.get("refresh_token");
-    const errorParam = url.searchParams.get("error") ?? hashParams.get("error");
+    const code =
+      url.searchParams.get("code") ??
+      hashParams.get("code") ??
+      url.searchParams.get("auth_code") ??
+      hashParams.get("auth_code");
+    const accessToken = hashParams.get("access_token") ?? url.searchParams.get("access_token");
+    const refreshToken = hashParams.get("refresh_token") ?? url.searchParams.get("refresh_token");
+    const errorParam =
+      url.searchParams.get("error") ??
+      hashParams.get("error") ??
+      url.searchParams.get("error_code") ??
+      hashParams.get("error_code");
     const tokenHash =
       url.searchParams.get("token_hash") ??
       url.searchParams.get("token") ??
       hashParams.get("token_hash") ??
       hashParams.get("token");
-    const otpType = url.searchParams.get("type") ?? hashParams.get("type");
-    const hasAuthParams = Boolean(code || (accessToken && refreshToken) || (tokenHash && otpType) || errorParam);
+    const otpTypeRaw = url.searchParams.get("type") ?? hashParams.get("type");
+    const otpType = otpTypeRaw ? otpTypeRaw.toLowerCase() : null;
+    const hasAuthParams = Boolean(code || accessToken || tokenHash || errorParam);
     if (!hasAuthParams) {
       return;
     }
@@ -297,10 +306,10 @@ const App = (): JSX.Element => {
             clearAuthNotice();
             didSetSession = true;
           }
-        } else if (tokenHash && otpType) {
+        } else if (tokenHash && (otpType || tokenHash)) {
           const { data, error } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
-            type: otpType as any
+            type: (otpType ?? "signup") as any
           });
           if (error) {
             console.warn("[Auth] verifyOtp failed", error);
