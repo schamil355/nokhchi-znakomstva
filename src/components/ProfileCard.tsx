@@ -8,7 +8,7 @@ import { track } from "../lib/analytics";
 import { SupportedLocale, useLocalizedCopy } from "../localization/LocalizationProvider";
 import { formatCountryLabel, isWithinChechnyaRadius } from "../lib/geo";
 import { getSupabaseClient } from "../lib/supabaseClient";
-import { getPhotoUrl, PROFILE_BUCKET } from "../lib/storage";
+import { BLURRED_BUCKET, STORAGE_PUBLIC, buildBlurredPath, getPhotoUrl, PROFILE_BUCKET } from "../lib/storage";
 import { getSignedPhotoUrl } from "../services/photoService";
 import { getCachedPhotoUri, setCachedPhotoUri } from "../lib/photoCache";
 import { sleep } from "../lib/timing";
@@ -123,6 +123,7 @@ const ProfileCard = ({
   const activePhoto = photos[activeIndex] ?? mainPhoto;
   const supabase = useMemo(() => getSupabaseClient(), []);
   const [photoUri, setPhotoUri] = useState<string | null>(mainPhoto?.url ?? null);
+  const [thumbUri, setThumbUri] = useState<string | null>(null);
   const age = calculateAge(profile.birthday);
   const isInChechnya = isWithinChechnyaRadius(profile.latitude, profile.longitude);
   const locationLabel = isInChechnya
@@ -155,6 +156,7 @@ const ProfileCard = ({
   useEffect(() => {
     setActiveIndex(0);
     setPhotoUri(mainPhoto?.url ?? null);
+    setThumbUri(null);
   }, [profile.userId, mainPhoto?.url]);
 
   const cacheKey = useMemo(() => {
@@ -190,13 +192,26 @@ const ProfileCard = ({
     const load = async () => {
       if (!cacheKey && !activePhoto?.url && !profile.primaryPhotoPath && !profile.primaryPhotoId) {
         setPhotoUri(null);
+        setThumbUri(null);
         return;
+      }
+
+      const pathCandidate =
+        (profile.primaryPhotoPath && activeIndex === 0 && profile.primaryPhotoPath) ||
+        activePhoto?.storagePath ||
+        mainPhoto?.storagePath;
+
+      const thumbCacheKey = cacheKey ? `${cacheKey}:thumb` : pathCandidate ? `thumb:${pathCandidate}` : null;
+      const cachedThumb = getCachedPhotoUri(thumbCacheKey);
+      if (cachedThumb) {
+        setThumbUri(cachedThumb);
+      } else {
+        setThumbUri(null);
       }
 
       const cached = getCachedPhotoUri(cacheKey);
       if (cached) {
         setPhotoUri(cached);
-        return;
       }
 
       let resolved: string | null = null;
@@ -207,7 +222,6 @@ const ProfileCard = ({
           setPhotoUri(resolved);
           return;
         }
-        const cached = getCachedPhotoUri(cacheKey);
         if (cached) {
           resolved = cached;
           setPhotoUri(resolved);
@@ -237,26 +251,50 @@ const ProfileCard = ({
               ? Number(activePhoto?.id)
               : null);
 
-        if (assetCandidate && Number.isFinite(assetCandidate)) {
-          const signed = await tryFetch(() => getSignedPhotoUrl(assetCandidate as number, "original"));
-          if (active && signed?.url) {
-            resolved = signed.url;
-            setCachedPhotoUri(cacheKey ?? `asset:${assetCandidate}`, signed.url);
+        if (pathCandidate) {
+          const blurredPath = buildBlurredPath(pathCandidate);
+          if (blurredPath && !cachedThumb) {
+            try {
+              const signedThumb = await tryFetch(() => getPhotoUrl(blurredPath, supabase, BLURRED_BUCKET, 3600));
+              if (active && signedThumb) {
+                setThumbUri(signedThumb);
+                setCachedPhotoUri(thumbCacheKey ?? `thumb:${blurredPath}`, signedThumb, {
+                  ttlSeconds: STORAGE_PUBLIC ? 24 * 60 * 60 : 3600
+                });
+              }
+            } catch {
+              // ignore thumb failures
+            }
+          }
+        }
+
+        if (STORAGE_PUBLIC && pathCandidate) {
+          const publicUrl = await getPhotoUrl(pathCandidate, supabase, PROFILE_BUCKET);
+          if (active && publicUrl) {
+            resolved = publicUrl;
+            setCachedPhotoUri(cacheKey ?? `path:${pathCandidate}`, publicUrl, { ttlSeconds: 24 * 60 * 60 });
             setPhotoUri(resolved);
             return;
           }
         }
 
-        const pathCandidate =
-          (profile.primaryPhotoPath && activeIndex === 0 && profile.primaryPhotoPath) ||
-          activePhoto?.storagePath ||
-          mainPhoto?.storagePath;
+        if (assetCandidate && Number.isFinite(assetCandidate)) {
+          const signed = await tryFetch(() => getSignedPhotoUrl(assetCandidate as number, "original"));
+          if (active && signed?.url) {
+            resolved = signed.url;
+            setCachedPhotoUri(cacheKey ?? `asset:${assetCandidate}`, signed.url, {
+              ttlSeconds: signed.ttl
+            });
+            setPhotoUri(resolved);
+            return;
+          }
+        }
 
         if (pathCandidate) {
           const signed = await tryFetch(() => getPhotoUrl(pathCandidate, supabase, PROFILE_BUCKET));
           if (active && signed) {
             resolved = signed;
-            setCachedPhotoUri(cacheKey ?? `path:${pathCandidate}`, signed);
+            setCachedPhotoUri(cacheKey ?? `path:${pathCandidate}`, signed, { ttlSeconds: 3600 });
             setPhotoUri(resolved);
             return;
           }
@@ -372,6 +410,13 @@ const ProfileCard = ({
               resizeMode="cover"
               accessibilityIgnoresInvertColors
               onError={() => setPhotoUri(null)}
+            />
+          ) : thumbUri ? (
+            <Image
+              source={{ uri: thumbUri }}
+              style={styles.mediaImage}
+              resizeMode="cover"
+              accessibilityIgnoresInvertColors
             />
           ) : resolvedAssetId ? (
             <GuardedPhoto

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v4";
+const CACHE_VERSION = "v5";
 const CACHE_NAME = `meetmate-shell-${CACHE_VERSION}`;
 const APP_SHELL = [
   "/",
@@ -86,7 +86,7 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") {
     return;
   }
-  if (!isSameOrigin(request.url)) {
+  if (!isSameOrigin(request.url) && request.destination !== "image") {
     return;
   }
   if (request.headers.get("authorization")) {

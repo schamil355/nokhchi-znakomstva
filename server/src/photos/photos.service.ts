@@ -106,7 +106,7 @@ export class PhotosService {
     }
 
     const signedUrl = await this.createSignedUrl(bucket, path, this.signTtlSeconds);
-    return { url: signedUrl, modeReturned: modeToServe };
+    return { url: signedUrl, modeReturned: modeToServe, ttl: this.signTtlSeconds };
   }
 
   async grantAccess(ownerId: string, payload: GrantPhotoDto) {
