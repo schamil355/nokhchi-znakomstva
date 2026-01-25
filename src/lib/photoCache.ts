@@ -1,3 +1,5 @@
+import { logError } from "./errorMessages";
+
 type CacheEntry = {
   uri: string;
   expiresAt: number;
@@ -5,27 +7,56 @@ type CacheEntry = {
 };
 
 const CACHE_KEY = "photo-cache:v2";
-const MAX_ENTRIES = 200;
+const MAX_ENTRIES = 120;
 const DEFAULT_PUBLIC_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_SIGNED_TTL_MS = 110 * 1000;
 
 const cache = new Map<string, CacheEntry>();
 let hydrated = false;
 let persistHandle: ReturnType<typeof setTimeout> | null = null;
+let storageBlocked = false;
+let storageErrorReported = false;
 
-const isWeb = () => typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+const reportStorageError = (error: unknown, context: string) => {
+  if (storageErrorReported) {
+    return;
+  }
+  storageErrorReported = true;
+  logError(error, context);
+};
+
+const getLocalStorage = () => {
+  if (storageBlocked) {
+    return null;
+  }
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    return window.localStorage;
+  } catch (error) {
+    storageBlocked = true;
+    reportStorageError(error, "photo-cache-storage-unavailable");
+    return null;
+  }
+};
 
 const inferSignedUrl = (uri: string) =>
   /token=|x-amz-signature=|signature=|sig=|auth=|expires=/.test(uri.toLowerCase());
 
 const hydrateCache = () => {
-  if (hydrated || !isWeb()) {
+  if (hydrated) {
+    hydrated = true;
+    return;
+  }
+  const storage = getLocalStorage();
+  if (!storage) {
     hydrated = true;
     return;
   }
   hydrated = true;
   try {
-    const raw = window.localStorage.getItem(CACHE_KEY);
+    const raw = storage.getItem(CACHE_KEY);
     if (!raw) return;
     const parsed = JSON.parse(raw) as Record<string, CacheEntry>;
     const now = Date.now();
@@ -34,26 +65,30 @@ const hydrateCache = () => {
         cache.set(key, entry);
       }
     });
-  } catch {
-    // ignore storage errors
+  } catch (error) {
+    storageBlocked = true;
+    reportStorageError(error, "photo-cache-hydrate-failed");
   }
 };
 
 const schedulePersist = () => {
-  if (!isWeb()) return;
+  const storage = getLocalStorage();
+  if (!storage) return;
   if (persistHandle) {
     return;
   }
   persistHandle = setTimeout(() => {
     persistHandle = null;
     try {
+      pruneCache();
       const payload: Record<string, CacheEntry> = {};
       cache.forEach((entry, key) => {
         payload[key] = entry;
       });
-      window.localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-    } catch {
-      // ignore storage errors
+      storage.setItem(CACHE_KEY, JSON.stringify(payload));
+    } catch (error) {
+      storageBlocked = true;
+      reportStorageError(error, "photo-cache-persist-failed");
     }
   }, 500);
 };
@@ -114,10 +149,12 @@ export const setCachedPhotoUri = (
 
 export const clearPhotoCache = () => {
   cache.clear();
-  if (!isWeb()) return;
+  const storage = getLocalStorage();
+  if (!storage) return;
   try {
-    window.localStorage.removeItem(CACHE_KEY);
-  } catch {
-    // ignore storage errors
+    storage.removeItem(CACHE_KEY);
+  } catch (error) {
+    storageBlocked = true;
+    reportStorageError(error, "photo-cache-clear-failed");
   }
 };

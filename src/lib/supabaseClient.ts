@@ -4,6 +4,7 @@ import { Platform } from "react-native";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { logError } from "./errorMessages";
 
 const SECURE_KEY = "sb.session";
 
@@ -73,53 +74,78 @@ class AsyncStorageAdapter {
 
 class HybridWebStorageAdapter {
   private memory = new Map<string, string>();
+  private storageBlocked = false;
+  private storageErrorReported = false;
 
   private shouldPersist(key: string) {
     return key.includes("code-verifier") || key === SECURE_KEY || key.endsWith("auth-token");
   }
 
+  private reportStorageError(error: unknown, context: string) {
+    if (this.storageErrorReported) {
+      return;
+    }
+    this.storageErrorReported = true;
+    logError(error, context);
+  }
+
   private getLocalStorage() {
     if (typeof window === "undefined") return null;
+    if (this.storageBlocked) {
+      return null;
+    }
     try {
       return window.localStorage;
-    } catch {
+    } catch (error) {
+      this.storageBlocked = true;
+      this.reportStorageError(error, "localstorage-unavailable");
       return null;
     }
   }
 
   async getItem(key: string) {
     if (this.shouldPersist(key)) {
+      const storage = this.getLocalStorage();
       try {
-        return this.getLocalStorage()?.getItem(key) ?? null;
-      } catch {
-        return null;
+        const stored = storage?.getItem(key) ?? null;
+        if (stored !== null) {
+          return stored;
+        }
+      } catch (error) {
+        this.storageBlocked = true;
+        this.reportStorageError(error, "localstorage-read-failed");
       }
+      return this.memory.get(key) ?? null;
     }
     return this.memory.get(key) ?? null;
   }
 
   async setItem(key: string, value: string) {
+    this.memory.set(key, value);
     if (this.shouldPersist(key)) {
+      const storage = this.getLocalStorage();
       try {
-        this.getLocalStorage()?.setItem(key, value);
-      } catch {
-        // ignore storage errors
+        storage?.setItem(key, value);
+      } catch (error) {
+        this.storageBlocked = true;
+        this.reportStorageError(error, "localstorage-write-failed");
       }
       return;
     }
-    this.memory.set(key, value);
   }
 
   async removeItem(key: string) {
+    this.memory.delete(key);
     if (this.shouldPersist(key)) {
+      const storage = this.getLocalStorage();
       try {
-        this.getLocalStorage()?.removeItem(key);
-      } catch {
-        // ignore storage errors
+        storage?.removeItem(key);
+      } catch (error) {
+        this.storageBlocked = true;
+        this.reportStorageError(error, "localstorage-remove-failed");
       }
       return;
     }
-    this.memory.delete(key);
   }
 }
 
