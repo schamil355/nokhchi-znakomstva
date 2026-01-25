@@ -38,4 +38,49 @@ if (dsn && typeof window !== "undefined") {
   }
 }
 
+const globalScope = globalThis as unknown as {
+  __sentryConsoleWrapped?: boolean;
+};
+
+const isErrorLike = (value: unknown): value is Error =>
+  value instanceof Error ||
+  (typeof value === "object" &&
+    value !== null &&
+    "message" in value &&
+    typeof (value as any).message === "string" &&
+    "stack" in value);
+
+const extractConsoleError = (args: unknown[]) => {
+  for (const arg of args) {
+    if (isErrorLike(arg)) {
+      return arg as Error;
+    }
+  }
+  return null;
+};
+
+if (dsn && typeof console !== "undefined" && !globalScope.__sentryConsoleWrapped) {
+  globalScope.__sentryConsoleWrapped = true;
+  const originalWarn = console.warn.bind(console);
+  const originalError = console.error.bind(console);
+
+  console.warn = (...args: unknown[]) => {
+    originalWarn(...args);
+    const err = extractConsoleError(args);
+    if (err && !(err as any).__sentryCaptured) {
+      (err as any).__sentryCaptured = true;
+      Sentry.captureException(err, { tags: { source: "console_warn" } });
+    }
+  };
+
+  console.error = (...args: unknown[]) => {
+    originalError(...args);
+    const err = extractConsoleError(args);
+    if (err && !(err as any).__sentryCaptured) {
+      (err as any).__sentryCaptured = true;
+      Sentry.captureException(err, { tags: { source: "console_error" } });
+    }
+  };
+}
+
 export default Sentry;
