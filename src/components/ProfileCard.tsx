@@ -99,6 +99,11 @@ const translations: Record<SupportedLocale, CardCopy> = {
 };
 
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
+const SIGNED_REFRESH_MARGIN_MS = 15_000;
+const SIGNED_REFRESH_MIN_MS = 30_000;
+const SIGNED_DEFAULT_TTL_SECONDS = 120;
+const STORAGE_SIGNED_TTL_SECONDS = 3600;
+const SIGNED_URL_PATTERN = /token=|x-amz-signature=|signature=|sig=|auth=|expires=/i;
 const verifiedBadgeIcon = require("../../assets/icons/icon.png");
 const chechenBadgeIcon = require("../../assets/icons/NOCHXII.png");
 
@@ -147,6 +152,7 @@ const ProfileCard = ({
   const canDirectChat = Boolean(onDirectChat) && !directChatDisabled;
   const canReport = Boolean(onReport) && !reportDisabled;
   const pulseScale = useRef(new Animated.Value(1)).current;
+  const refreshHandle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     onView?.(profile);
@@ -189,7 +195,26 @@ const ProfileCard = ({
 
   useEffect(() => {
     let active = true;
+    const clearRefresh = () => {
+      if (refreshHandle.current) {
+        clearTimeout(refreshHandle.current);
+        refreshHandle.current = null;
+      }
+    };
+    const scheduleRefresh = (ttlSeconds?: number) => {
+      if (!ttlSeconds || !Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
+        return;
+      }
+      clearRefresh();
+      const delayMs = Math.max(SIGNED_REFRESH_MIN_MS, (ttlSeconds * 1000) - SIGNED_REFRESH_MARGIN_MS);
+      refreshHandle.current = setTimeout(() => {
+        if (active) {
+          void load();
+        }
+      }, delayMs);
+    };
     const load = async () => {
+      clearRefresh();
       if (!cacheKey && !activePhoto?.url && !profile.primaryPhotoPath && !profile.primaryPhotoId) {
         setPhotoUri(null);
         setThumbUri(null);
@@ -210,19 +235,28 @@ const ProfileCard = ({
       }
 
       const cached = getCachedPhotoUri(cacheKey);
+      const cachedIsSigned = cached ? SIGNED_URL_PATTERN.test(cached) : false;
       if (cached) {
         setPhotoUri(cached);
+        if (cachedIsSigned) {
+          scheduleRefresh(SIGNED_DEFAULT_TTL_SECONDS);
+        }
       }
 
       let resolved: string | null = null;
+      if (cached) {
+        resolved = cached;
+      }
       try {
         if (activePhoto?.url) {
           resolved = activePhoto.url;
           setCachedPhotoUri(cacheKey, activePhoto.url);
           setPhotoUri(resolved);
-          return;
+          if (SIGNED_URL_PATTERN.test(activePhoto.url)) {
+            scheduleRefresh(SIGNED_DEFAULT_TTL_SECONDS);
+          }
         }
-        if (cached) {
+        if (cached && !cachedIsSigned) {
           resolved = cached;
           setPhotoUri(resolved);
           return;
@@ -286,16 +320,20 @@ const ProfileCard = ({
               ttlSeconds: signed.ttl
             });
             setPhotoUri(resolved);
+            scheduleRefresh(signed.ttl ?? SIGNED_DEFAULT_TTL_SECONDS);
             return;
           }
         }
 
         if (pathCandidate) {
-          const signed = await tryFetch(() => getPhotoUrl(pathCandidate, supabase, PROFILE_BUCKET));
+          const signed = await tryFetch(() =>
+            getPhotoUrl(pathCandidate, supabase, PROFILE_BUCKET, STORAGE_SIGNED_TTL_SECONDS)
+          );
           if (active && signed) {
             resolved = signed;
-            setCachedPhotoUri(cacheKey ?? `path:${pathCandidate}`, signed, { ttlSeconds: 3600 });
+            setCachedPhotoUri(cacheKey ?? `path:${pathCandidate}`, signed, { ttlSeconds: STORAGE_SIGNED_TTL_SECONDS });
             setPhotoUri(resolved);
+            scheduleRefresh(STORAGE_SIGNED_TTL_SECONDS);
             return;
           }
         }
@@ -309,6 +347,7 @@ const ProfileCard = ({
     load();
     return () => {
       active = false;
+      clearRefresh();
     };
   }, [
     activeIndex,
