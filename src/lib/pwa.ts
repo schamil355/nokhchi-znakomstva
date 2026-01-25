@@ -25,6 +25,11 @@ export const registerServiceWorker = () => {
   });
 
   let registered = false;
+  const requestSkipWaiting = (registration: ServiceWorkerRegistration) => {
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: "SKIP_WAITING" });
+    }
+  };
   const register = () => {
     if (registered) {
       return;
@@ -32,7 +37,21 @@ export const registerServiceWorker = () => {
     registered = true;
     navigator.serviceWorker
       .register("/service-worker.js", { updateViaCache: "none" })
-      .then((registration) => registration.update())
+      .then((registration) => {
+        requestSkipWaiting(registration);
+        registration.addEventListener("updatefound", () => {
+          const worker = registration.installing;
+          if (!worker) {
+            return;
+          }
+          worker.addEventListener("statechange", () => {
+            if (worker.state === "installed" && navigator.serviceWorker.controller) {
+              requestSkipWaiting(registration);
+            }
+          });
+        });
+        return registration.update();
+      })
       .catch((error) => console.warn("[PWA] service worker registration failed", error));
   };
 
