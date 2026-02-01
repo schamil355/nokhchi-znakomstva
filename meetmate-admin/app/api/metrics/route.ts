@@ -92,7 +92,8 @@ export async function GET() {
     { data: otherProfiles, error: otherError },
     { count: matchesCount, error: matchesError },
     { data: allLocations, error: locationsError },
-    { data: reportsRaw, error: reportsError }
+    { data: reportsRaw, error: reportsError },
+    { count: registrationsCompleted, error: registrationsCompletedError }
   ] = await Promise.all([
     supabase.rpc("admin_profile_metrics"),
     supabase.from("profiles").select("country").in("country", EU_CODES),
@@ -110,10 +111,22 @@ export async function GET() {
       .select("props, created_at, user_id")
       .eq("name", "report_profile")
       .order("created_at", { ascending: false })
-      .limit(500)
+      .limit(500),
+    supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .not("registration_completed_at", "is", null)
   ]);
 
-  if (metricsError || euError || otherError || matchesError || locationsError || reportsError) {
+  if (
+    metricsError ||
+    euError ||
+    otherError ||
+    matchesError ||
+    locationsError ||
+    reportsError ||
+    registrationsCompletedError
+  ) {
     const message =
       metricsError?.message ||
       euError?.message ||
@@ -121,6 +134,7 @@ export async function GET() {
       matchesError?.message ||
       locationsError?.message ||
       reportsError?.message ||
+      registrationsCompletedError?.message ||
       "Failed to load metrics";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -477,7 +491,8 @@ export async function GET() {
       topFemale,
       topMale,
       deletedAccounts: deletedAccounts ?? 0,
-      reportedUsers
+      reportedUsers,
+      registrationCompleted: registrationsCompleted ?? 0
     },
     {
       headers: {

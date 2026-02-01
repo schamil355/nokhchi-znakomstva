@@ -624,6 +624,7 @@ model profile {
   last_active_at                             DateTime?                 @db.Timestamptz(6)
   feedback_score                             Decimal?                  @db.Decimal
   verifiedAt                                 DateTime?                 @map("verified_at") @db.Timestamptz(6)
+  registrationCompletedAt                    DateTime?                 @map("registration_completed_at") @db.Timestamptz(6)
   is_incognito                               Boolean                   @default(false)
   show_distance                              Boolean                   @default(true)
   show_last_seen                             Boolean                   @default(true)

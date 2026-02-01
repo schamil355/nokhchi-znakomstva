@@ -7,6 +7,7 @@ type MetricPayload = {
   regions: { ingushetia: number; chechnya: number; russia: number; europe: number; other: number };
   incognito: number;
   platform?: { ios?: number; android?: number };
+  registrationCompleted?: number;
   countryCounts: Array<{ country: string; count: number }>;
   otherCountryCounts: Array<{ country: string; count: number }>;
   matches: number;
@@ -235,6 +236,11 @@ const MetricsPage = () => {
 
       <div className="grid gap-4 md:grid-cols-5">
         <StatCard title="Gesamtprofile" value={totalProfiles} accent="from-indigo-500/30 to-indigo-500/10" />
+        <StatCard
+          title="Registrierung abgeschlossen"
+          value={data.registrationCompleted ?? 0}
+          accent="from-lime-500/30 to-lime-500/10"
+        />
         <StatCard title="Incognito" value={data.incognito ?? 0} accent="from-emerald-500/30 to-emerald-500/10" />
         <StatCard title="Matches gesamt" value={data.matches ?? 0} accent="from-pink-500/30 to-pink-500/10" />
         <StatCard
